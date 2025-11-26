@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
 import MatchupDetails from './MatchupDetails';
 import api from '../api';
@@ -9,6 +9,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     const [loading, setLoading] = useState(true);
     const [excludeIr, setExcludeIr] = useState(false);
     const [compareTeamId, setCompareTeamId] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     // Загрузка списка команд
     useEffect(() => {
@@ -23,8 +24,8 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
             .catch(err => console.error('Error fetching teams:', err));
     }, []);
 
-    // Загрузка данных дашборда
-    useEffect(() => {
+    // Функция загрузки данных дашборда
+    const loadDashboardData = useCallback(() => {
         if (!selectedTeam) return;
 
         setLoading(true);
@@ -41,6 +42,41 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                 setLoading(false);
             });
     }, [selectedTeam, period, excludeIr]);
+
+    // Загрузка данных дашборда
+    useEffect(() => {
+        loadDashboardData();
+    }, [loadDashboardData]);
+
+    // Функция обновления данных лиги
+    const handleRefreshLeague = () => {
+        setRefreshing(true);
+        api.post('/refresh-league')
+            .then(res => {
+                if (res.data.success) {
+                    // Обновляем список команд
+                    api.get('/teams')
+                        .then(res => {
+                            setTeams(res.data);
+                            // Перезагружаем данные дашборда
+                            loadDashboardData();
+                            setRefreshing(false);
+                        })
+                        .catch(err => {
+                            console.error('Error fetching teams after refresh:', err);
+                            setRefreshing(false);
+                        });
+                } else {
+                    alert(`Ошибка обновления: ${res.data.message}`);
+                    setRefreshing(false);
+                }
+            })
+            .catch(err => {
+                console.error('Error refreshing league:', err);
+                alert('Ошибка при обновлении данных лиги');
+                setRefreshing(false);
+            });
+    };
 
     if (loading) {
         return <div className="text-center p-8">Загрузка...</div>;
@@ -74,6 +110,20 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                         />
                         <span className="font-medium">Исключить IR игроков</span>
                     </label>
+                </div>
+
+                <div className="mt-6">
+                    <button
+                        onClick={handleRefreshLeague}
+                        disabled={refreshing}
+                        className={`px-4 py-2 rounded font-medium transition-colors ${
+                            refreshing
+                                ? 'bg-gray-400 text-white cursor-not-allowed'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                    >
+                        {refreshing ? 'Обновление...' : '🔄 Обновить данные'}
+                    </button>
                 </div>
             </div>
 
