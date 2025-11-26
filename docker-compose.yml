@@ -1,0 +1,60 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nba-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - nba-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: nba-backend
+    # Убираем проброс портов - доступен только внутри Docker сети
+    expose:
+      - "8000"
+    environment:
+      - ESPN_S2=${ESPN_S2}
+      - SWID=${SWID}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+    volumes:
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    networks:
+      - nba-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./web/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-/api}
+    container_name: nba-frontend
+    # Убираем проброс портов - доступен только внутри Docker сети
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - nba-network
+
+networks:
+  nba-network:
+    driver: bridge
+
