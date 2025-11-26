@@ -95,6 +95,7 @@ def get_weeks():
 @app.get("/api/analytics/{team_id}")
 def get_analytics(team_id: int, period: str = "2026_total", exclude_ir: bool = False):
     from core.z_score import calculate_z_scores
+    import math
     
     # Рассчитываем Z-scores для всей лиги
     data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
@@ -104,6 +105,23 @@ def get_analytics(team_id: int, period: str = "2026_total", exclude_ir: bool = F
     
     # Фильтруем данные только для выбранной команды
     team_players = [p for p in data['players'] if p['team_id'] == team_id]
+    
+    # Добавляем полную статистику к игрокам
+    all_players_with_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
+    stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
+    
+    # Добавляем статистику к каждому игроку
+    for player in team_players:
+        player_stats = stats_by_name.get(player['name'], {})
+        # Очищаем stats от inf/nan
+        clean_stats = {}
+        if player_stats:
+            for key, val in player_stats.items():
+                if isinstance(val, float) and not math.isfinite(val):
+                    clean_stats[key] = 0.0
+                else:
+                    clean_stats[key] = val
+        player['stats'] = clean_stats
     
     return {
         "team_id": team_id,
@@ -1112,15 +1130,22 @@ def get_dashboard(team_id: int, period: str = "2026_total", exclude_ir: bool = F
     }
 
 @app.get("/api/dashboard/{team_id}/matchup-details")
-def get_matchup_details(team_id: int):
+def get_matchup_details(team_id: int, week: int = None):
     """
-    Получает детальную информацию о текущем матчапе команды.
+    Получает детальную информацию о матчапе команды.
     Возвращает сравнение статистики по всем категориям.
+    
+    Args:
+        team_id: ID команды
+        week: Номер недели (если не указан, используется текущая неделя)
     """
     from core.config import CATEGORIES
     
-    # Получаем текущую неделю
-    current_week = league_meta.league.currentMatchupPeriod
+    # Получаем текущую неделю или используем указанную
+    if week is None:
+        current_week = league_meta.league.currentMatchupPeriod
+    else:
+        current_week = week
     
     # Получаем текущий матчап
     matchup_box = league_meta.get_matchup_box_score(current_week, team_id)
@@ -1153,49 +1178,6 @@ def get_matchup_details(team_id: int):
         opponent_wins = matchup_summary['team1_wins']
         ties = matchup_summary['ties']
     
-    # Получаем объекты команд для общего счета
-    my_team_obj = league_meta.get_team_by_id(team_id)
-    opponent_team_obj = league_meta.get_team_by_id(opponent_id)
-    
-    # Получаем общий счет команд (wins-losses-ties по всем матчапам)
-    my_team_overall_wins = getattr(my_team_obj, 'wins', 0) if my_team_obj else 0
-    my_team_overall_losses = getattr(my_team_obj, 'losses', 0) if my_team_obj else 0
-    my_team_overall_ties = getattr(my_team_obj, 'ties', 0) if my_team_obj else 0
-    
-    opponent_overall_wins = getattr(opponent_team_obj, 'wins', 0) if opponent_team_obj else 0
-    opponent_overall_losses = getattr(opponent_team_obj, 'losses', 0) if opponent_team_obj else 0
-    opponent_overall_ties = getattr(opponent_team_obj, 'ties', 0) if opponent_team_obj else 0
-    
-    # Получаем место в лиге (rank)
-    # Сортируем все команды по винрейту для определения места
-    all_teams = league_meta.get_teams()
-    teams_with_winrate = []
-    for team in all_teams:
-        wins = getattr(team, 'wins', 0)
-        losses = getattr(team, 'losses', 0)
-        ties = getattr(team, 'ties', 0)
-        total_games = wins + losses + ties
-        win_rate = (wins + 0.5 * ties) / total_games if total_games > 0 else 0
-        teams_with_winrate.append({
-            'team_id': team.team_id,
-            'win_rate': win_rate,
-            'wins': wins,
-            'losses': losses,
-            'ties': ties
-        })
-    
-    # Сортируем по винрейту (убывание), затем по победам, затем по поражениям
-    teams_with_winrate.sort(key=lambda x: (-x['win_rate'], -x['wins'], x['losses']))
-    
-    # Находим место в лиге
-    my_team_rank = None
-    opponent_rank = None
-    for idx, team_info in enumerate(teams_with_winrate, 1):
-        if team_info['team_id'] == team_id:
-            my_team_rank = idx
-        if team_info['team_id'] == opponent_id:
-            opponent_rank = idx
-    
     # Формируем данные по категориям
     categories_data = []
     for cat in CATEGORIES:
@@ -1222,19 +1204,166 @@ def get_matchup_details(team_id: int):
         'my_team': {
             'id': team_id,
             'name': my_team_name,
-            'wins': my_wins,
-            'overall_record': f"{my_team_overall_wins}-{my_team_overall_losses}-{my_team_overall_ties}",
-            'rank': my_team_rank
+            'wins': my_wins
         },
         'opponent': {
             'id': opponent_id,
             'name': opponent_name,
-            'wins': opponent_wins,
-            'overall_record': f"{opponent_overall_wins}-{opponent_overall_losses}-{opponent_overall_ties}",
-            'rank': opponent_rank
+            'wins': opponent_wins
         },
         'score': f"{my_wins}-{opponent_wins}-{ties}",
         'categories': categories_data
+    }
+
+@app.get("/api/dashboard/{team_id}/matchup-history")
+def get_matchup_history(team_id: int):
+    """
+    Получает историю всех матчапов команды за все недели.
+    Возвращает список матчапов с результатами.
+    """
+    from core.config import CATEGORIES
+    
+    # Получаем текущую неделю
+    current_week = league_meta.league.currentMatchupPeriod
+    
+    # Собираем все матчапы команды (исключаем текущую неделю, так как она еще не завершена)
+    matchup_history = []
+    
+    for week in range(1, current_week):
+        matchup_box = league_meta.get_matchup_box_score(week, team_id)
+        if not matchup_box:
+            continue
+        
+        opponent_id = matchup_box['opponent_id']
+        opponent_name = matchup_box['opponent_name']
+        
+        # Получаем сводку матчапа
+        matchup_summary = league_meta.get_matchup_summary(week, team_id, opponent_id)
+        if not matchup_summary:
+            continue
+        
+        # Определяем, какая команда - team1, а какая - team2
+        if matchup_summary['team1_id'] == team_id:
+            my_wins = matchup_summary['team1_wins']
+            opponent_wins = matchup_summary['team2_wins']
+            ties = matchup_summary['ties']
+            my_team_name = matchup_summary['team1']
+        else:
+            my_wins = matchup_summary['team2_wins']
+            opponent_wins = matchup_summary['team1_wins']
+            ties = matchup_summary['ties']
+            my_team_name = matchup_summary['team2']
+        
+        # Определяем результат (W/L/T)
+        if my_wins > opponent_wins:
+            result = 'W'
+        elif opponent_wins > my_wins:
+            result = 'L'
+        else:
+            result = 'T'
+        
+        matchup_history.append({
+            'week': week,
+            'opponent_id': opponent_id,
+            'opponent_name': opponent_name,
+            'my_wins': my_wins,
+            'opponent_wins': opponent_wins,
+            'ties': ties,
+            'score': f"{my_wins}-{opponent_wins}-{ties}",
+            'result': result
+        })
+    
+    # Сортируем по неделе (от новых к старым)
+    matchup_history.sort(key=lambda x: x['week'], reverse=True)
+    
+    return {
+        'team_id': team_id,
+        'matchups': matchup_history
+    }
+
+@app.get("/api/player/{player_name}/trends")
+def get_player_trends(player_name: str):
+    """
+    Получает тренды игрока на основе доступных периодов.
+    Использует периоды: last_7, last_15, last_30, total для показа изменения статистики.
+    """
+    from core.z_score import calculate_z_scores
+    from core.config import CATEGORIES
+    import math
+    
+    # Находим игрока во всех командах
+    all_teams = league_meta.get_teams()
+    player_obj = None
+    player_team_id = None
+    
+    for team in all_teams:
+        roster = league_meta.get_team_roster(team.team_id)
+        for player in roster:
+            if player.name == player_name:
+                player_obj = player
+                player_team_id = team.team_id
+                break
+        if player_obj:
+            break
+    
+    if not player_obj:
+        return {"error": "Player not found"}
+    
+    # Периоды для анализа (от короткого к длинному)
+    periods = [
+        {'key': '2026_last_7', 'label': 'Последние 7 дней', 'order': 1},
+        {'key': '2026_last_15', 'label': 'Последние 15 дней', 'order': 2},
+        {'key': '2026_last_30', 'label': 'Последние 30 дней', 'order': 3},
+        {'key': '2026_total', 'label': 'Весь сезон', 'order': 4},
+    ]
+    
+    trends = []
+    
+    for period_info in periods:
+        period = period_info['key']
+        
+        # Получаем статистику игрока за период
+        player_stats = league_meta.get_player_stats(player_obj, period, 'total')
+        if not player_stats:
+            continue
+        
+        # Фильтруем статистику по категориям
+        filtered_stats = league_meta.filter_stats_by_categories(player_stats)
+        
+        # Рассчитываем Z-scores для всей лиги за этот период
+        period_z_data = calculate_z_scores(league_meta, period, exclude_ir=False)
+        
+        # Находим Z-scores этого игрока
+        player_z_scores = {}
+        for player_data in period_z_data.get('players', []):
+            if player_data.get('name') == player_name:
+                player_z_scores = player_data.get('z_scores', {})
+                break
+        
+        # Вычисляем общий Z-score
+        total_z = sum(z for z in player_z_scores.values() if math.isfinite(z))
+        
+        trends.append({
+            'period': period_info['label'],
+            'period_key': period,
+            'order': period_info['order'],
+            'stats': filtered_stats,
+            'z_scores': player_z_scores,
+            'total_z': round(total_z, 2)
+        })
+    
+    # Сортируем по порядку (от короткого к длинному, "Весь сезон" - последний)
+    trends.sort(key=lambda x: x['order'])
+    
+    # Убеждаемся, что "Весь сезон" действительно последний
+    # Перемещаем его в конец, если он не там
+    total_period = next((t for t in trends if t['period'] == 'Весь сезон'), None)
+    if total_period:
+        trends = [t for t in trends if t['period'] != 'Весь сезон'] + [total_period]
+    
+    return {
+        'player_name': player_name,
+        'trends': trends
     }
 
 @app.get("/api/team-balance/{team_id}")
