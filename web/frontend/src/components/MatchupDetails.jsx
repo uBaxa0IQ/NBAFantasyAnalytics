@@ -76,7 +76,15 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
             <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex-1 min-w-[200px]">
                     <div className="font-bold text-lg">{matchupData.my_team.name}</div>
-                    <div className="text-sm text-gray-600">Неделя {matchupData.week}</div>
+                    {matchupData.my_team.overall_record && (
+                        <div className="text-sm text-gray-600">
+                            {matchupData.my_team.overall_record}
+                            {matchupData.my_team.rank && (
+                                <span className="ml-1">, {matchupData.my_team.rank} место</span>
+                            )}
+                        </div>
+                    )}
+                    <div className="text-xs text-gray-500 mt-1">Неделя {matchupData.week}</div>
                 </div>
                 <div className="text-center">
                     <div className="text-2xl font-bold text-blue-600">
@@ -86,7 +94,15 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
                 </div>
                 <div className="flex-1 min-w-[200px] text-right">
                     <div className="font-bold text-lg">{matchupData.opponent.name}</div>
-                    <div className="text-sm text-gray-600">Соперник</div>
+                    {matchupData.opponent.overall_record && (
+                        <div className="text-sm text-gray-600">
+                            {matchupData.opponent.overall_record}
+                            {matchupData.opponent.rank && (
+                                <span className="ml-1">, {matchupData.opponent.rank} место</span>
+                            )}
+                        </div>
+                    )}
+                    <div className="text-xs text-gray-500 mt-1">Соперник</div>
                 </div>
             </div>
 

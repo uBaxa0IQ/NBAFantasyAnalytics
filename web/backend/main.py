@@ -1153,6 +1153,49 @@ def get_matchup_details(team_id: int):
         opponent_wins = matchup_summary['team1_wins']
         ties = matchup_summary['ties']
     
+    # Получаем объекты команд для общего счета
+    my_team_obj = league_meta.get_team_by_id(team_id)
+    opponent_team_obj = league_meta.get_team_by_id(opponent_id)
+    
+    # Получаем общий счет команд (wins-losses-ties по всем матчапам)
+    my_team_overall_wins = getattr(my_team_obj, 'wins', 0) if my_team_obj else 0
+    my_team_overall_losses = getattr(my_team_obj, 'losses', 0) if my_team_obj else 0
+    my_team_overall_ties = getattr(my_team_obj, 'ties', 0) if my_team_obj else 0
+    
+    opponent_overall_wins = getattr(opponent_team_obj, 'wins', 0) if opponent_team_obj else 0
+    opponent_overall_losses = getattr(opponent_team_obj, 'losses', 0) if opponent_team_obj else 0
+    opponent_overall_ties = getattr(opponent_team_obj, 'ties', 0) if opponent_team_obj else 0
+    
+    # Получаем место в лиге (rank)
+    # Сортируем все команды по винрейту для определения места
+    all_teams = league_meta.get_teams()
+    teams_with_winrate = []
+    for team in all_teams:
+        wins = getattr(team, 'wins', 0)
+        losses = getattr(team, 'losses', 0)
+        ties = getattr(team, 'ties', 0)
+        total_games = wins + losses + ties
+        win_rate = (wins + 0.5 * ties) / total_games if total_games > 0 else 0
+        teams_with_winrate.append({
+            'team_id': team.team_id,
+            'win_rate': win_rate,
+            'wins': wins,
+            'losses': losses,
+            'ties': ties
+        })
+    
+    # Сортируем по винрейту (убывание), затем по победам, затем по поражениям
+    teams_with_winrate.sort(key=lambda x: (-x['win_rate'], -x['wins'], x['losses']))
+    
+    # Находим место в лиге
+    my_team_rank = None
+    opponent_rank = None
+    for idx, team_info in enumerate(teams_with_winrate, 1):
+        if team_info['team_id'] == team_id:
+            my_team_rank = idx
+        if team_info['team_id'] == opponent_id:
+            opponent_rank = idx
+    
     # Формируем данные по категориям
     categories_data = []
     for cat in CATEGORIES:
@@ -1179,12 +1222,16 @@ def get_matchup_details(team_id: int):
         'my_team': {
             'id': team_id,
             'name': my_team_name,
-            'wins': my_wins
+            'wins': my_wins,
+            'overall_record': f"{my_team_overall_wins}-{my_team_overall_losses}-{my_team_overall_ties}",
+            'rank': my_team_rank
         },
         'opponent': {
             'id': opponent_id,
             'name': opponent_name,
-            'wins': opponent_wins
+            'wins': opponent_wins,
+            'overall_record': f"{opponent_overall_wins}-{opponent_overall_losses}-{opponent_overall_ties}",
+            'rank': opponent_rank
         },
         'score': f"{my_wins}-{opponent_wins}-{ties}",
         'categories': categories_data
