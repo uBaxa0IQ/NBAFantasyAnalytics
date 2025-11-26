@@ -43,7 +43,7 @@ services:
       context: ./web/frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=${VITE_API_URL:-http://api-dyuden/api}
+        - VITE_API_URL=${VITE_API_URL:-http://api-dyuden.duckdns.org/api}
     container_name: nba-frontend
     # Убираем проброс портов - доступен только внутри Docker сети
     expose:
