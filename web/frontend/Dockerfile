@@ -3,8 +3,8 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Аргумент для API URL
-ARG VITE_API_URL=http://localhost:8000/api
+# Аргумент для API URL (по умолчанию относительный путь для продакшена)
+ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
 # Копируем package files
