@@ -12,6 +12,7 @@ const Simulation = () => {
     const [simulationMode, setSimulationMode] = useState('matchup'); // 'matchup', 'team_stats_avg', 'z_scores'
     const [period, setPeriod] = useState('2026_total');
     const [selectedTeam, setSelectedTeam] = useState(null);  // Для модального окна
+    const [excludeIr, setExcludeIr] = useState(false);
 
     useEffect(() => {
         api.get('/weeks').then(res => {
@@ -27,7 +28,7 @@ const Simulation = () => {
             // Для режима matchup нужны недели
             if (selectedWeek && weeksCount !== null) {
                 setLoading(true);
-                api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup`)
+                api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup&exclude_ir=${excludeIr}`)
                     .then(res => {
                         setResults(res.data.results);
                         setLoading(false);
@@ -40,7 +41,7 @@ const Simulation = () => {
         } else {
             // Для других режимов нужен период
             setLoading(true);
-            api.get(`/simulation-detailed/1?mode=${simulationMode}&period=${period}`)
+            api.get(`/simulation-detailed/1?mode=${simulationMode}&period=${period}&exclude_ir=${excludeIr}`)
                 .then(res => {
                     setResults(res.data.results);
                     setLoading(false);
@@ -50,7 +51,7 @@ const Simulation = () => {
                     setLoading(false);
                 });
         }
-    }, [selectedWeek, weeksCount, simulationMode, period]);
+    }, [selectedWeek, weeksCount, simulationMode, period, excludeIr]);
 
     // Генерируем опции для количества недель
     const weeksOptions = selectedWeek ? Array.from({ length: parseInt(selectedWeek) }, (_, i) => i + 1) : [];
@@ -125,6 +126,15 @@ const Simulation = () => {
                         </select>
                     </div>
                 )}
+
+                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                    <input
+                        type="checkbox"
+                        checked={excludeIr}
+                        onChange={e => setExcludeIr(e.target.checked)}
+                    />
+                    <span className="font-medium">Исключить IR игроков</span>
+                </label>
             </div>
 
             {loading && <div>Симуляция матчапов...</div>}

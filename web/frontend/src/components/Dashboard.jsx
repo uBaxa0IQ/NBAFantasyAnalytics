@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
+import MatchupDetails from './MatchupDetails';
 
 const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
     const [teams, setTeams] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [excludeIr, setExcludeIr] = useState(false);
+    const [compareTeamId, setCompareTeamId] = useState('');
 
     // Загрузка списка команд
     useEffect(() => {
@@ -24,7 +27,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
         if (!selectedTeam) return;
 
         setLoading(true);
-        fetch(`http://localhost:8000/api/dashboard/${selectedTeam}?period=${period}`)
+        fetch(`http://localhost:8000/api/dashboard/${selectedTeam}?period=${period}&exclude_ir=${excludeIr}`)
             .then(res => res.json())
             .then(data => {
                 setDashboardData(data);
@@ -34,7 +37,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                 console.error('Error fetching dashboard:', err);
                 setLoading(false);
             });
-    }, [selectedTeam, period]);
+    }, [selectedTeam, period, excludeIr]);
 
     if (loading) {
         return <div className="text-center p-8">Загрузка...</div>;
@@ -43,25 +46,38 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     return (
         <div className="space-y-6">
             {/* Team Selector */}
-            <div>
-                <label className="block text-sm font-medium mb-2">Выберите команду:</label>
-                <select
-                    value={selectedTeam}
-                    onChange={(e) => setSelectedTeam(e.target.value)}
-                    className="w-full md:w-64 p-2 border rounded"
-                >
-                    {teams.map(team => (
-                        <option key={team.team_id} value={team.team_id}>
-                            {team.team_name}
-                        </option>
-                    ))}
-                </select>
+            <div className="flex gap-4 items-center flex-wrap">
+                <div>
+                    <label className="block text-sm font-medium mb-2">Выберите команду:</label>
+                    <select
+                        value={selectedTeam}
+                        onChange={(e) => setSelectedTeam(e.target.value)}
+                        className="w-full md:w-64 p-2 border rounded"
+                    >
+                        {teams.map(team => (
+                            <option key={team.team_id} value={team.team_id}>
+                                {team.team_name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="mt-6">
+                    <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                        <input
+                            type="checkbox"
+                            checked={excludeIr}
+                            onChange={e => setExcludeIr(e.target.checked)}
+                        />
+                        <span className="font-medium">Исключить IR игроков</span>
+                    </label>
+                </div>
             </div>
 
             {dashboardData && (
                 <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Team Summary */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
                             <h3 className="text-lg font-semibold text-gray-700 mb-4">Информация о команде</h3>
@@ -83,24 +99,6 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                             </div>
                         </div>
 
-                        {/* Current Matchup */}
-                        <div className="bg-white border rounded-lg p-6 shadow-sm">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-4">Текущий матчап</h3>
-                            {dashboardData.current_matchup ? (
-                                <div className="space-y-2">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Неделя:</span>
-                                        <span className="font-semibold">{dashboardData.current_matchup.week}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Соперник:</span>
-                                        <span className="font-semibold">{dashboardData.current_matchup.opponent_name}</span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-gray-500">Нет текущего матчапа</div>
-                            )}
-                        </div>
 
                         {/* Injured Players */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
@@ -125,6 +123,14 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                         </div>
                     </div>
 
+                    {/* Matchup Details */}
+                    {dashboardData.current_matchup && (
+                        <MatchupDetails 
+                            teamId={selectedTeam} 
+                            currentMatchup={dashboardData.current_matchup}
+                        />
+                    )}
+
                     {/* Top Players */}
                     <div className="bg-white border rounded-lg p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-gray-700 mb-4">Топ-3 игрока (по Z-Score)</h3>
@@ -145,11 +151,33 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
 
                     {/* Team Balance Radar */}
                     <div className="bg-white border rounded-lg p-6 shadow-sm">
-                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Баланс команды по категориям</h3>
+                        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+                            <h3 className="text-lg font-semibold text-gray-700">Баланс команды по категориям</h3>
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm text-gray-600">Сравнить с:</label>
+                                <select
+                                    value={compareTeamId}
+                                    onChange={(e) => setCompareTeamId(e.target.value)}
+                                    className="border p-2 rounded text-sm min-w-[200px]"
+                                >
+                                    <option value="">Не сравнивать</option>
+                                    {teams
+                                        .filter(team => team.team_id.toString() !== selectedTeam)
+                                        .map(team => (
+                                            <option key={team.team_id} value={team.team_id}>
+                                                {team.team_name}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                        </div>
                         <TeamBalanceRadar
                             teamId={selectedTeam}
                             period={period}
                             puntCategories={puntCategories}
+                            excludeIr={excludeIr}
+                            compareTeamId={compareTeamId || null}
+                            compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
                         />
                     </div>
                 </>

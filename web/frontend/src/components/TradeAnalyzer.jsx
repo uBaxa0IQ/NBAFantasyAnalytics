@@ -15,6 +15,7 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState('z-scores');
     const [scopeMode, setScopeMode] = useState('team'); // 'team' или 'trade'
+    const [excludeIr, setExcludeIr] = useState(false);
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -22,25 +23,25 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
 
     useEffect(() => {
         if (myTeam) {
-            api.get(`/analytics/${myTeam}?period=${period}`)
+            api.get(`/analytics/${myTeam}?period=${period}&exclude_ir=${excludeIr}`)
                 .then(res => setMyPlayers(res.data.players))
                 .catch(err => console.error(err));
         } else {
             setMyPlayers([]);
         }
         setSelectedGive([]);
-    }, [myTeam, period]);
+    }, [myTeam, period, excludeIr]);
 
     useEffect(() => {
         if (theirTeam) {
-            api.get(`/analytics/${theirTeam}?period=${period}`)
+            api.get(`/analytics/${theirTeam}?period=${period}&exclude_ir=${excludeIr}`)
                 .then(res => setTheirPlayers(res.data.players))
                 .catch(err => console.error(err));
         } else {
             setTheirPlayers([]);
         }
         setSelectedReceive([]);
-    }, [theirTeam, period]);
+    }, [theirTeam, period, excludeIr]);
 
     const handleToggleGive = (playerName) => {
         setSelectedGive(prev =>
@@ -72,7 +73,8 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
             i_receive: selectedReceive,
             period,
             punt_categories: puntCategories,
-            scope_mode: scopeMode
+            scope_mode: scopeMode,
+            exclude_ir: excludeIr
         })
             .then(res => {
                 setResult(res.data);
@@ -115,6 +117,16 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
                         </label>
                     ))}
                 </div>
+            </div>
+            <div className="mb-4">
+                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200 inline-block">
+                    <input
+                        type="checkbox"
+                        checked={excludeIr}
+                        onChange={e => setExcludeIr(e.target.checked)}
+                    />
+                    <span className="font-medium">Исключить IR игроков</span>
+                </label>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="border rounded p-4">

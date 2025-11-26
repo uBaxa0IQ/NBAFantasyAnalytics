@@ -18,6 +18,12 @@
 
 ## 📋 Требования
 
+### Для Docker (Рекомендуется):
+- Docker 20.10+
+- Docker Compose 2.0+
+- Доступ к ESPN Fantasy Basketball лиге
+
+### Для локального запуска:
 - Python 3.8+
 - Node.js 16+
 - npm или yarn
@@ -80,7 +86,63 @@ npm install
 
 ## 🚀 Запуск
 
-### Windows
+### 🐳 Запуск с Docker (Рекомендуется)
+
+Самый простой способ запустить приложение - использовать Docker Compose:
+
+1. **Убедитесь, что у вас установлены Docker и Docker Compose**
+
+2. **Создайте файл `.env` в корневой директории проекта:**
+```bash
+ESPN_S2=your_espn_s2_token_here
+SWID={your-swid-guid-here}
+```
+
+3. **Запустите приложение:**
+
+   **Windows:**
+   ```bash
+   docker-start.bat
+   ```
+   
+   **Linux/Mac:**
+   ```bash
+   chmod +x docker-start.sh
+   ./docker-start.sh
+   ```
+   
+   **Или вручную:**
+   ```bash
+   docker-compose up -d
+   ```
+
+   Это запустит:
+   - Backend на `http://localhost:8000`
+   - Frontend на `http://localhost:3001`
+
+4. **Остановка приложения:**
+```bash
+docker-compose down
+```
+
+5. **Просмотр логов:**
+```bash
+docker-compose logs -f
+```
+
+6. **Пересборка после изменений:**
+```bash
+docker-compose up -d --build
+```
+
+7. **Очистка (удаление контейнеров и образов):**
+```bash
+docker-compose down -v --rmi all
+```
+
+### Локальный запуск (без Docker)
+
+#### Windows
 
 Просто запустите:
 
@@ -92,7 +154,7 @@ start_app.bat
 - Backend на `http://localhost:8000`
 - Frontend на `http://localhost:5173`
 
-### Ручной запуск
+#### Ручной запуск
 
 **Backend:**
 ```bash
@@ -159,8 +221,16 @@ NBA_MEGA_APP/
 │       │   │   ├── Simulation.jsx
 │       │   │   └── ...
 │       │   └── App.jsx
+│       ├── Dockerfile       # Dockerfile для frontend
+│       ├── nginx.conf       # Конфигурация Nginx
 │       └── package.json
-├── start_app.bat           # Скрипт запуска (Windows)
+├── Dockerfile.backend       # Dockerfile для backend
+├── docker-compose.yml       # Docker Compose конфигурация
+├── requirements.txt        # Python зависимости
+├── .dockerignore           # Исключения для Docker
+├── docker-start.bat        # Скрипт запуска Docker (Windows)
+├── docker-start.sh         # Скрипт запуска Docker (Linux/Mac)
+├── start_app.bat           # Скрипт локального запуска (Windows)
 └── README.md
 ```
 

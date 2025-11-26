@@ -1,0 +1,34 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: nba-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ESPN_S2=${ESPN_S2}
+      - SWID=${SWID}
+    volumes:
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./web/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000/api
+    container_name: nba-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+

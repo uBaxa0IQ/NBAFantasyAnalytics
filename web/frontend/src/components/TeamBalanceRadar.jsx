@@ -1,8 +1,10 @@
 import React from 'react';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 
-const TeamBalanceRadar = ({ teamId, period, puntCategories }) => {
+const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, compareTeamId = null, compareTeamName = null }) => {
     const [data, setData] = React.useState(null);
+    const [compareData, setCompareData] = React.useState(null);
+    const [teamName, setTeamName] = React.useState('');
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
 
@@ -16,17 +18,38 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories }) => {
             try {
                 setLoading(true);
                 const puntStr = puntCategories.join(',');
+                
+                // Загружаем данные для основной команды
                 const response = await fetch(
-                    `http://localhost:8000/api/team-balance/${teamId}?period=${period}&punt_categories=${puntStr}`
+                    `http://localhost:8000/api/team-balance/${teamId}?period=${period}&punt_categories=${puntStr}&exclude_ir=${excludeIr}`
                 );
                 const result = await response.json();
 
                 if (result.error) {
                     setError(result.error);
                     setData(null);
+                    setLoading(false);
+                    return;
+                }
+
+                setData(result.data);
+                setTeamName(result.team_name || 'Моя команда');
+                setError(null);
+
+                // Если нужно сравнение, загружаем данные для второй команды
+                if (compareTeamId) {
+                    const compareResponse = await fetch(
+                        `http://localhost:8000/api/team-balance/${compareTeamId}?period=${period}&punt_categories=${puntStr}&exclude_ir=${excludeIr}`
+                    );
+                    const compareResult = await compareResponse.json();
+
+                    if (compareResult.error) {
+                        setCompareData(null);
+                    } else {
+                        setCompareData(compareResult.data);
+                    }
                 } else {
-                    setData(result.data);
-                    setError(null);
+                    setCompareData(null);
                 }
             } catch (err) {
                 setError('Ошибка загрузки данных');
@@ -37,7 +60,7 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories }) => {
         };
 
         fetchBalanceData();
-    }, [teamId, period, puntCategories]);
+    }, [teamId, period, puntCategories, excludeIr, compareTeamId]);
 
     if (loading) {
         return (
@@ -63,10 +86,26 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories }) => {
         );
     }
 
+    // Объединяем данные для отображения двух радаров
+    // Создаем объект для каждой категории с значениями обеих команд
+    const mergedData = data.map(item => {
+        const compareItem = compareData 
+            ? compareData.find(c => c.category === item.category)
+            : null;
+        
+        return {
+            category: item.category,
+            myValue: item.value,
+            compareValue: compareItem ? compareItem.value : null
+        };
+    });
+
+    const displayName = compareTeamName || 'Сравнение';
+
     return (
         <div className="w-full h-full">
             <ResponsiveContainer width="100%" height={400}>
-                <RadarChart data={data}>
+                <RadarChart data={mergedData}>
                     <PolarGrid stroke="#e5e7eb" />
                     <PolarAngleAxis
                         dataKey="category"
@@ -78,11 +117,26 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories }) => {
                         tick={{ fill: '#6b7280', fontSize: 10 }}
                     />
                     <Radar
-                        name="Z-Score"
-                        dataKey="value"
+                        name={teamName}
+                        dataKey="myValue"
                         stroke="#3b82f6"
                         fill="#3b82f6"
-                        fillOpacity={0.6}
+                        fillOpacity={0.4}
+                        strokeWidth={2}
+                    />
+                    {compareData && compareData.length > 0 && (
+                        <Radar
+                            name={displayName}
+                            dataKey="compareValue"
+                            stroke="#ef4444"
+                            fill="#ef4444"
+                            fillOpacity={0.4}
+                            strokeWidth={2}
+                        />
+                    )}
+                    <Legend 
+                        wrapperStyle={{ paddingTop: '20px' }}
+                        iconType="line"
                     />
                 </RadarChart>
             </ResponsiveContainer>

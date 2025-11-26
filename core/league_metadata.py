@@ -222,7 +222,7 @@ class LeagueMetadata:
         
         return filtered
     
-    def get_all_players_stats(self, period: str, stats_type: str = 'total') -> List[Dict[str, Any]]:
+    def get_all_players_stats(self, period: str, stats_type: str = 'total', exclude_ir: bool = False) -> List[Dict[str, Any]]:
         """
         Получает статистику всех игроков всех команд за указанный период.
         
@@ -235,6 +235,7 @@ class LeagueMetadata:
                    - '2026_projected' - прогнозируемая
                    - номер недели (например, '35') - за конкретную неделю
             stats_type: Тип статистики - 'total' (общая) или 'avg' (средняя за игру)
+            exclude_ir: Если True, исключает игроков в IR слоте из результатов
             
         Returns:
             Список словарей с информацией об игроках:
@@ -255,6 +256,13 @@ class LeagueMetadata:
             roster = self.get_team_roster(team.team_id)
             
             for player in roster:
+                # Пропускаем IR игроков, если exclude_ir=True
+                if exclude_ir:
+                    lineup_slot = getattr(player, 'lineupSlot', '')
+                    slot_position = getattr(player, 'slot_position', '')
+                    if lineup_slot == 'IR' or slot_position == 'IR':
+                        continue
+                
                 stats = self.get_player_stats(player, period, stats_type)
                 
                 if stats:

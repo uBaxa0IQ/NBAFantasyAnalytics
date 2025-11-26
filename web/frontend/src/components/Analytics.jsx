@@ -9,6 +9,7 @@ const Analytics = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCa
     const [loading, setLoading] = useState(false);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
+    const [excludeIr, setExcludeIr] = useState(false);
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -17,7 +18,7 @@ const Analytics = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCa
     useEffect(() => {
         if (selectedTeam) {
             setLoading(true);
-            api.get(`/analytics/${selectedTeam}?period=${period}`)
+            api.get(`/analytics/${selectedTeam}?period=${period}&exclude_ir=${excludeIr}`)
                 .then(res => {
                     setData(res.data);
                     setLoading(false);
@@ -27,7 +28,7 @@ const Analytics = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCa
                     setLoading(false);
                 });
         }
-    }, [selectedTeam, period]);
+    }, [selectedTeam, period, excludeIr]);
 
     const handlePuntChange = (cat) => {
         setPuntCategories(prev =>
@@ -100,6 +101,15 @@ const Analytics = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCa
                     <option value="2026_last_7">Последние 7 дней</option>
                     <option value="2026_projected">Прогноз</option>
                 </select>
+
+                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                    <input
+                        type="checkbox"
+                        checked={excludeIr}
+                        onChange={e => setExcludeIr(e.target.checked)}
+                    />
+                    <span className="font-medium">Исключить IR игроков</span>
+                </label>
             </div>
 
             <div className="mb-4">

@@ -13,6 +13,7 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
     const [loading, setLoading] = useState(false);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
+    const [excludeIr, setExcludeIr] = useState(false);
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -20,7 +21,7 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
 
     useEffect(() => {
         setLoading(true);
-        api.get(`/all-players?period=${period}`)
+        api.get(`/all-players?period=${period}&exclude_ir=${excludeIr}`)
             .then(res => {
                 setData(res.data);
                 setLoading(false);
@@ -29,7 +30,7 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
                 console.error(err);
                 setLoading(false);
             });
-    }, [period]);
+    }, [period, excludeIr]);
 
     const handlePuntChange = (cat) => {
         setPuntCategories(prev =>
@@ -141,6 +142,15 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                 />
+
+                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                    <input
+                        type="checkbox"
+                        checked={excludeIr}
+                        onChange={e => setExcludeIr(e.target.checked)}
+                    />
+                    <span className="font-medium">Исключить IR игроков</span>
+                </label>
             </div>
 
             <div className="mb-4">

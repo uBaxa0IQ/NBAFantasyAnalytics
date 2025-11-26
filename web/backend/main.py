@@ -17,7 +17,13 @@ app = FastAPI()
 # Настройка CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost:3000",  # Docker frontend (old port)
+        "http://localhost:3001",  # Docker frontend (new port)
+        "http://127.0.0.1:3000",  # Docker frontend alternative
+        "http://127.0.0.1:3001",  # Docker frontend alternative
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,11 +52,11 @@ def get_weeks():
     }
 
 @app.get("/api/analytics/{team_id}")
-def get_analytics(team_id: int, period: str = "2026_total"):
+def get_analytics(team_id: int, period: str = "2026_total", exclude_ir: bool = False):
     from core.z_score import calculate_z_scores
     
     # Рассчитываем Z-scores для всей лиги
-    data = calculate_z_scores(league_meta, period)
+    data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
     
     if not data['players']:
         return {"error": "No data found"}
@@ -66,7 +72,7 @@ def get_analytics(team_id: int, period: str = "2026_total"):
     }
 
 @app.get("/api/simulation/{week}")
-def get_simulation(week: int, weeks_count: int = None, mode: str = "matchup", period: str = "2026_total"):
+def get_simulation(week: int, weeks_count: int = None, mode: str = "matchup", period: str = "2026_total", exclude_ir: bool = False):
     from core.config import CATEGORIES
     from core.z_score import calculate_z_scores
     import math
@@ -115,7 +121,7 @@ def get_simulation(week: int, weeks_count: int = None, mode: str = "matchup", pe
     elif mode == "team_stats_avg":
         # Режим по статистике команд (avg)
         # Получаем статистику всех игроков за период
-        all_players = league_meta.get_all_players_stats(period, 'avg')
+        all_players = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
         
         # Функция для расчета статистики команды (как в trade-analysis)
         def calculate_team_raw_stats(team_players):
@@ -198,7 +204,7 @@ def get_simulation(week: int, weeks_count: int = None, mode: str = "matchup", pe
     elif mode == "z_scores":
         # Режим по Z-score
         # Получаем Z-scores всех игроков
-        z_data = calculate_z_scores(league_meta, period)
+        z_data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
         
         if not z_data['players']:
             return {"error": "No data found"}
@@ -343,7 +349,6 @@ def get_free_agents(period: str = "2026_total", position: str = None):
                 mean = data['league_metrics'][cat]['mean']
                 std = data['league_metrics'][cat]['std']
                 z_score = (value - mean) / std if std > 0 else 0
-                z_score = max(0, z_score)
                 # Проверка на inf/nan
                 if not math.isfinite(z_score):
                     z_score = 0.0
@@ -422,12 +427,12 @@ def get_free_agents(period: str = "2026_total", position: str = None):
     }
 
 @app.get("/api/all-players")
-def get_all_players(period: str = "2026_total"):
+def get_all_players(period: str = "2026_total", exclude_ir: bool = False):
     import math
     from core.z_score import calculate_z_scores
     
     # Рассчитываем Z-scores для всех игроков лиги
-    data = calculate_z_scores(league_meta, period)
+    data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
     
     if not data['players']:
         return {"error": "No data found"}
@@ -488,6 +493,7 @@ class TradeAnalysisRequest(BaseModel):
     period: str = "2026_total"
     punt_categories: List[str] = []
     scope_mode: str = "team"  # "team" или "trade"
+    exclude_ir: bool = False
 
 @app.post("/api/trade-analysis")
 def analyze_trade(request: TradeAnalysisRequest):
@@ -496,13 +502,13 @@ def analyze_trade(request: TradeAnalysisRequest):
     import math
     
     # Получаем Z-scores всех игроков
-    data = calculate_z_scores(league_meta, request.period)
+    data = calculate_z_scores(league_meta, request.period, exclude_ir=request.exclude_ir)
     
     if not data['players']:
         return {"error": "No data found"}
     
     # Получаем полные данные игроков со статистикой
-    all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg')
+    all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=request.exclude_ir)
     
     # Создаем словарь для быстрого поиска stats по имени игрока
     stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
@@ -971,7 +977,7 @@ def analyze_trade(request: TradeAnalysisRequest):
     }
 
 @app.get("/api/dashboard/{team_id}")
-def get_dashboard(team_id: int, period: str = "2026_total"):
+def get_dashboard(team_id: int, period: str = "2026_total", exclude_ir: bool = False):
     """
     Получает данные для дашборда команды:
     - Информация о команде
@@ -991,13 +997,13 @@ def get_dashboard(team_id: int, period: str = "2026_total"):
     roster = league_meta.get_team_roster(team_id)
     
     # Рассчитываем Z-scores для всей лиги
-    data = calculate_z_scores(league_meta, period)
+    data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
     
     # Фильтруем данные только для выбранной команды
     team_players = [p for p in data['players'] if p['team_id'] == team_id]
     
     # Добавляем полную статистику к игрокам
-    all_players_with_stats = league_meta.get_all_players_stats(period, 'avg')
+    all_players_with_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
     stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
     
     for player in team_players:
@@ -1064,8 +1070,87 @@ def get_dashboard(team_id: int, period: str = "2026_total"):
         "period": period
     }
 
+@app.get("/api/dashboard/{team_id}/matchup-details")
+def get_matchup_details(team_id: int):
+    """
+    Получает детальную информацию о текущем матчапе команды.
+    Возвращает сравнение статистики по всем категориям.
+    """
+    from core.config import CATEGORIES
+    
+    # Получаем текущую неделю
+    current_week = league_meta.league.currentMatchupPeriod
+    
+    # Получаем текущий матчап
+    matchup_box = league_meta.get_matchup_box_score(current_week, team_id)
+    if not matchup_box:
+        return {"error": "No current matchup found"}
+    
+    opponent_id = matchup_box['opponent_id']
+    
+    # Получаем детальную сводку матчапа
+    matchup_summary = league_meta.get_matchup_summary(current_week, team_id, opponent_id)
+    if not matchup_summary:
+        return {"error": "Could not get matchup summary"}
+    
+    # Форматируем данные для фронтенда
+    # Определяем, какая команда - team1, а какая - team2
+    if matchup_summary['team1_id'] == team_id:
+        my_team_stats = matchup_summary['team1_stats_filtered']
+        opponent_stats = matchup_summary['team2_stats_filtered']
+        my_team_name = matchup_summary['team1']
+        opponent_name = matchup_summary['team2']
+        my_wins = matchup_summary['team1_wins']
+        opponent_wins = matchup_summary['team2_wins']
+        ties = matchup_summary['ties']
+    else:
+        my_team_stats = matchup_summary['team2_stats_filtered']
+        opponent_stats = matchup_summary['team1_stats_filtered']
+        my_team_name = matchup_summary['team2']
+        opponent_name = matchup_summary['team1']
+        my_wins = matchup_summary['team2_wins']
+        opponent_wins = matchup_summary['team1_wins']
+        ties = matchup_summary['ties']
+    
+    # Формируем данные по категориям
+    categories_data = []
+    for cat in CATEGORIES:
+        my_value = my_team_stats.get(cat, 0.0)
+        opponent_value = opponent_stats.get(cat, 0.0)
+        
+        # Определяем победителя
+        if my_value > opponent_value:
+            winner = 'my_team'
+        elif opponent_value > my_value:
+            winner = 'opponent'
+        else:
+            winner = 'tie'
+        
+        categories_data.append({
+            'category': cat,
+            'my_value': my_value,
+            'opponent_value': opponent_value,
+            'winner': winner
+        })
+    
+    return {
+        'week': current_week,
+        'my_team': {
+            'id': team_id,
+            'name': my_team_name,
+            'wins': my_wins
+        },
+        'opponent': {
+            'id': opponent_id,
+            'name': opponent_name,
+            'wins': opponent_wins
+        },
+        'score': f"{my_wins}-{opponent_wins}-{ties}",
+        'categories': categories_data
+    }
+
 @app.get("/api/team-balance/{team_id}")
-def get_team_balance(team_id: int, period: str = "2026_total", punt_categories: str = ""):
+def get_team_balance(team_id: int, period: str = "2026_total", punt_categories: str = "", exclude_ir: bool = False):
     """
     Получает данные для радар-графика баланса команды.
     Возвращает Z-scores по категориям.
@@ -1080,7 +1165,7 @@ def get_team_balance(team_id: int, period: str = "2026_total", punt_categories: 
         punt_cats = punt_categories.split(',')
     
     # Рассчитываем Z-scores для всей лиги
-    data = calculate_z_scores(league_meta, period)
+    data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
     
     if not data['players']:
         return {"error": "No data found"}
@@ -1090,6 +1175,10 @@ def get_team_balance(team_id: int, period: str = "2026_total", punt_categories: 
     
     if not team_players:
         return {"error": "Team not found"}
+    
+    # Получаем название команды
+    team = league_meta.get_team_by_id(team_id)
+    team_name = team.team_name if team else f"Team {team_id}"
     
     # Суммируем Z-scores по категориям
     category_totals = {cat: 0 for cat in CATEGORIES}
@@ -1112,12 +1201,13 @@ def get_team_balance(team_id: int, period: str = "2026_total", punt_categories: 
     
     return {
         "team_id": team_id,
+        "team_name": team_name,
         "period": period,
         "data": radar_data
     }
 
 @app.get("/api/simulation-detailed/{week}")
-def get_simulation_detailed(week: int, weeks_count: int = None, mode: str = "matchup", period: str = "2026_total"):
+def get_simulation_detailed(week: int, weeks_count: int = None, mode: str = "matchup", period: str = "2026_total", exclude_ir: bool = False):
     """
     Расширенная симуляция с детальными результатами матчапов для каждой команды.
     """
@@ -1164,7 +1254,7 @@ def get_simulation_detailed(week: int, weeks_count: int = None, mode: str = "mat
     
     elif mode == "team_stats_avg":
         # Режим по статистике команд (avg)
-        all_players = league_meta.get_all_players_stats(period, 'avg')
+        all_players = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
         
         def calculate_team_raw_stats(team_players):
             counting_stats = {cat: 0 for cat in ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'TO']}
@@ -1238,7 +1328,7 @@ def get_simulation_detailed(week: int, weeks_count: int = None, mode: str = "mat
     
     elif mode == "z_scores":
         # Режим по Z-score
-        z_data = calculate_z_scores(league_meta, period)
+        z_data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
         
         if not z_data['players']:
             return {"error": "No data found"}

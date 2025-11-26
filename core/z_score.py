@@ -14,13 +14,14 @@ COUNTING_CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD']
 PERCENTAGE_CATEGORIES = ['FG%', 'FT%', '3PT%', 'A/TO']
 
 
-def calculate_z_scores(league_metadata, period: str) -> Dict[str, Any]:
+def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -> Dict[str, Any]:
     """
     Рассчитывает Z-scores для всех игроков лиги за указанный период.
     
     Args:
         league_metadata: Объект LeagueMetadata
         period: Период статистики (например, '2026_total', '2026_last_15')
+        exclude_ir: Если True, исключает игроков в IR слоте из расчета
         
     Returns:
         Словарь с Z-scores игроков и метриками лиги:
@@ -41,7 +42,7 @@ def calculate_z_scores(league_metadata, period: str) -> Dict[str, Any]:
         }
     """
     # Получаем avg статистику всех игроков
-    all_players = league_metadata.get_all_players_stats(period, 'avg')
+    all_players = league_metadata.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
     
     if not all_players:
         return {'players': [], 'league_metrics': {}}
@@ -181,7 +182,7 @@ def calculate_z_scores(league_metadata, period: str) -> Dict[str, Any]:
                 mean = league_metrics[cat]['mean']
                 std = league_metrics[cat]['std']
                 z_score = (value - mean) / std if std > 0 else 0
-                z_scores[cat] = max(0, z_score)  # Обрезаем отрицательные значения
+                z_scores[cat] = z_score
         
         # Z-scores для процентных категорий (через impact)
         # Для процентных категорий НЕ обрезаем отрицательные значения
