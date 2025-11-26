@@ -3,7 +3,10 @@ import api from '../api';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
+import MultiTeamTradeAnalyzer from './MultiTeamTradeAnalyzer';
+
 const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories }) => {
+    const [tradeMode, setTradeMode] = useState('two-team'); // 'two-team' или 'multi-team'
     const [teams, setTeams] = useState([]);
     const [myTeam, setMyTeam] = useState('');
     const [theirTeam, setTheirTeam] = useState('');
@@ -93,8 +96,62 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
         );
     };
 
+    // Если выбран мультикомандный режим, показываем соответствующий компонент
+    if (tradeMode === 'multi-team') {
+        return (
+            <div>
+                <div className="mb-4 flex justify-center gap-4">
+                    <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+                        <button
+                            onClick={() => setTradeMode('two-team')}
+                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                                tradeMode === 'two-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                        >
+                            2 команды
+                        </button>
+                        <button
+                            onClick={() => setTradeMode('multi-team')}
+                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                                tradeMode === 'multi-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                        >
+                            Мультикомандный
+                        </button>
+                    </div>
+                </div>
+                <MultiTeamTradeAnalyzer
+                    period={period}
+                    setPeriod={setPeriod}
+                    puntCategories={puntCategories}
+                    setPuntCategories={setPuntCategories}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="p-4">
+            <div className="mb-4 flex justify-center gap-4">
+                <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+                    <button
+                        onClick={() => setTradeMode('two-team')}
+                        className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                            tradeMode === 'two-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                    >
+                        2 команды
+                    </button>
+                    <button
+                        onClick={() => setTradeMode('multi-team')}
+                        className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                            tradeMode === 'multi-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                    >
+                        Мультикомандный
+                    </button>
+                </div>
+            </div>
             <div className="mb-4 flex gap-4 items-center flex-wrap">
                 <div>
                     <label className="mr-2 font-bold">Период:</label>

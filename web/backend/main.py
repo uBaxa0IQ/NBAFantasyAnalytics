@@ -554,6 +554,18 @@ class TradeAnalysisRequest(BaseModel):
     scope_mode: str = "team"  # "team" или "trade"
     exclude_ir: bool = False
 
+# Модель для мультикомандных трейдов
+class TeamTrade(BaseModel):
+    team_id: int
+    give: List[str]  # Имена игроков, которых отдает команда
+    receive: List[str]  # Имена игроков, которых получает команда
+
+class MultiTeamTradeRequest(BaseModel):
+    trades: List[TeamTrade]  # Список команд и их трейдов
+    period: str = "2026_total"
+    punt_categories: List[str] = []
+    exclude_ir: bool = False
+
 @app.post("/api/trade-analysis")
 def analyze_trade(request: TradeAnalysisRequest):
     from core.z_score import calculate_z_scores
@@ -798,10 +810,11 @@ def analyze_trade(request: TradeAnalysisRequest):
     my_trade_name = my_team_name
     their_trade_name = their_team_name
     
-    # Функция для расчета симуляции и получения мест команд
+    # Функция для расчета симуляции и получения мест команд (использует head-to-head как в /api/simulation)
     def calculate_simulation_ranks(all_players_list, mode_type):
         """
         Рассчитывает симуляцию для всех команд и возвращает места в рейтинге.
+        Использует тот же метод, что и /api/simulation - симуляцию "все против всех".
         
         Args:
             all_players_list: Список всех игроков лиги (с учетом или без учета трейда)
@@ -810,6 +823,7 @@ def analyze_trade(request: TradeAnalysisRequest):
         Returns:
             Словарь {team_id: rank} где rank - место в рейтинге (1 = первое место)
         """
+        from core.config import CATEGORIES
         # Получаем все команды
         teams = league_meta.get_teams()
         team_stats = {}
@@ -1033,6 +1047,440 @@ def analyze_trade(request: TradeAnalysisRequest):
             "raw_categories": their_trade_raw_categories
         },
         "simulation_ranks": simulation_ranks
+    }
+
+@app.post("/api/multi-team-trade-analysis")
+def analyze_multi_team_trade(request: MultiTeamTradeRequest):
+    """
+    Анализ мультикомандного трейда.
+    Поддерживает любое количество команд, участвующих в трейде.
+    """
+    from core.z_score import calculate_z_scores
+    from core.config import CATEGORIES
+    import math
+    
+    # Валидация
+    validation_errors = []
+    
+    # 1. Проверка уникальности команд
+    team_ids = [t.team_id for t in request.trades]
+    if len(team_ids) != len(set(team_ids)):
+        validation_errors.append("Дублирующиеся команды в трейде")
+    
+    # 2. Проверка баланса: все отданные игроки должны быть получены
+    all_given = []
+    all_received = []
+    for trade in request.trades:
+        all_given.extend(trade.give)
+        all_received.extend(trade.receive)
+    
+    # Проверка уникальности игроков
+    if len(all_given) != len(set(all_given)):
+        validation_errors.append("Некоторые игроки отдаются несколько раз")
+    if len(all_received) != len(set(all_received)):
+        validation_errors.append("Некоторые игроки получаются несколько раз")
+    
+    # Проверка баланса
+    if sorted(all_given) != sorted(all_received):
+        validation_errors.append(f"Несбалансированный трейд: отдано {len(all_given)}, получено {len(all_received)}")
+    
+    # 3. Проверка, что игрок не может быть и в give и в receive одной команды
+    for trade in request.trades:
+        overlap = set(trade.give) & set(trade.receive)
+        if overlap:
+            validation_errors.append(f"Команда {trade.team_id}: игроки {overlap} одновременно отдаются и получаются")
+    
+    if validation_errors:
+        return {
+            "error": "Validation failed",
+            "validation_errors": validation_errors
+        }
+    
+    # Создаем маппинг: player_name -> new_team_id
+    player_movements = {}
+    for trade in request.trades:
+        for player_name in trade.give:
+            # Находим, какая команда получает этого игрока
+            receiving_team = None
+            for other_trade in request.trades:
+                if player_name in other_trade.receive:
+                    receiving_team = other_trade.team_id
+                    break
+            if receiving_team:
+                player_movements[player_name] = receiving_team
+    
+    # Получаем Z-scores всех игроков
+    data = calculate_z_scores(league_meta, request.period, exclude_ir=request.exclude_ir)
+    
+    if not data['players']:
+        return {"error": "No data found"}
+    
+    # Получаем полные данные игроков со статистикой
+    all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=request.exclude_ir)
+    stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
+    
+    # Добавляем stats к каждому игроку
+    for player in data['players']:
+        player['stats'] = stats_by_name.get(player['name'], {})
+    
+    # Функции расчета (те же, что в analyze_trade)
+    def calculate_total_z(players, punt_cats):
+        total = 0
+        for player in players:
+            for cat in CATEGORIES:
+                if cat not in punt_cats:
+                    z_val = player['z_scores'].get(cat, 0)
+                    if math.isfinite(z_val):
+                        total += z_val
+        return total
+    
+    def calculate_category_z(players, punt_cats):
+        cat_totals = {cat: 0 for cat in CATEGORIES}
+        for player in players:
+            for cat in CATEGORIES:
+                if cat not in punt_cats:
+                    z_val = player['z_scores'].get(cat, 0)
+                    if math.isfinite(z_val):
+                        cat_totals[cat] += z_val
+        return cat_totals
+    
+    def calculate_raw_stats(players, punt_cats):
+        counting_stats = {cat: 0 for cat in ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'TO']}
+        fg_makes = 0
+        fg_attempts = 0
+        ft_makes = 0
+        ft_attempts = 0
+        three_makes = 0
+        three_attempts = 0
+        assists = 0
+        turnovers = 0
+        
+        for player in players:
+            stats = player.get('stats', {})
+            
+            for cat in counting_stats:
+                if cat not in punt_cats:
+                    val = stats.get(cat, 0)
+                    counting_stats[cat] += val if math.isfinite(val) else 0
+            
+            if 'FG%' not in punt_cats:
+                fgm = stats.get('FGM', 0)
+                fga = stats.get('FGA', 0)
+                fg_makes += fgm if math.isfinite(fgm) else 0
+                fg_attempts += fga if math.isfinite(fga) else 0
+            
+            if 'FT%' not in punt_cats:
+                ftm = stats.get('FTM', 0)
+                fta = stats.get('FTA', 0)
+                ft_makes += ftm if math.isfinite(ftm) else 0
+                ft_attempts += fta if math.isfinite(fta) else 0
+            
+            if '3PT%' not in punt_cats:
+                tpm = stats.get('3PM', 0)
+                tpa = stats.get('3PA', 0)
+                three_makes += tpm if math.isfinite(tpm) else 0
+                three_attempts += tpa if math.isfinite(tpa) else 0
+            
+            if 'A/TO' not in punt_cats:
+                ast = stats.get('AST', 0)
+                to = stats.get('TO', 0)
+                assists += ast if math.isfinite(ast) else 0
+                turnovers += to if math.isfinite(to) else 0
+        
+        raw_stats = counting_stats.copy()
+        raw_stats['FG%'] = (fg_makes / fg_attempts * 100) if fg_attempts > 0 else 0
+        raw_stats['FT%'] = (ft_makes / ft_attempts * 100) if ft_attempts > 0 else 0
+        raw_stats['3PT%'] = (three_makes / three_attempts * 100) if three_attempts > 0 else 0
+        raw_stats['A/TO'] = (assists / turnovers) if turnovers > 0 else (assists if assists > 0 else 0)
+        
+        return raw_stats
+    
+    # Получаем названия команд
+    all_teams = league_meta.get_teams()
+    team_names = {team.team_id: team.team_name for team in all_teams}
+    
+    # Рассчитываем для каждой команды
+    teams_results = []
+    
+    for trade in request.trades:
+        team_id = trade.team_id
+        team_name = team_names.get(team_id, f"Team {team_id}")
+        
+        # Получаем игроков команды ДО трейда
+        team_players_before = [p for p in data['players'] if p['team_id'] == team_id]
+        
+        # Рассчитываем ДО
+        before_z = calculate_total_z(team_players_before, request.punt_categories)
+        before_cats = calculate_category_z(team_players_before, request.punt_categories)
+        before_raw = calculate_raw_stats(team_players_before, request.punt_categories)
+        
+        # Формируем состав ПОСЛЕ трейда
+        # Убираем игроков, которых отдаем
+        team_players_after = [p for p in team_players_before if p['name'] not in trade.give]
+        
+        # Добавляем игроков, которых получаем
+        players_received = [p for p in data['players'] if p['name'] in trade.receive]
+        team_players_after.extend(players_received)
+        
+        # Рассчитываем ПОСЛЕ
+        after_z = calculate_total_z(team_players_after, request.punt_categories)
+        after_cats = calculate_category_z(team_players_after, request.punt_categories)
+        after_raw = calculate_raw_stats(team_players_after, request.punt_categories)
+        
+        # Формируем данные по категориям
+        categories = {}
+        raw_categories = {}
+        for cat in CATEGORIES:
+            if cat not in request.punt_categories:
+                before_val = before_cats.get(cat, 0)
+                after_val = after_cats.get(cat, 0)
+                categories[cat] = {
+                    "before": round(before_val, 2),
+                    "after": round(after_val, 2),
+                    "delta": round(after_val - before_val, 2)
+                }
+                
+                before_raw_val = before_raw.get(cat, 0)
+                after_raw_val = after_raw.get(cat, 0)
+                raw_categories[cat] = {
+                    "before": round(before_raw_val, 2),
+                    "after": round(after_raw_val, 2),
+                    "delta": round(after_raw_val - before_raw_val, 2)
+                }
+        
+        teams_results.append({
+            "team_id": team_id,
+            "team_name": team_name,
+            "before_z": round(before_z, 2),
+            "after_z": round(after_z, 2),
+            "delta": round(after_z - before_z, 2),
+            "categories": categories,
+            "raw_categories": raw_categories,
+            "players_given": trade.give,
+            "players_received": trade.receive
+        })
+    
+    # Симуляция мест (аналогично analyze_trade)
+    # Создаем списки игроков ДО и ПОСЛЕ трейда
+    all_players_before = []
+    for player in data['players']:
+        all_players_before.append(player.copy())
+    
+    all_players_after = []
+    for player in data['players']:
+        player_copy = player.copy()
+        # Применяем перемещения
+        if player['name'] in player_movements:
+            player_copy['team_id'] = player_movements[player['name']]
+            player_copy['team_name'] = team_names.get(player_movements[player['name']], f"Team {player_movements[player['name']]}")
+        all_players_after.append(player_copy)
+    
+    # Функция расчета мест (использует тот же метод, что и /api/simulation - head-to-head)
+    def calculate_simulation_ranks(all_players_list, mode_type):
+        from core.config import CATEGORIES
+        teams = league_meta.get_teams()
+        team_stats = {}
+        
+        if mode_type == 'z_scores':
+            # Режим по Z-score (как в /api/simulation mode="z_scores")
+            # Получаем Z-scores для всех игроков
+            z_data = calculate_z_scores(league_meta, request.period, exclude_ir=request.exclude_ir)
+            
+            # Создаем словарь для быстрого поиска Z-scores по имени
+            z_scores_by_name = {p['name']: p['z_scores'] for p in z_data['players']}
+            
+            # Группируем игроков по командам (с учетом перемещений из all_players_list)
+            players_by_team = {}
+            for player in all_players_list:
+                team_id = player['team_id']
+                if team_id not in players_by_team:
+                    players_by_team[team_id] = []
+                # Получаем Z-scores для этого игрока
+                player_z = z_scores_by_name.get(player['name'], {})
+                players_by_team[team_id].append({
+                    'name': player['name'],
+                    'z_scores': player_z
+                })
+            
+            # Рассчитываем Z по категориям для каждой команды
+            def calculate_team_category_z(team_players):
+                cat_totals = {cat: 0 for cat in CATEGORIES}
+                for player in team_players:
+                    for cat in CATEGORIES:
+                        if cat not in request.punt_categories:
+                            z_val = player['z_scores'].get(cat, 0)
+                            if math.isfinite(z_val):
+                                cat_totals[cat] += z_val
+                return cat_totals
+            
+            for team in teams:
+                if team.team_id in players_by_team:
+                    team_players = players_by_team[team.team_id]
+                    team_cats = calculate_team_category_z(team_players)
+                    team_stats[team.team_id] = {
+                        'name': team.team_name,
+                        'stats': team_cats
+                    }
+                else:
+                    # Команда без игроков
+                    team_stats[team.team_id] = {
+                        'name': team.team_name,
+                        'stats': {cat: 0.0 for cat in CATEGORIES}
+                    }
+                    
+        elif mode_type == 'team_stats_avg':
+            # Режим по статистике команд (avg) - как в /api/simulation mode="team_stats_avg"
+            all_players_week_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=request.exclude_ir)
+            
+            # Создаем словарь для быстрого поиска stats по имени
+            stats_by_name = {p['name']: p['stats'] for p in all_players_week_stats}
+            
+            # Группируем игроков по командам (с учетом перемещений из all_players_list)
+            players_by_team = {}
+            for player in all_players_list:
+                team_id = player['team_id']
+                if team_id not in players_by_team:
+                    players_by_team[team_id] = []
+                # Получаем stats для этого игрока
+                player_stats = stats_by_name.get(player['name'], {})
+                players_by_team[team_id].append({
+                    'name': player['name'],
+                    'stats': player_stats
+                })
+            
+            # Рассчитываем статистику команды (как в /api/simulation)
+            for team in teams:
+                if team.team_id in players_by_team:
+                    team_players = players_by_team[team.team_id]
+                    team_raw_stats = calculate_raw_stats(team_players, request.punt_categories)
+                    
+                    # Преобразуем в формат для сравнения (только нужные категории)
+                    filtered_stats = {}
+                    for cat in CATEGORIES:
+                        if cat not in request.punt_categories:
+                            if cat in team_raw_stats:
+                                filtered_stats[cat] = team_raw_stats[cat]
+                            else:
+                                filtered_stats[cat] = 0.0
+                    
+                    team_stats[team.team_id] = {
+                        'name': team.team_name,
+                        'stats': filtered_stats
+                    }
+                else:
+                    # Команда без игроков
+                    team_stats[team.team_id] = {
+                        'name': team.team_name,
+                        'stats': {cat: 0.0 for cat in CATEGORIES}
+                    }
+        
+        # Симуляция "все против всех" (как в /api/simulation)
+        if not team_stats:
+            return {}
+        
+        teams_list = list(team_stats.values())
+        team_ids = list(team_stats.keys())
+        
+        simulation_results = {tid: {'wins': 0, 'losses': 0, 'ties': 0, 'name': team_stats[tid]['name']} for tid in team_ids}
+        
+        for i in range(len(team_ids)):
+            id1 = team_ids[i]
+            stats1 = team_stats[id1]['stats']
+            
+            for j in range(i + 1, len(team_ids)):
+                id2 = team_ids[j]
+                stats2 = team_stats[id2]['stats']
+                
+                # Сравнение двух команд
+                wins1 = 0
+                wins2 = 0
+                
+                for cat in CATEGORIES:
+                    if cat in request.punt_categories:
+                        continue  # Пропускаем punt категории
+                    
+                    val1 = stats1.get(cat, 0.0)
+                    val2 = stats2.get(cat, 0.0)
+                    
+                    # TO (Turnovers) - чем меньше, тем лучше
+                    if cat == 'TO':
+                        if val1 < val2: wins1 += 1
+                        elif val2 < val1: wins2 += 1
+                    else:
+                        if val1 > val2: wins1 += 1
+                        elif val2 > val1: wins2 += 1
+                
+                # Обновляем результаты
+                if wins1 > wins2:
+                    simulation_results[id1]['wins'] += 1
+                    simulation_results[id2]['losses'] += 1
+                elif wins2 > wins1:
+                    simulation_results[id2]['wins'] += 1
+                    simulation_results[id1]['losses'] += 1
+                else:
+                    simulation_results[id1]['ties'] += 1
+                    simulation_results[id2]['ties'] += 1
+        
+        # Формируем итоговый список с винрейтом (как в обычном трейде)
+        final_results = []
+        for team_id, result in simulation_results.items():
+            wins = result['wins']
+            losses = result['losses']
+            ties = result['ties']
+            total_games = wins + losses + ties
+            
+            win_rate = (wins + 0.5 * ties) / total_games if total_games > 0 else 0
+            
+            final_results.append({
+                'team_id': team_id,
+                'name': result['name'],
+                'wins': wins,
+                'losses': losses,
+                'ties': ties,
+                'win_rate': win_rate
+            })
+        
+        # Сортируем по винрейту (как в обычном трейде и /api/simulation)
+        final_results.sort(key=lambda x: x['win_rate'], reverse=True)
+        
+        # Создаем словарь мест
+        ranks = {}
+        for rank, team_result in enumerate(final_results, 1):
+            ranks[team_result['team_id']] = rank
+        
+        return ranks
+    
+    ranks_before_z = calculate_simulation_ranks(all_players_before, 'z_scores')
+    ranks_after_z = calculate_simulation_ranks(all_players_after, 'z_scores')
+    ranks_before_avg = calculate_simulation_ranks(all_players_before, 'team_stats_avg')
+    ranks_after_avg = calculate_simulation_ranks(all_players_after, 'team_stats_avg')
+    
+    # Формируем данные о местах для каждой команды
+    simulation_ranks = {
+        'z_scores': {},
+        'team_stats_avg': {}
+    }
+    
+    for trade in request.trades:
+        team_id = trade.team_id
+        simulation_ranks['z_scores'][team_id] = {
+            'before': ranks_before_z.get(team_id),
+            'after': ranks_after_z.get(team_id),
+            'delta': (ranks_after_z.get(team_id, 0) - ranks_before_z.get(team_id, 0)) if (team_id in ranks_after_z and team_id in ranks_before_z) else None
+        }
+        simulation_ranks['team_stats_avg'][team_id] = {
+            'before': ranks_before_avg.get(team_id),
+            'after': ranks_after_avg.get(team_id),
+            'delta': (ranks_after_avg.get(team_id, 0) - ranks_before_avg.get(team_id, 0)) if (team_id in ranks_after_avg and team_id in ranks_before_avg) else None
+        }
+    
+    return {
+        "teams": teams_results,
+        "simulation_ranks": simulation_ranks,
+        "validation": {
+            "is_valid": True,
+            "errors": []
+        }
     }
 
 @app.get("/api/dashboard/{team_id}")
