@@ -15,15 +15,25 @@ from typing import List
 app = FastAPI()
 
 # Настройка CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Для продакшена используйте переменную окружения CORS_ORIGINS (через запятую)
+# Например: CORS_ORIGINS=http://yourdomain.com,http://www.yourdomain.com
+import os
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env:
+    allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    # По умолчанию для разработки
+    allowed_origins = [
         "http://localhost:5173",  # Vite dev server
         "http://localhost:3000",  # Docker frontend (old port)
         "http://localhost:3001",  # Docker frontend (new port)
         "http://127.0.0.1:3000",  # Docker frontend alternative
         "http://127.0.0.1:3001",  # Docker frontend alternative
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

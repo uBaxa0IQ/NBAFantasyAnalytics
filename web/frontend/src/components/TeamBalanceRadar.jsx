@@ -1,5 +1,6 @@
 import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
+import api from '../api';
 
 const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, compareTeamId = null, compareTeamName = null }) => {
     const [data, setData] = React.useState(null);
@@ -20,10 +21,14 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, c
                 const puntStr = puntCategories.join(',');
                 
                 // Загружаем данные для основной команды
-                const response = await fetch(
-                    `http://localhost:8000/api/team-balance/${teamId}?period=${period}&punt_categories=${puntStr}&exclude_ir=${excludeIr}`
-                );
-                const result = await response.json();
+                const response = await api.get(`/team-balance/${teamId}`, {
+                    params: {
+                        period,
+                        punt_categories: puntStr,
+                        exclude_ir: excludeIr
+                    }
+                });
+                const result = response.data;
 
                 if (result.error) {
                     setError(result.error);
@@ -38,10 +43,14 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, c
 
                 // Если нужно сравнение, загружаем данные для второй команды
                 if (compareTeamId) {
-                    const compareResponse = await fetch(
-                        `http://localhost:8000/api/team-balance/${compareTeamId}?period=${period}&punt_categories=${puntStr}&exclude_ir=${excludeIr}`
-                    );
-                    const compareResult = await compareResponse.json();
+                    const compareResponse = await api.get(`/team-balance/${compareTeamId}`, {
+                        params: {
+                            period,
+                            punt_categories: puntStr,
+                            exclude_ir: excludeIr
+                        }
+                    });
+                    const compareResult = compareResponse.data;
 
                     if (compareResult.error) {
                         setCompareData(null);

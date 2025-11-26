@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../api';
 
 const MatchupDetails = ({ teamId, currentMatchup }) => {
     const [matchupData, setMatchupData] = useState(null);
@@ -13,8 +14,8 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
 
         setLoading(true);
         setError(null);
-        fetch(`http://localhost:8000/api/dashboard/${teamId}/matchup-details`)
-            .then(res => res.json())
+        api.get(`/dashboard/${teamId}/matchup-details`)
+            .then(res => res.data)
             .then(data => {
                 if (data.error) {
                     setError(data.error);

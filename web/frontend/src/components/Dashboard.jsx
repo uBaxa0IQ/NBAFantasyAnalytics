@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
 import MatchupDetails from './MatchupDetails';
+import api from '../api';
 
 const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
     const [teams, setTeams] = useState([]);
@@ -11,9 +12,9 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
 
     // Загрузка списка команд
     useEffect(() => {
-        fetch('http://localhost:8000/api/teams')
-            .then(res => res.json())
-            .then(data => {
+        api.get('/teams')
+            .then(res => {
+                const data = res.data;
                 setTeams(data);
                 if (!selectedTeam && data.length > 0) {
                     setSelectedTeam(data[0].team_id.toString());
@@ -27,8 +28,10 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
         if (!selectedTeam) return;
 
         setLoading(true);
-        fetch(`http://localhost:8000/api/dashboard/${selectedTeam}?period=${period}&exclude_ir=${excludeIr}`)
-            .then(res => res.json())
+        api.get(`/dashboard/${selectedTeam}`, {
+            params: { period, exclude_ir: excludeIr }
+        })
+            .then(res => res.data)
             .then(data => {
                 setDashboardData(data);
                 setLoading(false);
