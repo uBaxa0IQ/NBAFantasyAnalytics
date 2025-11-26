@@ -122,7 +122,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                                 : 'bg-blue-600 text-white hover:bg-blue-700'
                         }`}
                     >
-                        {refreshing ? 'Обновление...' : '🔄 Обновить данные'}
+                        {refreshing ? 'Обновление...' : 'Обновить данные'}
                     </button>
                 </div>
             </div>
