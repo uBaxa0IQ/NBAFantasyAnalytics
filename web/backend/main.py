@@ -969,3 +969,434 @@ def analyze_trade(request: TradeAnalysisRequest):
         },
         "simulation_ranks": simulation_ranks
     }
+
+@app.get("/api/dashboard/{team_id}")
+def get_dashboard(team_id: int, period: str = "2026_total"):
+    """
+    Получает данные для дашборда команды:
+    - Информация о команде
+    - Текущий матчап
+    - Топ-3 игрока
+    - Список травмированных игроков
+    """
+    from core.z_score import calculate_z_scores
+    import math
+    
+    # Получаем команду
+    team = league_meta.get_team_by_id(team_id)
+    if not team:
+        return {"error": "Team not found"}
+    
+    # Получаем ростер
+    roster = league_meta.get_team_roster(team_id)
+    
+    # Рассчитываем Z-scores для всей лиги
+    data = calculate_z_scores(league_meta, period)
+    
+    # Фильтруем данные только для выбранной команды
+    team_players = [p for p in data['players'] if p['team_id'] == team_id]
+    
+    # Добавляем полную статистику к игрокам
+    all_players_with_stats = league_meta.get_all_players_stats(period, 'avg')
+    stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
+    
+    for player in team_players:
+        player['stats'] = stats_by_name.get(player['name'], {})
+    
+    # Вычисляем общий Z-score команды
+    total_z_score = 0
+    for player in team_players:
+        player_z_total = sum(
+            z for z in player['z_scores'].values() 
+            if math.isfinite(z)
+        )
+        total_z_score += player_z_total
+    
+    # Топ-3 игрока по Z-score
+    players_with_totals = []
+    for player in team_players:
+        total = sum(z for z in player['z_scores'].values() if math.isfinite(z))
+        players_with_totals.append({
+            'name': player['name'],
+            'position': player['position'],
+            'total_z': total,
+            'z_scores': player['z_scores']
+        })
+    
+    players_with_totals.sort(key=lambda x: x['total_z'], reverse=True)
+    top_players = players_with_totals[:3]
+    
+    # Получаем текущую неделю
+    current_week = league_meta.league.currentMatchupPeriod
+    
+    # Получаем текущий матчап
+    current_matchup = None
+    matchup_box = league_meta.get_matchup_box_score(current_week, team_id)
+    if matchup_box:
+        current_matchup = {
+            'week': current_week,
+            'opponent_name': matchup_box['opponent_name'],
+            'opponent_id': matchup_box['opponent_id']
+        }
+    
+    # Получаем список травмированных игроков
+    injured_players = []
+    for player in roster:
+        injury_status = getattr(player, 'injuryStatus', 'ACTIVE')
+        is_injured = getattr(player, 'injured', False)
+        
+        if is_injured or injury_status not in ['ACTIVE', None]:
+            injured_players.append({
+                'name': player.name,
+                'position': getattr(player, 'position', 'N/A'),
+                'injury_status': injury_status,
+                'in_ir': getattr(player, 'lineupSlot', '') == 'IR'
+            })
+    
+    return {
+        "team_id": team_id,
+        "team_name": team.team_name,
+        "roster_size": len(roster),
+        "total_z_score": round(total_z_score, 2),
+        "current_matchup": current_matchup,
+        "top_players": top_players,
+        "injured_players": injured_players,
+        "period": period
+    }
+
+@app.get("/api/team-balance/{team_id}")
+def get_team_balance(team_id: int, period: str = "2026_total", punt_categories: str = ""):
+    """
+    Получает данные для радар-графика баланса команды.
+    Возвращает Z-scores по категориям.
+    """
+    from core.z_score import calculate_z_scores
+    from core.config import CATEGORIES
+    import math
+    
+    # Парсим punt категории
+    punt_cats = []
+    if punt_categories:
+        punt_cats = punt_categories.split(',')
+    
+    # Рассчитываем Z-scores для всей лиги
+    data = calculate_z_scores(league_meta, period)
+    
+    if not data['players']:
+        return {"error": "No data found"}
+    
+    # Фильтруем данные только для выбранной команды
+    team_players = [p for p in data['players'] if p['team_id'] == team_id]
+    
+    if not team_players:
+        return {"error": "Team not found"}
+    
+    # Суммируем Z-scores по категориям
+    category_totals = {cat: 0 for cat in CATEGORIES}
+    
+    for player in team_players:
+        for cat in CATEGORIES:
+            if cat not in punt_cats:
+                z_val = player['z_scores'].get(cat, 0)
+                if math.isfinite(z_val):
+                    category_totals[cat] += z_val
+    
+    # Форматируем для Recharts
+    radar_data = []
+    for cat in CATEGORIES:
+        if cat not in punt_cats:
+            radar_data.append({
+                'category': cat,
+                'value': round(category_totals[cat], 2)
+            })
+    
+    return {
+        "team_id": team_id,
+        "period": period,
+        "data": radar_data
+    }
+
+@app.get("/api/simulation-detailed/{week}")
+def get_simulation_detailed(week: int, weeks_count: int = None, mode: str = "matchup", period: str = "2026_total"):
+    """
+    Расширенная симуляция с детальными результатами матчапов для каждой команды.
+    """
+    from core.config import CATEGORIES
+    from core.z_score import calculate_z_scores
+    import math
+    
+    # Получаем список всех команд
+    teams = league_meta.get_teams()
+    team_stats = {}
+    
+    if mode == "matchup":
+        # Режим по матчапам (текущий)
+        if weeks_count is None:
+            weeks_count = week
+        
+        weeks_count = min(weeks_count, week)
+        weeks_count = max(weeks_count, 1)
+        
+        for team in teams:
+            all_weeks_stats = []
+            
+            for w in range(week - weeks_count + 1, week + 1):
+                if w < 1:
+                    continue
+                box = league_meta.get_matchup_box_score(w, team.team_id)
+                if box:
+                    stats = league_meta.filter_stats_by_categories(box['totals'])
+                    all_weeks_stats.append(stats)
+            
+            if not all_weeks_stats:
+                continue
+            
+            # Усредняем статистику
+            avg_stats = {}
+            for cat in CATEGORIES:
+                values = [s.get(cat, 0.0) for s in all_weeks_stats if cat in s]
+                avg_stats[cat] = sum(values) / len(values) if values else 0.0
+            
+            team_stats[team.team_id] = {
+                'name': team.team_name,
+                'stats': avg_stats
+            }
+    
+    elif mode == "team_stats_avg":
+        # Режим по статистике команд (avg)
+        all_players = league_meta.get_all_players_stats(period, 'avg')
+        
+        def calculate_team_raw_stats(team_players):
+            counting_stats = {cat: 0 for cat in ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'TO']}
+            fg_makes = 0
+            fg_attempts = 0
+            ft_makes = 0
+            ft_attempts = 0
+            three_makes = 0
+            three_attempts = 0
+            assists = 0
+            turnovers = 0
+            
+            for player in team_players:
+                stats = player.get('stats', {})
+                
+                for cat in counting_stats:
+                    val = stats.get(cat, 0)
+                    counting_stats[cat] += val if math.isfinite(val) else 0
+                
+                fgm = stats.get('FGM', 0)
+                fga = stats.get('FGA', 0)
+                fg_makes += fgm if math.isfinite(fgm) else 0
+                fg_attempts += fga if math.isfinite(fga) else 0
+                
+                ftm = stats.get('FTM', 0)
+                fta = stats.get('FTA', 0)
+                ft_makes += ftm if math.isfinite(ftm) else 0
+                ft_attempts += fta if math.isfinite(fta) else 0
+                
+                tpm = stats.get('3PM', 0)
+                tpa = stats.get('3PA', 0)
+                three_makes += tpm if math.isfinite(tpm) else 0
+                three_attempts += tpa if math.isfinite(tpa) else 0
+                
+                ast = stats.get('AST', 0)
+                to = stats.get('TO', 0)
+                assists += ast if math.isfinite(ast) else 0
+                turnovers += to if math.isfinite(to) else 0
+            
+            raw_stats = counting_stats.copy()
+            raw_stats['FG%'] = (fg_makes / fg_attempts * 100) if fg_attempts > 0 else 0
+            raw_stats['FT%'] = (ft_makes / ft_attempts * 100) if ft_attempts > 0 else 0
+            raw_stats['3PT%'] = (three_makes / three_attempts * 100) if three_attempts > 0 else 0
+            raw_stats['A/TO'] = (assists / turnovers) if turnovers > 0 else (assists if assists > 0 else 0)
+            
+            return raw_stats
+        
+        players_by_team = {}
+        for player in all_players:
+            team_id = player['team_id']
+            if team_id not in players_by_team:
+                players_by_team[team_id] = []
+            players_by_team[team_id].append(player)
+        
+        for team in teams:
+            if team.team_id in players_by_team:
+                team_players = players_by_team[team.team_id]
+                team_raw_stats = calculate_team_raw_stats(team_players)
+                
+                filtered_stats = {}
+                for cat in CATEGORIES:
+                    if cat in team_raw_stats:
+                        filtered_stats[cat] = team_raw_stats[cat]
+                    else:
+                        filtered_stats[cat] = 0.0
+                
+                team_stats[team.team_id] = {
+                    'name': team.team_name,
+                    'stats': filtered_stats
+                }
+    
+    elif mode == "z_scores":
+        # Режим по Z-score
+        z_data = calculate_z_scores(league_meta, period)
+        
+        if not z_data['players']:
+            return {"error": "No data found"}
+        
+        def calculate_team_category_z(team_players):
+            cat_totals = {cat: 0 for cat in CATEGORIES}
+            for player in team_players:
+                for cat in CATEGORIES:
+                    z_val = player['z_scores'].get(cat, 0)
+                    if math.isfinite(z_val):
+                        cat_totals[cat] += z_val
+            return cat_totals
+        
+        players_by_team = {}
+        for player in z_data['players']:
+            team_id = player['team_id']
+            if team_id not in players_by_team:
+                players_by_team[team_id] = []
+            players_by_team[team_id].append(player)
+        
+        for team in teams:
+            if team.team_id in players_by_team:
+                team_players = players_by_team[team.team_id]
+                team_cats = calculate_team_category_z(team_players)
+                
+                team_stats[team.team_id] = {
+                    'name': team.team_name,
+                    'stats': team_cats
+                }
+    
+    else:
+        return {"error": f"Unknown mode: {mode}"}
+            
+    if not team_stats:
+        return {"error": "No stats found"}
+        
+    # Симуляция "все против всех" с сохранением детальных результатов
+    team_ids = list(team_stats.keys())
+    
+    # Структура для хранения результатов каждой команды
+    simulation_results = {}
+    for tid in team_ids:
+        simulation_results[tid] = {
+            'wins': 0,
+            'losses': 0,
+            'ties': 0,
+            'name': team_stats[tid]['name'],
+            'matchups': []  # Детальные результаты всех матчапов
+        }
+    
+    # Проводим все матчи
+    for i in range(len(team_ids)):
+        id1 = team_ids[i]
+        stats1 = team_stats[id1]['stats']
+        
+        for j in range(i + 1, len(team_ids)):
+            id2 = team_ids[j]
+            stats2 = team_stats[id2]['stats']
+            
+            # Сравнение двух команд по категориям
+            wins1 = 0
+            wins2 = 0
+            category_results = {}
+            
+            for cat in CATEGORIES:
+                val1 = stats1.get(cat, 0.0)
+                val2 = stats2.get(cat, 0.0)
+                
+                # TO (Turnovers) - чем меньше, тем лучше
+                if cat == 'TO':
+                    if val1 < val2:
+                        wins1 += 1
+                        category_results[cat] = 'win'
+                    elif val2 < val1:
+                        wins2 += 1
+                        category_results[cat] = 'loss'
+                    else:
+                        category_results[cat] = 'tie'
+                else:
+                    if val1 > val2:
+                        wins1 += 1
+                        category_results[cat] = 'win'
+                    elif val2 > val1:
+                        wins2 += 1
+                        category_results[cat] = 'loss'
+                    else:
+                        category_results[cat] = 'tie'
+            
+            # Определяем результат матчапа
+            if wins1 > wins2:
+                result1 = 'win'
+                result2 = 'loss'
+                simulation_results[id1]['wins'] += 1
+                simulation_results[id2]['losses'] += 1
+            elif wins2 > wins1:
+                result1 = 'loss'
+                result2 = 'win'
+                simulation_results[id2]['wins'] += 1
+                simulation_results[id1]['losses'] += 1
+            else:
+                result1 = 'tie'
+                result2 = 'tie'
+                simulation_results[id1]['ties'] += 1
+                simulation_results[id2]['ties'] += 1
+            
+            # Сохраняем детальный результат для обеих команд
+            simulation_results[id1]['matchups'].append({
+                'opponent_id': id2,
+                'opponent_name': team_stats[id2]['name'],
+                'result': result1,
+                'score': f"{wins1}-{wins2}",
+                'categories': category_results.copy()
+            })
+            
+            # Инвертируем результаты категорий для второй команды
+            inverted_categories = {}
+            for cat, res in category_results.items():
+                if res == 'win':
+                    inverted_categories[cat] = 'loss'
+                elif res == 'loss':
+                    inverted_categories[cat] = 'win'
+                else:
+                    inverted_categories[cat] = 'tie'
+            
+            simulation_results[id2]['matchups'].append({
+                'opponent_id': id1,
+                'opponent_name': team_stats[id1]['name'],
+                'result': result2,
+                'score': f"{wins2}-{wins1}",
+                'categories': inverted_categories
+            })
+    
+    # Формируем итоговый список с винрейтом
+    final_results = []
+    for team_id, result in simulation_results.items():
+        wins = result['wins']
+        losses = result['losses']
+        ties = result['ties']
+        total_games = wins + losses + ties
+        
+        win_rate = (wins + 0.5 * ties) / total_games if total_games > 0 else 0
+        
+        final_results.append({
+            'team_id': team_id,
+            'name': result['name'],
+            'wins': wins,
+            'losses': losses,
+            'ties': ties,
+            'win_rate': round(win_rate * 100, 1),
+            'matchups': result['matchups']  # Детальные результаты
+        })
+    
+    # Сортируем по винрейту
+    final_results.sort(key=lambda x: x['win_rate'], reverse=True)
+    
+    return {
+        'mode': mode,
+        'week': week,
+        'period': period,
+        'results': final_results
+    }

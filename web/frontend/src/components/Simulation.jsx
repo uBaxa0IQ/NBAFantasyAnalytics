@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import SimulationDetailsModal from './SimulationDetailsModal';
 
 const Simulation = () => {
     const [weeks, setWeeks] = useState([]);
@@ -10,6 +11,7 @@ const Simulation = () => {
     const [loading, setLoading] = useState(false);
     const [simulationMode, setSimulationMode] = useState('matchup'); // 'matchup', 'team_stats_avg', 'z_scores'
     const [period, setPeriod] = useState('2026_total');
+    const [selectedTeam, setSelectedTeam] = useState(null);  // Для модального окна
 
     useEffect(() => {
         api.get('/weeks').then(res => {
@@ -25,9 +27,9 @@ const Simulation = () => {
             // Для режима matchup нужны недели
             if (selectedWeek && weeksCount !== null) {
                 setLoading(true);
-                api.get(`/simulation/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup`)
+                api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup`)
                     .then(res => {
-                        setResults(res.data);
+                        setResults(res.data.results);
                         setLoading(false);
                     })
                     .catch(err => {
@@ -38,9 +40,9 @@ const Simulation = () => {
         } else {
             // Для других режимов нужен период
             setLoading(true);
-            api.get(`/simulation/1?mode=${simulationMode}&period=${period}`)
+            api.get(`/simulation-detailed/1?mode=${simulationMode}&period=${period}`)
                 .then(res => {
-                    setResults(res.data);
+                    setResults(res.data.results);
                     setLoading(false);
                 })
                 .catch(err => {
@@ -53,24 +55,28 @@ const Simulation = () => {
     // Генерируем опции для количества недель
     const weeksOptions = selectedWeek ? Array.from({ length: parseInt(selectedWeek) }, (_, i) => i + 1) : [];
 
+    const handleTeamClick = (team) => {
+        setSelectedTeam(team);
+    };
+
     return (
         <div className="p-4">
             <div className="mb-4 flex gap-4 items-center flex-wrap">
                 <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
-                    <button 
-                        onClick={() => setSimulationMode('matchup')} 
+                    <button
+                        onClick={() => setSimulationMode('matchup')}
                         className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationMode === 'matchup' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         По матчапам
                     </button>
-                    <button 
-                        onClick={() => setSimulationMode('team_stats_avg')} 
+                    <button
+                        onClick={() => setSimulationMode('team_stats_avg')}
                         className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationMode === 'team_stats_avg' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         По статистике (avg)
                     </button>
-                    <button 
-                        onClick={() => setSimulationMode('z_scores')} 
+                    <button
+                        onClick={() => setSimulationMode('z_scores')}
                         className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationMode === 'z_scores' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         По Z-score
@@ -138,9 +144,13 @@ const Simulation = () => {
                         </thead>
                         <tbody>
                             {results.map((team, index) => (
-                                <tr key={team.name} className="hover:bg-gray-50">
+                                <tr
+                                    key={team.name}
+                                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                                    onClick={() => handleTeamClick(team)}
+                                >
                                     <td className="p-2 border text-center font-bold">{index + 1}</td>
-                                    <td className="p-2 border font-medium">{team.name}</td>
+                                    <td className="p-2 border font-medium text-blue-600 hover:underline">{team.name}</td>
                                     <td className="p-2 border text-center text-green-600 font-bold">{team.wins}</td>
                                     <td className="p-2 border text-center text-red-600">{team.losses}</td>
                                     <td className="p-2 border text-center text-gray-500">{team.ties}</td>
@@ -151,8 +161,16 @@ const Simulation = () => {
                     </table>
                 </div>
             )}
+
+            {selectedTeam && (
+                <SimulationDetailsModal
+                    team={selectedTeam}
+                    onClose={() => setSelectedTeam(null)}
+                />
+            )}
         </div>
     );
 };
 
 export default Simulation;
+

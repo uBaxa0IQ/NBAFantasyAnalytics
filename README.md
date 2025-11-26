@@ -37,7 +37,7 @@ cd NBA_MEGA_APP
 Установите зависимости Python:
 
 ```bash
-pip install -r requirements.txt
+pip install fastapi uvicorn espn-api pydantic python-dotenv
 ```
 
 Или создайте виртуальное окружение:
@@ -48,16 +48,16 @@ source venv/bin/activate  # Linux/Mac
 # или
 venv\Scripts\activate  # Windows
 
-pip install -r requirements.txt
+pip install fastapi uvicorn espn-api pydantic python-dotenv
 ```
 
 ### 3. Настройка конфигурации
 
-Создайте файл `.env` в корне проекта и укажите данные для подключения к ESPN API:
+Создайте файл `.env` в корневой директории проекта и укажите ваши данные ESPN:
 
-```env
-ESPN_S2=your_espn_s2_token
-SWID={your-swid-guid}
+```bash
+ESPN_S2=your_espn_s2_token_here
+SWID={your-swid-guid-here}
 ```
 
 **Как получить ESPN_S2 и SWID:**
@@ -67,7 +67,7 @@ SWID={your-swid-guid}
 4. Найдите `espn_s2` и `SWID`
 5. Скопируйте их значения в файл `.env`
 
-**Примечание:** Файл `.env` уже добавлен в `.gitignore` и не будет попадать в репозиторий.
+**Примечание:** Файл `.env` не должен коммититься в git (уже добавлен в `.gitignore`). ID лиги и год сезона настраиваются в `core/config.py`.
 
 ### 4. Настройка Frontend
 
@@ -144,7 +144,7 @@ npm run dev
 ```
 NBA_MEGA_APP/
 ├── core/                    # Основные модули
-│   ├── config.py           # Конфигурация
+│   ├── config.py           # Конфигурация (ESPN API credentials)
 │   ├── league_metadata.py  # Работа с метаданными лиги
 │   ├── z_score.py          # Расчет Z-scores
 │   └── rank_players.py     # Утилита для ранжирования игроков
@@ -160,8 +160,6 @@ NBA_MEGA_APP/
 │       │   │   └── ...
 │       │   └── App.jsx
 │       └── package.json
-├── .env                     # Переменные окружения (ESPN_S2, SWID)
-├── requirements.txt         # Python зависимости
 ├── start_app.bat           # Скрипт запуска (Windows)
 └── README.md
 ```

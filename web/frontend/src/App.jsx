@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Dashboard from './components/Dashboard';
 import Analytics from './components/Analytics';
 import Simulation from './components/Simulation';
 import FreeAgents from './components/FreeAgents';
@@ -7,7 +8,7 @@ import PlayerModal from './components/PlayerModal';
 import TradeAnalyzer from './components/TradeAnalyzer';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('analytics');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   // Общие настройки для всех вкладок с сохранением в localStorage
@@ -54,6 +55,12 @@ function App() {
       <main className="container mx-auto mt-4 p-4">
         <div className="flex border-b mb-4 overflow-x-auto">
           <button
+            className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'dashboard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            Dashboard
+          </button>
+          <button
             className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'analytics' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('analytics')}
           >
@@ -86,6 +93,16 @@ function App() {
         </div>
 
         <div className="bg-white rounded shadow p-4 min-h-[500px]">
+          {activeTab === 'dashboard' && (
+            <Dashboard
+              period={period}
+              setPeriod={setPeriod}
+              puntCategories={puntCategories}
+              setPuntCategories={setPuntCategories}
+              selectedTeam={selectedTeam}
+              setSelectedTeam={setSelectedTeam}
+            />
+          )}
           {activeTab === 'analytics' && (
             <Analytics
               onPlayerClick={handlePlayerClick}
