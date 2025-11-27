@@ -46,6 +46,16 @@ class LeagueMetadata:
             print(f"Ошибка подключения к лиге: {e}")
             return False
     
+    def refresh_league(self) -> bool:
+        """
+        Обновление данных лиги из ESPN API.
+        Перезагружает данные о командах и игроках.
+        
+        Returns:
+            True если обновление успешно, False в противном случае
+        """
+        return self.connect_to_league()
+    
     def get_teams(self) -> List:
         """
         Получает список всех команд лиги.
