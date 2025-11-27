@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import PlayerBalanceRadar from './PlayerBalanceRadar';
 
 const PlayerModal = ({ player, onClose }) => {
     const [trends, setTrends] = useState(null);
     const [loadingTrends, setLoadingTrends] = useState(false);
-    const [activeTab, setActiveTab] = useState('current'); // 'current' или 'trends'
+    const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'current' или 'trends'
     const [statsView, setStatsView] = useState('z-scores'); // 'z-scores' или 'raw'
     const [rawStats, setRawStats] = useState(null);
     const [loadingStats, setLoadingStats] = useState(false);
+    const [radarPeriod, setRadarPeriod] = useState('2026_total');
 
     useEffect(() => {
         if (player && activeTab === 'trends') {
@@ -107,6 +109,16 @@ const PlayerModal = ({ player, onClose }) => {
                     <div className="mb-4 border-b">
                         <div className="flex gap-2">
                             <button
+                                onClick={() => setActiveTab('radar')}
+                                className={`px-4 py-2 font-medium transition-colors ${
+                                    activeTab === 'radar'
+                                        ? 'border-b-2 border-blue-600 text-blue-600'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                                Радар
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('current')}
                                 className={`px-4 py-2 font-medium transition-colors ${
                                     activeTab === 'current'
@@ -128,6 +140,33 @@ const PlayerModal = ({ player, onClose }) => {
                             </button>
                         </div>
                     </div>
+
+                    {/* Radar Tab */}
+                    {activeTab === 'radar' && (
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold">Баланс по категориям</h3>
+                                <div>
+                                    <label className="mr-2 text-sm text-gray-600">Период:</label>
+                                    <select 
+                                        className="border p-2 rounded text-sm" 
+                                        value={radarPeriod} 
+                                        onChange={e => setRadarPeriod(e.target.value)}
+                                    >
+                                        <option value="2026_total">Весь сезон</option>
+                                        <option value="2026_last_30">Последние 30 дней</option>
+                                        <option value="2026_last_15">Последние 15 дней</option>
+                                        <option value="2026_last_7">Последние 7 дней</option>
+                                        <option value="2026_projected">Прогноз</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <PlayerBalanceRadar 
+                                playerName={player.name} 
+                                period={radarPeriod}
+                            />
+                        </div>
+                    )}
 
                     {/* Current Stats Tab */}
                     {activeTab === 'current' && (

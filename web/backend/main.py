@@ -1754,6 +1754,15 @@ def get_player_trends(player_name: str):
         if player_obj:
             break
     
+    # Если не найден в командах, ищем среди свободных агентов
+    if not player_obj:
+        free_agents = league_meta.get_free_agents(size=200)
+        for fa in free_agents:
+            if fa.name == player_name:
+                player_obj = fa
+                player_team_id = None  # Свободный агент не имеет team_id
+                break
+    
     if not player_obj:
         return {"error": "Player not found"}
     
@@ -1778,15 +1787,82 @@ def get_player_trends(player_name: str):
         # Фильтруем статистику по категориям
         filtered_stats = league_meta.filter_stats_by_categories(player_stats)
         
-        # Рассчитываем Z-scores для всей лиги за этот период
+        # Рассчитываем Z-scores для всей лиги за этот период (только игроки в составах)
         period_z_data = calculate_z_scores(league_meta, period, exclude_ir=False)
+        league_metrics = period_z_data.get('league_metrics', {})
         
         # Находим Z-scores этого игрока
         player_z_scores = {}
+        
+        # Сначала пытаемся найти в списке игроков из calculate_z_scores (если игрок в составе)
+        found_in_list = False
         for player_data in period_z_data.get('players', []):
             if player_data.get('name') == player_name:
                 player_z_scores = player_data.get('z_scores', {})
+                found_in_list = True
                 break
+        
+        # Если не найден (свободный агент), рассчитываем Z-scores вручную относительно метрик лиги
+        if not found_in_list and league_metrics:
+            from core.z_score import COUNTING_CATEGORIES, PERCENTAGE_CATEGORIES
+            
+            # Получаем avg статистику для расчета Z-scores
+            player_stats_avg = league_meta.get_player_stats(player_obj, period, 'avg')
+            if player_stats_avg:
+                # Счетные категории
+                for cat in COUNTING_CATEGORIES:
+                    if cat in player_stats_avg and cat in league_metrics:
+                        value = player_stats_avg[cat]
+                        mean = league_metrics[cat]['mean']
+                        std = league_metrics[cat]['std']
+                        z_score = (value - mean) / std if std > 0 else 0
+                        if math.isfinite(z_score):
+                            player_z_scores[cat] = z_score
+                
+                # Процентные категории
+                if 'FG%' in player_stats_avg and 'FGA' in player_stats_avg and 'FG%' in league_metrics:
+                    fg_pct = player_stats_avg['FG%']
+                    fga = player_stats_avg['FGA']
+                    fg_avg = league_metrics['FG%']['weighted_avg']
+                    impact = (fg_pct - fg_avg) * fga
+                    impact_mean = league_metrics['FG%']['impact_mean']
+                    impact_std = league_metrics['FG%']['impact_std']
+                    z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                    if math.isfinite(z_score):
+                        player_z_scores['FG%'] = z_score
+                
+                if 'FT%' in player_stats_avg and 'FTA' in player_stats_avg and 'FT%' in league_metrics:
+                    ft_pct = player_stats_avg['FT%']
+                    fta = player_stats_avg['FTA']
+                    ft_avg = league_metrics['FT%']['weighted_avg']
+                    impact = (ft_pct - ft_avg) * fta
+                    impact_mean = league_metrics['FT%']['impact_mean']
+                    impact_std = league_metrics['FT%']['impact_std']
+                    z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                    if math.isfinite(z_score):
+                        player_z_scores['FT%'] = z_score
+                
+                if '3PT%' in player_stats_avg and '3PA' in player_stats_avg and '3PT%' in league_metrics:
+                    three_pct = player_stats_avg['3PT%']
+                    three_pa = player_stats_avg['3PA']
+                    three_avg = league_metrics['3PT%']['weighted_avg']
+                    impact = (three_pct - three_avg) * three_pa
+                    impact_mean = league_metrics['3PT%']['impact_mean']
+                    impact_std = league_metrics['3PT%']['impact_std']
+                    z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                    if math.isfinite(z_score):
+                        player_z_scores['3PT%'] = z_score
+                
+                if 'AST' in player_stats_avg and 'TO' in player_stats_avg and 'A/TO' in league_metrics:
+                    ast = player_stats_avg['AST']
+                    to = player_stats_avg['TO']
+                    a_to_avg = league_metrics['A/TO']['weighted_avg']
+                    impact = ast - to * a_to_avg
+                    impact_mean = league_metrics['A/TO']['impact_mean']
+                    impact_std = league_metrics['A/TO']['impact_std']
+                    z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                    if math.isfinite(z_score):
+                        player_z_scores['A/TO'] = z_score
         
         # Вычисляем общий Z-score
         total_z = sum(z for z in player_z_scores.values() if math.isfinite(z))
@@ -1812,6 +1888,137 @@ def get_player_trends(player_name: str):
     return {
         'player_name': player_name,
         'trends': trends
+    }
+
+@app.get("/api/player/{player_name}/balance")
+def get_player_balance(player_name: str, period: str = "2026_total"):
+    """
+    Получает данные для радар-графика баланса игрока.
+    Возвращает Z-scores по категориям.
+    """
+    from core.z_score import calculate_z_scores
+    from core.config import CATEGORIES
+    import math
+    
+    # Находим игрока во всех командах или среди свободных агентов
+    all_teams = league_meta.get_teams()
+    player_obj = None
+    player_team_id = None
+    
+    for team in all_teams:
+        roster = league_meta.get_team_roster(team.team_id)
+        for player in roster:
+            if player.name == player_name:
+                player_obj = player
+                player_team_id = team.team_id
+                break
+        if player_obj:
+            break
+    
+    # Если не найден в командах, ищем среди свободных агентов
+    if not player_obj:
+        free_agents = league_meta.get_free_agents(size=200)
+        for fa in free_agents:
+            if fa.name == player_name:
+                player_obj = fa
+                player_team_id = None
+                break
+    
+    if not player_obj:
+        return {"error": "Player not found"}
+    
+    # Рассчитываем Z-scores для всей лиги за этот период
+    period_z_data = calculate_z_scores(league_meta, period, exclude_ir=False)
+    league_metrics = period_z_data.get('league_metrics', {})
+    
+    # Находим Z-scores этого игрока
+    player_z_scores = {}
+    
+    # Сначала пытаемся найти в списке игроков из calculate_z_scores (если игрок в составе)
+    found_in_list = False
+    for player_data in period_z_data.get('players', []):
+        if player_data.get('name') == player_name:
+            player_z_scores = player_data.get('z_scores', {})
+            found_in_list = True
+            break
+    
+    # Если не найден (свободный агент), рассчитываем Z-scores вручную относительно метрик лиги
+    if not found_in_list and league_metrics:
+        from core.z_score import COUNTING_CATEGORIES, PERCENTAGE_CATEGORIES
+        
+        # Получаем avg статистику для расчета Z-scores
+        player_stats_avg = league_meta.get_player_stats(player_obj, period, 'avg')
+        if player_stats_avg:
+            # Счетные категории
+            for cat in COUNTING_CATEGORIES:
+                if cat in player_stats_avg and cat in league_metrics:
+                    value = player_stats_avg[cat]
+                    mean = league_metrics[cat]['mean']
+                    std = league_metrics[cat]['std']
+                    z_score = (value - mean) / std if std > 0 else 0
+                    if math.isfinite(z_score):
+                        player_z_scores[cat] = z_score
+            
+            # Процентные категории
+            if 'FG%' in player_stats_avg and 'FGA' in player_stats_avg and 'FG%' in league_metrics:
+                fg_pct = player_stats_avg['FG%']
+                fga = player_stats_avg['FGA']
+                fg_avg = league_metrics['FG%']['weighted_avg']
+                impact = (fg_pct - fg_avg) * fga
+                impact_mean = league_metrics['FG%']['impact_mean']
+                impact_std = league_metrics['FG%']['impact_std']
+                z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                if math.isfinite(z_score):
+                    player_z_scores['FG%'] = z_score
+            
+            if 'FT%' in player_stats_avg and 'FTA' in player_stats_avg and 'FT%' in league_metrics:
+                ft_pct = player_stats_avg['FT%']
+                fta = player_stats_avg['FTA']
+                ft_avg = league_metrics['FT%']['weighted_avg']
+                impact = (ft_pct - ft_avg) * fta
+                impact_mean = league_metrics['FT%']['impact_mean']
+                impact_std = league_metrics['FT%']['impact_std']
+                z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                if math.isfinite(z_score):
+                    player_z_scores['FT%'] = z_score
+            
+            if '3PT%' in player_stats_avg and '3PA' in player_stats_avg and '3PT%' in league_metrics:
+                three_pct = player_stats_avg['3PT%']
+                three_pa = player_stats_avg['3PA']
+                three_avg = league_metrics['3PT%']['weighted_avg']
+                impact = (three_pct - three_avg) * three_pa
+                impact_mean = league_metrics['3PT%']['impact_mean']
+                impact_std = league_metrics['3PT%']['impact_std']
+                z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                if math.isfinite(z_score):
+                    player_z_scores['3PT%'] = z_score
+            
+            if 'AST' in player_stats_avg and 'TO' in player_stats_avg and 'A/TO' in league_metrics:
+                ast = player_stats_avg['AST']
+                to = player_stats_avg['TO']
+                a_to_avg = league_metrics['A/TO']['weighted_avg']
+                impact = ast - to * a_to_avg
+                impact_mean = league_metrics['A/TO']['impact_mean']
+                impact_std = league_metrics['A/TO']['impact_std']
+                z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
+                if math.isfinite(z_score):
+                    player_z_scores['A/TO'] = z_score
+    
+    # Форматируем для Recharts
+    radar_data = []
+    for cat in CATEGORIES:
+        z_val = player_z_scores.get(cat, 0)
+        if not math.isfinite(z_val):
+            z_val = 0
+        radar_data.append({
+            'category': cat,
+            'value': round(z_val, 2)
+        })
+    
+    return {
+        "player_name": player_name,
+        "period": period,
+        "data": radar_data
     }
 
 @app.get("/api/team-balance/{team_id}")
