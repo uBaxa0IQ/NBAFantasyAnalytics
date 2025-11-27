@@ -35,11 +35,21 @@ const PlayerComparisonModal = ({ players, onClose }) => {
                 });
 
                 const balanceResponses = await Promise.all(balancePromises);
-                const data = balanceResponses.map((res, idx) => ({
-                    ...players[idx],
-                    radarData: res.data.data || [],
-                    stats: allPlayersMap[players[idx].name] || players[idx].stats || {}
-                }));
+                const data = balanceResponses.map((res, idx) => {
+                    const radarData = res.data.data || [];
+                    // Преобразуем radarData в объект z_scores для использования в таблице
+                    const z_scores = radarData.reduce((acc, item) => {
+                        acc[item.category] = item.value;
+                        return acc;
+                    }, {});
+                    
+                    return {
+                        ...players[idx],
+                        radarData: radarData,
+                        z_scores: z_scores,
+                        stats: allPlayersMap[players[idx].name] || players[idx].stats || {}
+                    };
+                });
 
                 setComparisonData(data);
             } catch (err) {

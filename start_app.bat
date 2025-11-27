@@ -1,4 +1,12 @@
 @echo off
+echo Installing frontend dependencies...
+cd web\frontend
+if not exist "node_modules" (
+    echo node_modules not found, installing dependencies...
+    call npm install
+)
+cd ..\..
+echo.
 start "NBA Backend" cmd /k "uvicorn web.backend.main:app --reload --host 0.0.0.0 --port 8000"
 start "NBA Frontend" cmd /k "cd web\frontend && npm run dev"
 echo App started!
