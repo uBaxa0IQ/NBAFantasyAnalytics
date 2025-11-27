@@ -9,6 +9,8 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     const [loading, setLoading] = useState(true);
     const [excludeIr, setExcludeIr] = useState(false);
     const [compareTeamId, setCompareTeamId] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
+    const [refreshMessage, setRefreshMessage] = useState(null);
 
     // Загрузка списка команд
     useEffect(() => {
@@ -42,13 +44,48 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
             });
     }, [selectedTeam, period, excludeIr]);
 
+    // Функция обновления данных с API
+    const handleRefreshData = async () => {
+        setRefreshing(true);
+        setRefreshMessage(null);
+        
+        try {
+            const response = await api.post('/refresh-league');
+            if (response.data.success) {
+                setRefreshMessage({ type: 'success', text: response.data.message });
+                
+                // Перезагружаем список команд и данные дашборда
+                const teamsRes = await api.get('/teams');
+                const teamsData = teamsRes.data;
+                setTeams(teamsData);
+                
+                // Если выбранная команда все еще существует, перезагружаем данные
+                if (selectedTeam) {
+                    const dashboardRes = await api.get(`/dashboard/${selectedTeam}`, {
+                        params: { period, exclude_ir: excludeIr }
+                    });
+                    setDashboardData(dashboardRes.data);
+                }
+            } else {
+                setRefreshMessage({ type: 'error', text: response.data.message });
+            }
+        } catch (err) {
+            console.error('Error refreshing data:', err);
+            setRefreshMessage({ type: 'error', text: 'Ошибка при обновлении данных' });
+        } finally {
+            setRefreshing(false);
+            // Скрываем сообщение через 5 секунд
+            setTimeout(() => setRefreshMessage(null), 5000);
+        }
+    };
+
     if (loading) {
         return <div className="text-center p-8">Загрузка...</div>;
     }
 
     return (
         <div className="space-y-6">
-            {/* Team Selector */}
+            {/* Team Selector and Refresh Button */}
             <div className="flex gap-4 items-center flex-wrap">
                 <div>
                     <label className="block text-sm font-medium mb-2">Выберите команду:</label>
@@ -75,7 +112,32 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                         <span className="font-medium">Исключить IR игроков</span>
                     </label>
                 </div>
+
+                <div className="mt-6">
+                    <button
+                        onClick={handleRefreshData}
+                        disabled={refreshing}
+                        className={`px-4 py-2 rounded font-medium transition-colors ${
+                            refreshing
+                                ? 'bg-gray-400 cursor-not-allowed text-white'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                    >
+                        {refreshing ? 'Обновление...' : 'Обновить данные'}
+                    </button>
+                </div>
             </div>
+
+            {/* Refresh Message */}
+            {refreshMessage && (
+                <div className={`p-3 rounded ${
+                    refreshMessage.type === 'success' 
+                        ? 'bg-green-100 text-green-800 border border-green-300' 
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                }`}>
+                    {refreshMessage.text}
+                </div>
+            )}
 
             {dashboardData && (
                 <>
