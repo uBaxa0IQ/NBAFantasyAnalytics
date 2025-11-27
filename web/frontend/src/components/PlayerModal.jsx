@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import PlayerBalanceRadar from './PlayerBalanceRadar';
 
-const PlayerModal = ({ player, onClose }) => {
+const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromComparison, isInComparison = false }) => {
     const [trends, setTrends] = useState(null);
     const [loadingTrends, setLoadingTrends] = useState(false);
     const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'current' или 'trends'
@@ -97,12 +97,32 @@ const PlayerModal = ({ player, onClose }) => {
                                 )}
                             </div>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
-                        >
-                            ×
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {onAddToComparison && (
+                                <button
+                                    onClick={() => {
+                                        if (isInComparison) {
+                                            onRemoveFromComparison?.(player.name);
+                                        } else {
+                                            onAddToComparison(player);
+                                        }
+                                    }}
+                                    className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                                        isInComparison
+                                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    }`}
+                                >
+                                    {isInComparison ? 'Убрать из сравнения' : 'Добавить к сравнению'}
+                                </button>
+                            )}
+                            <button
+                                onClick={onClose}
+                                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                            >
+                                ×
+                            </button>
+                        </div>
                     </div>
 
                     {/* Tabs */}
