@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import Analytics from './components/Analytics';
 import Simulation from './components/Simulation';
-import FreeAgents from './components/FreeAgents';
-import AllPlayers from './components/AllPlayers';
+import PlayersTab from './components/PlayersTab';
 import PlayerModal from './components/PlayerModal';
 import TradeAnalyzer from './components/TradeAnalyzer';
 import ComparisonBar from './components/ComparisonBar';
@@ -79,46 +78,44 @@ function App() {
         <h1 className="text-2xl font-bold">NBA Fantasy Analytics</h1>
       </header>
 
-      <main className="container mx-auto mt-4 p-4" style={{ paddingBottom: comparisonPlayers.length >= 2 ? '120px' : '0' }}>
-        <div className="flex border-b mb-4 overflow-x-auto">
-          <button
-            className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'dashboard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            Dashboard
-          </button>
-          <button
-            className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'analytics' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('analytics')}
-          >
-            Аналитика команды
-          </button>
-          <button
-            className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'simulation' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('simulation')}
-          >
-            Симуляция матчапов
-          </button>
-          <button
-            className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'free-agents' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('free-agents')}
-          >
-            Свободные агенты
-          </button>
-          <button
-            className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'all-players' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('all-players')}
-          >
-            Все игроки
-          </button>
-          <button
-            className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'trade' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('trade')}
-          >
-            Анализ трейдов
-          </button>
+      <div className="sticky top-0 bg-white z-10 border-b shadow-sm">
+        <div className="container mx-auto max-w-7xl">
+          <div className="grid grid-cols-5 gap-0 overflow-x-auto">
+            <button
+              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'analytics' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('analytics')}
+            >
+              Аналитика команды
+            </button>
+            <button
+              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'simulation' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('simulation')}
+            >
+              Симуляция матчапов
+            </button>
+            <button
+              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'dashboard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('dashboard')}
+            >
+              Dashboard
+            </button>
+            <button
+              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'players' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('players')}
+            >
+              Игроки
+            </button>
+            <button
+              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'trade' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('trade')}
+            >
+              Анализ трейдов
+            </button>
+          </div>
         </div>
+      </div>
 
+      <main className="container mx-auto mt-4 p-4 max-w-7xl" style={{ paddingBottom: comparisonPlayers.length >= 2 ? '120px' : '0' }}>
         <div className="bg-white rounded shadow p-4 min-h-[500px]">
           {activeTab === 'dashboard' && (
             <Dashboard
@@ -142,17 +139,8 @@ function App() {
             />
           )}
           {activeTab === 'simulation' && <Simulation />}
-          {activeTab === 'free-agents' && (
-            <FreeAgents
-              onPlayerClick={handlePlayerClick}
-              period={period}
-              setPeriod={setPeriod}
-              puntCategories={puntCategories}
-              setPuntCategories={setPuntCategories}
-            />
-          )}
-          {activeTab === 'all-players' && (
-            <AllPlayers
+          {activeTab === 'players' && (
+            <PlayersTab
               onPlayerClick={handlePlayerClick}
               period={period}
               setPeriod={setPeriod}
