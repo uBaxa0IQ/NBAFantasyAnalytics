@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
 import MatchupDetails from './MatchupDetails';
+import LineupOptimizerModal from './LineupOptimizerModal';
 import api from '../api';
 
 const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
@@ -11,6 +12,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     const [compareTeamId, setCompareTeamId] = useState('');
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMessage, setRefreshMessage] = useState(null);
+    const [showLineupOptimizer, setShowLineupOptimizer] = useState(false);
 
     // Загрузка списка команд
     useEffect(() => {
@@ -245,7 +247,27 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                             compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
                         />
                     </div>
+
+                    {/* Кнопка оптимизации состава */}
+                    <div className="mt-6 flex justify-center">
+                        <button
+                            onClick={() => setShowLineupOptimizer(true)}
+                            className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                        >
+                            Оптимизация состава
+                        </button>
+                    </div>
                 </>
+            )}
+
+            {/* Модальное окно оптимизации */}
+            {showLineupOptimizer && selectedTeam && (
+                <LineupOptimizerModal
+                    teamId={parseInt(selectedTeam)}
+                    onClose={() => setShowLineupOptimizer(false)}
+                    puntCategories={puntCategories}
+                    period={period}
+                />
             )}
         </div>
     );

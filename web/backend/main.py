@@ -13,7 +13,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, 'core'))
 
 from config import get_cors_origins
-from routers import teams, analytics, simulation, players, trades, dashboard, balance
+from routers import teams, analytics, simulation, players, trades, dashboard, balance, lineup
 
 app = FastAPI()
 
@@ -36,6 +36,7 @@ app.include_router(players.router)
 app.include_router(trades.router)
 app.include_router(dashboard.router)
 app.include_router(balance.router)
+app.include_router(lineup.router)
 
 
 @app.get("/")
