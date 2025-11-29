@@ -1,26 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
-import MatchupDetails from './MatchupDetails';
-import MatchupHistory from './MatchupHistory';
-import LineupOptimizerModal from './LineupOptimizerModal';
 import api from '../api';
 
 const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
     const [teams, setTeams] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [excludeIr, setExcludeIr] = useState(false);
-    const [compareTeamId, setCompareTeamId] = useState('');
-    const [refreshing, setRefreshing] = useState(false);
-    const [refreshMessage, setRefreshMessage] = useState(null);
-    const [lastUpdateTime, setLastUpdateTime] = useState(null);
-    const [showLineupOptimizer, setShowLineupOptimizer] = useState(false);
-    
-    // Refs для хранения актуальных значений в интервале
-    const selectedTeamRef = useRef(selectedTeam);
-    const periodRef = useRef(period);
-    const excludeIrRef = useRef(excludeIr);
-    const refreshingRef = useRef(false);
+    const [refreshStatus, setRefreshStatus] = useState(null);
 
     // Загрузка списка команд
     useEffect(() => {
@@ -35,20 +21,13 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
             .catch(err => console.error('Error fetching teams:', err));
     }, []);
 
-    // Обновляем refs при изменении значений
-    useEffect(() => {
-        selectedTeamRef.current = selectedTeam;
-        periodRef.current = period;
-        excludeIrRef.current = excludeIr;
-    }, [selectedTeam, period, excludeIr]);
-
     // Загрузка данных дашборда
     useEffect(() => {
         if (!selectedTeam) return;
 
         setLoading(true);
         api.get(`/dashboard/${selectedTeam}`, {
-            params: { period, exclude_ir: excludeIr }
+            params: { period }
         })
             .then(res => res.data)
             .then(data => {
@@ -59,63 +38,45 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                 console.error('Error fetching dashboard:', err);
                 setLoading(false);
             });
-    }, [selectedTeam, period, excludeIr]);
+    }, [selectedTeam, period]);
 
-    // Автообновление каждые 5 минут
+    // Загрузка статуса обновления
     useEffect(() => {
-        // Первое обновление при монтировании не делаем, только устанавливаем время
-        setLastUpdateTime(new Date());
-        
-        const interval = setInterval(async () => {
-            // Защита от параллельных обновлений
-            if (refreshingRef.current) {
-                return;
-            }
-            
-            refreshingRef.current = true;
-            setRefreshing(true);
-            setRefreshMessage(null);
-            
-            try {
-                const response = await api.post('/refresh-league');
-                if (response.data.success) {
-                    setRefreshMessage({ type: 'success', text: 'Данные обновлены автоматически' });
-                    setLastUpdateTime(new Date());
-                    
-                    // Перезагружаем список команд и данные дашборда
-                    const teamsRes = await api.get('/teams');
-                    const teamsData = teamsRes.data;
-                    setTeams(teamsData);
-                    
-                    // Используем актуальные значения из refs
-                    const currentTeam = selectedTeamRef.current;
-                    const currentPeriod = periodRef.current;
-                    const currentExcludeIr = excludeIrRef.current;
-                    
-                    // Если выбранная команда все еще существует, перезагружаем данные
-                    if (currentTeam) {
-                        const dashboardRes = await api.get(`/dashboard/${currentTeam}`, {
-                            params: { period: currentPeriod, exclude_ir: currentExcludeIr }
-                        });
-                        setDashboardData(dashboardRes.data);
-                    }
-                } else {
-                    setRefreshMessage({ type: 'error', text: response.data.message });
-                }
-            } catch (err) {
-                console.error('Error refreshing data:', err);
-                setRefreshMessage({ type: 'error', text: 'Ошибка при обновлении данных' });
-            } finally {
-                refreshingRef.current = false;
-                setRefreshing(false);
-                // Скрываем сообщение через 5 секунд
-                setTimeout(() => setRefreshMessage(null), 5000);
-            }
-        }, 300000); // 5 минут = 300000 миллисекунд
+        const loadRefreshStatus = () => {
+            api.get('/refresh-status')
+                .then(res => {
+                    setRefreshStatus(res.data);
+                })
+                .catch(err => {
+                    console.error('Error fetching refresh status:', err);
+                });
+        };
 
-        // Очистка интервала при размонтировании
+        loadRefreshStatus();
+        // Обновляем статус каждые 30 секунд
+        const interval = setInterval(loadRefreshStatus, 30000);
         return () => clearInterval(interval);
-    }, []); // Пустой массив зависимостей - интервал создается один раз
+    }, []);
+
+    // Форматирование времени последнего обновления
+    const formatLastRefresh = (isoString) => {
+        if (!isoString) return 'Еще не обновлялось';
+        
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+
+        if (diffMins < 1) {
+            return `Только что (${diffSecs} сек назад)`;
+        } else if (diffMins < 60) {
+            return `${diffMins} мин назад`;
+        } else {
+            const hours = Math.floor(diffMins / 60);
+            return `${hours} ч ${diffMins % 60} мин назад`;
+        }
+    };
 
     if (loading) {
         return <div className="text-center p-8">Загрузка...</div>;
@@ -123,7 +84,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
 
     return (
         <div className="space-y-6">
-            {/* Team Selector and Refresh Button */}
+            {/* Team Selector and Refresh Status */}
             <div className="flex gap-4 items-center flex-wrap">
                 <div>
                     <label className="block text-sm font-medium mb-2">Выберите команду:</label>
@@ -140,48 +101,32 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                     </select>
                 </div>
 
-                <div className="mt-6">
-                    <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                        <input
-                            type="checkbox"
-                            checked={excludeIr}
-                            onChange={e => setExcludeIr(e.target.checked)}
-                        />
-                        <span className="font-medium">Исключить IR игроков</span>
-                    </label>
-                </div>
-
-                {/* Индикатор автообновления */}
-                <div className="mt-6 flex items-center gap-2 text-sm text-gray-600">
-                    {refreshing && (
-                        <span className="text-blue-600 font-medium">Обновление...</span>
-                    )}
-                    {lastUpdateTime && !refreshing && (
-                        <span>
-                            Обновлено: {lastUpdateTime.toLocaleTimeString('ru-RU', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                            })}
-                        </span>
-                    )}
-                </div>
+                {/* Индикатор последнего обновления */}
+                {refreshStatus && (
+                    <div className="mt-6">
+                        <div className="bg-gray-50 border rounded px-3 py-2 text-sm">
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-600">Последнее обновление:</span>
+                                <span className="font-medium text-gray-800">
+                                    {refreshStatus.last_refresh_time 
+                                        ? formatLastRefresh(refreshStatus.last_refresh_time)
+                                        : 'Ожидание первого обновления...'}
+                                </span>
+                            </div>
+                            {refreshStatus.auto_refresh_enabled && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                    Автообновление каждые {refreshStatus.refresh_interval_minutes} мин
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
-
-            {/* Refresh Message */}
-            {refreshMessage && (
-                <div className={`p-3 rounded ${
-                    refreshMessage.type === 'success' 
-                        ? 'bg-green-100 text-green-800 border border-green-300' 
-                        : 'bg-red-100 text-red-800 border border-red-300'
-                }`}>
-                    {refreshMessage.text}
-                </div>
-            )}
 
             {dashboardData && (
                 <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Team Summary */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
                             <h3 className="text-lg font-semibold text-gray-700 mb-4">Информация о команде</h3>
@@ -203,6 +148,24 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                             </div>
                         </div>
 
+                        {/* Current Matchup */}
+                        <div className="bg-white border rounded-lg p-6 shadow-sm">
+                            <h3 className="text-lg font-semibold text-gray-700 mb-4">Текущий матчап</h3>
+                            {dashboardData.current_matchup ? (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Неделя:</span>
+                                        <span className="font-semibold">{dashboardData.current_matchup.week}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Соперник:</span>
+                                        <span className="font-semibold">{dashboardData.current_matchup.opponent_name}</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-gray-500">Нет текущего матчапа</div>
+                            )}
+                        </div>
 
                         {/* Injured Players */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
@@ -227,19 +190,6 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                         </div>
                     </div>
 
-                    {/* Matchup Details */}
-                    {dashboardData.current_matchup && (
-                        <MatchupDetails 
-                            teamId={selectedTeam} 
-                            currentMatchup={dashboardData.current_matchup}
-                        />
-                    )}
-
-                    {/* Matchup History */}
-                    {selectedTeam && (
-                        <MatchupHistory teamId={selectedTeam} />
-                    )}
-
                     {/* Top Players */}
                     <div className="bg-white border rounded-lg p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-gray-700 mb-4">Топ-3 игрока (по Z-Score)</h3>
@@ -260,56 +210,14 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
 
                     {/* Team Balance Radar */}
                     <div className="bg-white border rounded-lg p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-                            <h3 className="text-lg font-semibold text-gray-700">Баланс команды по категориям</h3>
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm text-gray-600">Сравнить с:</label>
-                                <select
-                                    value={compareTeamId}
-                                    onChange={(e) => setCompareTeamId(e.target.value)}
-                                    className="border p-2 rounded text-sm min-w-[200px]"
-                                >
-                                    <option value="">Не сравнивать</option>
-                                    {teams
-                                        .filter(team => team.team_id.toString() !== selectedTeam)
-                                        .map(team => (
-                                            <option key={team.team_id} value={team.team_id}>
-                                                {team.team_name}
-                                            </option>
-                                        ))}
-                                </select>
-                            </div>
-                        </div>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Баланс команды по категориям</h3>
                         <TeamBalanceRadar
                             teamId={selectedTeam}
                             period={period}
                             puntCategories={puntCategories}
-                            excludeIr={excludeIr}
-                            compareTeamId={compareTeamId || null}
-                            compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
                         />
                     </div>
-
-                    {/* Кнопка оптимизации состава */}
-                    <div className="mt-6 flex justify-center">
-                        <button
-                            onClick={() => setShowLineupOptimizer(true)}
-                            className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-                        >
-                            Оптимизация состава
-                        </button>
-                    </div>
                 </>
-            )}
-
-            {/* Модальное окно оптимизации */}
-            {showLineupOptimizer && selectedTeam && (
-                <LineupOptimizerModal
-                    teamId={parseInt(selectedTeam)}
-                    onClose={() => setShowLineupOptimizer(false)}
-                    puntCategories={puntCategories}
-                    period={period}
-                />
             )}
         </div>
     );

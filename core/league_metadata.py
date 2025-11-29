@@ -5,6 +5,7 @@
 
 from espn_api.basketball import League
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from .config import CATEGORIES
 
 
@@ -25,6 +26,7 @@ class LeagueMetadata:
         self.swid = SWID
         self.league = None
         self.teams = []
+        self.last_refresh_time = None
     
     def connect_to_league(self) -> bool:
         """
@@ -54,7 +56,19 @@ class LeagueMetadata:
         Returns:
             True если обновление успешно, False в противном случае
         """
-        return self.connect_to_league()
+        success = self.connect_to_league()
+        if success:
+            self.last_refresh_time = datetime.now()
+        return success
+    
+    def get_last_refresh_time(self) -> Optional[datetime]:
+        """
+        Получает время последнего успешного обновления данных.
+        
+        Returns:
+            datetime объект с временем последнего обновления или None
+        """
+        return self.last_refresh_time
     
     def get_teams(self) -> List:
         """

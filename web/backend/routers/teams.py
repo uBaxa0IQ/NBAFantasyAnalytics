@@ -55,3 +55,22 @@ def get_weeks(league_meta=Depends(get_league_meta)):
         "current_week": league_meta.league.currentMatchupPeriod
     }
 
+
+@router.get("/refresh-status")
+def get_refresh_status(league_meta=Depends(get_league_meta)):
+    """
+    Получает информацию о последнем обновлении данных лиги.
+    
+    Returns:
+        Словарь с информацией об обновлении:
+        {
+            "last_refresh_time": str (ISO формат) или null,
+            "auto_refresh_enabled": bool
+        }
+    """
+    last_refresh = league_meta.get_last_refresh_time()
+    return {
+        "last_refresh_time": last_refresh.isoformat() if last_refresh else None,
+        "auto_refresh_enabled": True,
+        "refresh_interval_minutes": 5
+    }
