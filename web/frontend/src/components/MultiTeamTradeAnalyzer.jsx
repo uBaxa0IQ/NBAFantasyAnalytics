@@ -12,6 +12,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
     const [viewMode, setViewMode] = useState('z-scores');
     const [excludeIr, setExcludeIr] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
+    const [selectedTeamForTable, setSelectedTeamForTable] = useState(null);
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -36,6 +37,13 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
         };
         loadPlayers();
     }, [teamTrades.map(t => t.teamId).join(','), period, excludeIr]);
+
+    // Инициализация выбранной команды для таблицы при получении результата
+    useEffect(() => {
+        if (result && result.teams && result.teams.length > 0 && !selectedTeamForTable) {
+            setSelectedTeamForTable(result.teams[0].team_id);
+        }
+    }, [result]);
 
     const addTeam = () => {
         setTeamTrades([...teamTrades, { teamId: '', give: [], receive: [] }]);
@@ -252,7 +260,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
                                 <>
                                     <div className="mb-3">
                                         <h4 className="font-semibold mb-2 text-sm text-red-600">Отдает:</h4>
-                                        <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-2">
+                                        <div className="space-y-1 max-h-64 overflow-y-auto border rounded p-2">
                                             {teamPlayers[trade.teamId].map(player => (
                                                 <label
                                                     key={player.name}
@@ -272,7 +280,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
                                     </div>
                                     <div>
                                         <h4 className="font-semibold mb-2 text-sm text-green-600">Получает:</h4>
-                                        <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-2">
+                                        <div className="space-y-1 max-h-64 overflow-y-auto border rounded p-2">
                                             {tradedPlayers.map(playerName => (
                                                 <label
                                                     key={playerName}
@@ -437,41 +445,58 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
                         ))}
                     </div>
 
-                    {/* Детализация по категориям для первой команды */}
-                    {result.teams.length > 0 && (
-                        <div>
-                            <h3 className="text-xl font-bold mb-3">
-                                Детализация по категориям ({viewMode === 'z-scores' ? 'Z-scores' : 'реальные значения'}) - {result.teams[0].team_name}
-                            </h3>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full bg-white border">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            <th className="p-2 border">Категория</th>
-                                            <th className="p-2 border">До</th>
-                                            <th className="p-2 border">После</th>
-                                            <th className="p-2 border">Δ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {Object.entries(viewMode === 'z-scores' ? result.teams[0].categories : result.teams[0].raw_categories).map(([cat, data]) => (
-                                            <tr key={cat} className="hover:bg-gray-50">
-                                                <td className="p-2 border font-medium">{cat}</td>
-                                                <td className="p-2 border text-center">{data.before}</td>
-                                                <td className="p-2 border text-center">{data.after}</td>
-                                                <td className={`p-2 border text-center font-bold ${
-                                                    data.delta > 0 ? 'text-green-600' :
-                                                    data.delta < 0 ? 'text-red-600' : 'text-gray-600'
-                                                }`}>
-                                                    {data.delta > 0 ? '+' : ''}{data.delta}
-                                                </td>
-                                            </tr>
+                    {/* Детализация по категориям с переключателем команды */}
+                    {result.teams.length > 0 && selectedTeamForTable && (() => {
+                        const selectedTeam = result.teams.find(t => t.team_id === selectedTeamForTable) || result.teams[0];
+                        if (!selectedTeam) return null;
+                        return (
+                            <div>
+                                <div className="mb-4 flex items-center justify-center gap-4 flex-wrap">
+                                    <h3 className="text-xl font-bold">
+                                        Детализация по категориям ({viewMode === 'z-scores' ? 'Z-scores' : 'реальные значения'})
+                                    </h3>
+                                    <select
+                                        value={selectedTeamForTable}
+                                        onChange={(e) => setSelectedTeamForTable(parseInt(e.target.value))}
+                                        className="border p-2 rounded text-sm font-medium min-w-[200px]"
+                                    >
+                                        {result.teams.map(team => (
+                                            <option key={team.team_id} value={team.team_id}>
+                                                {team.team_name}
+                                            </option>
                                         ))}
-                                    </tbody>
-                                </table>
+                                    </select>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full bg-white border">
+                                        <thead>
+                                            <tr className="bg-gray-100">
+                                                <th className="p-2 border">Категория</th>
+                                                <th className="p-2 border">До</th>
+                                                <th className="p-2 border">После</th>
+                                                <th className="p-2 border">Δ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(viewMode === 'z-scores' ? selectedTeam.categories : selectedTeam.raw_categories).map(([cat, data]) => (
+                                                <tr key={cat} className="hover:bg-gray-50">
+                                                    <td className="p-2 border font-medium">{cat}</td>
+                                                    <td className="p-2 border text-center">{data.before}</td>
+                                                    <td className="p-2 border text-center">{data.after}</td>
+                                                    <td className={`p-2 border text-center font-bold ${
+                                                        data.delta > 0 ? 'text-green-600' :
+                                                        data.delta < 0 ? 'text-red-600' : 'text-gray-600'
+                                                    }`}>
+                                                        {data.delta > 0 ? '+' : ''}{data.delta}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </div>
             )}
         </div>

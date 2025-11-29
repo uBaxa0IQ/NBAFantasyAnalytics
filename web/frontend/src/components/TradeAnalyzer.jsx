@@ -19,6 +19,7 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
     const [viewMode, setViewMode] = useState('z-scores');
     const [scopeMode, setScopeMode] = useState('team'); // 'team' или 'trade'
     const [excludeIr, setExcludeIr] = useState(false);
+    const [selectedTeamForTable, setSelectedTeamForTable] = useState('my_team'); // 'my_team' или 'their_team'
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -378,9 +379,23 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
                                         </div>
                                     </div>
                                 )}
-                                <h3 className="text-xl font-bold mb-3">
-                                    {viewMode === 'z-scores' ? 'Детализация по категориям (Z-scores)' : 'Детализация по категориям (реальные значения)'} - {scopeMode === 'team' ? 'моя команда' : 'игроки трейда (я отдаю)'}
-                                </h3>
+                                <div className="mb-4 flex items-center justify-center gap-4 flex-wrap">
+                                    <h3 className="text-xl font-bold">
+                                        {viewMode === 'z-scores' ? 'Детализация по категориям (Z-scores)' : 'Детализация по категориям (реальные значения)'}
+                                    </h3>
+                                    <select
+                                        value={selectedTeamForTable}
+                                        onChange={(e) => setSelectedTeamForTable(e.target.value)}
+                                        className="border p-2 rounded text-sm font-medium min-w-[200px]"
+                                    >
+                                        <option value="my_team">
+                                            {scopeMode === 'team' ? result.my_team.name : 'Игроки трейда (я отдаю)'}
+                                        </option>
+                                        <option value="their_team">
+                                            {scopeMode === 'team' ? result.their_team.name : 'Игроки трейда (я получаю)'}
+                                        </option>
+                                    </select>
+                                </div>
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full bg-white border">
                                         <thead>
@@ -392,7 +407,10 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {Object.entries(viewMode === 'z-scores' ? myData.categories : myData.raw_categories).map(([cat, data]) => (
+                                            {Object.entries(viewMode === 'z-scores' 
+                                                ? (selectedTeamForTable === 'my_team' ? myData.categories : theirData.categories)
+                                                : (selectedTeamForTable === 'my_team' ? myData.raw_categories : theirData.raw_categories)
+                                            ).map(([cat, data]) => (
                                                 <tr key={cat} className="hover:bg-gray-50">
                                                     <td className="p-2 border font-medium">{cat}</td>
                                                     <td className="p-2 border text-center">{data.before}</td>
