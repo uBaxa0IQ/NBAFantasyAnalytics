@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
 import MatchupDetails from './MatchupDetails';
 import MatchupHistory from './MatchupHistory';
@@ -13,7 +13,14 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     const [compareTeamId, setCompareTeamId] = useState('');
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMessage, setRefreshMessage] = useState(null);
+    const [lastUpdateTime, setLastUpdateTime] = useState(null);
     const [showLineupOptimizer, setShowLineupOptimizer] = useState(false);
+    
+    // Refs для хранения актуальных значений в интервале
+    const selectedTeamRef = useRef(selectedTeam);
+    const periodRef = useRef(period);
+    const excludeIrRef = useRef(excludeIr);
+    const refreshingRef = useRef(false);
 
     // Загрузка списка команд
     useEffect(() => {
@@ -27,6 +34,13 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
             })
             .catch(err => console.error('Error fetching teams:', err));
     }, []);
+
+    // Обновляем refs при изменении значений
+    useEffect(() => {
+        selectedTeamRef.current = selectedTeam;
+        periodRef.current = period;
+        excludeIrRef.current = excludeIr;
+    }, [selectedTeam, period, excludeIr]);
 
     // Загрузка данных дашборда
     useEffect(() => {
@@ -47,40 +61,61 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
             });
     }, [selectedTeam, period, excludeIr]);
 
-    // Функция обновления данных с API
-    const handleRefreshData = async () => {
-        setRefreshing(true);
-        setRefreshMessage(null);
+    // Автообновление каждые 5 минут
+    useEffect(() => {
+        // Первое обновление при монтировании не делаем, только устанавливаем время
+        setLastUpdateTime(new Date());
         
-        try {
-            const response = await api.post('/refresh-league');
-            if (response.data.success) {
-                setRefreshMessage({ type: 'success', text: response.data.message });
-                
-                // Перезагружаем список команд и данные дашборда
-                const teamsRes = await api.get('/teams');
-                const teamsData = teamsRes.data;
-                setTeams(teamsData);
-                
-                // Если выбранная команда все еще существует, перезагружаем данные
-                if (selectedTeam) {
-                    const dashboardRes = await api.get(`/dashboard/${selectedTeam}`, {
-                        params: { period, exclude_ir: excludeIr }
-                    });
-                    setDashboardData(dashboardRes.data);
-                }
-            } else {
-                setRefreshMessage({ type: 'error', text: response.data.message });
+        const interval = setInterval(async () => {
+            // Защита от параллельных обновлений
+            if (refreshingRef.current) {
+                return;
             }
-        } catch (err) {
-            console.error('Error refreshing data:', err);
-            setRefreshMessage({ type: 'error', text: 'Ошибка при обновлении данных' });
-        } finally {
-            setRefreshing(false);
-            // Скрываем сообщение через 5 секунд
-            setTimeout(() => setRefreshMessage(null), 5000);
-        }
-    };
+            
+            refreshingRef.current = true;
+            setRefreshing(true);
+            setRefreshMessage(null);
+            
+            try {
+                const response = await api.post('/refresh-league');
+                if (response.data.success) {
+                    setRefreshMessage({ type: 'success', text: 'Данные обновлены автоматически' });
+                    setLastUpdateTime(new Date());
+                    
+                    // Перезагружаем список команд и данные дашборда
+                    const teamsRes = await api.get('/teams');
+                    const teamsData = teamsRes.data;
+                    setTeams(teamsData);
+                    
+                    // Используем актуальные значения из refs
+                    const currentTeam = selectedTeamRef.current;
+                    const currentPeriod = periodRef.current;
+                    const currentExcludeIr = excludeIrRef.current;
+                    
+                    // Если выбранная команда все еще существует, перезагружаем данные
+                    if (currentTeam) {
+                        const dashboardRes = await api.get(`/dashboard/${currentTeam}`, {
+                            params: { period: currentPeriod, exclude_ir: currentExcludeIr }
+                        });
+                        setDashboardData(dashboardRes.data);
+                    }
+                } else {
+                    setRefreshMessage({ type: 'error', text: response.data.message });
+                }
+            } catch (err) {
+                console.error('Error refreshing data:', err);
+                setRefreshMessage({ type: 'error', text: 'Ошибка при обновлении данных' });
+            } finally {
+                refreshingRef.current = false;
+                setRefreshing(false);
+                // Скрываем сообщение через 5 секунд
+                setTimeout(() => setRefreshMessage(null), 5000);
+            }
+        }, 300000); // 5 минут = 300000 миллисекунд
+
+        // Очистка интервала при размонтировании
+        return () => clearInterval(interval);
+    }, []); // Пустой массив зависимостей - интервал создается один раз
 
     if (loading) {
         return <div className="text-center p-8">Загрузка...</div>;
@@ -116,18 +151,19 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                     </label>
                 </div>
 
-                <div className="mt-6">
-                    <button
-                        onClick={handleRefreshData}
-                        disabled={refreshing}
-                        className={`px-4 py-2 rounded font-medium transition-colors ${
-                            refreshing
-                                ? 'bg-gray-400 cursor-not-allowed text-white'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white'
-                        }`}
-                    >
-                        {refreshing ? 'Обновление...' : 'Обновить данные'}
-                    </button>
+                {/* Индикатор автообновления */}
+                <div className="mt-6 flex items-center gap-2 text-sm text-gray-600">
+                    {refreshing && (
+                        <span className="text-blue-600 font-medium">Обновление...</span>
+                    )}
+                    {lastUpdateTime && !refreshing && (
+                        <span>
+                            Обновлено: {lastUpdateTime.toLocaleTimeString('ru-RU', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })}
+                        </span>
+                    )}
                 </div>
             </div>
 
