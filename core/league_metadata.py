@@ -5,7 +5,7 @@
 
 from espn_api.basketball import League
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from .config import CATEGORIES
 
 
@@ -58,7 +58,7 @@ class LeagueMetadata:
         """
         success = self.connect_to_league()
         if success:
-            self.last_refresh_time = datetime.now()
+            self.last_refresh_time = datetime.now(timezone.utc)
         return success
     
     def get_last_refresh_time(self) -> Optional[datetime]:

@@ -64,19 +64,52 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     const formatLastRefresh = (isoString) => {
         if (!isoString) return 'Еще не обновлялось';
         
-        const date = new Date(isoString);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+        try {
+            // Парсим ISO строку (может быть с или без timezone)
+            const date = new Date(isoString);
+            
+            // Проверяем валидность даты
+            if (isNaN(date.getTime())) {
+                return 'Неверный формат времени';
+            }
+            
+            const now = new Date();
+            const diffMs = now - date;
+            
+            // Если разница отрицательная (будущее время), значит проблема с часовым поясом
+            if (diffMs < 0) {
+                // Пробуем интерпретировать как UTC и пересчитать
+                const utcDate = new Date(isoString + (isoString.includes('Z') ? '' : 'Z'));
+                const diffMsFixed = now - utcDate;
+                if (diffMsFixed >= 0) {
+                    const diffMins = Math.floor(diffMsFixed / 60000);
+                    const diffSecs = Math.floor((diffMsFixed % 60000) / 1000);
+                    
+                    if (diffMins < 1) {
+                        return `Только что (${diffSecs} сек назад)`;
+                    } else if (diffMins < 60) {
+                        return `${diffMins} мин назад`;
+                    } else {
+                        const hours = Math.floor(diffMins / 60);
+                        return `${hours} ч ${diffMins % 60} мин назад`;
+                    }
+                }
+            }
+            
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffSecs = Math.floor((diffMs % 60000) / 1000);
 
-        if (diffMins < 1) {
-            return `Только что (${diffSecs} сек назад)`;
-        } else if (diffMins < 60) {
-            return `${diffMins} мин назад`;
-        } else {
-            const hours = Math.floor(diffMins / 60);
-            return `${hours} ч ${diffMins % 60} мин назад`;
+            if (diffMins < 1) {
+                return `Только что (${diffSecs} сек назад)`;
+            } else if (diffMins < 60) {
+                return `${diffMins} мин назад`;
+            } else {
+                const hours = Math.floor(diffMins / 60);
+                return `${hours} ч ${diffMins % 60} мин назад`;
+            }
+        } catch (error) {
+            console.error('Error formatting refresh time:', error);
+            return 'Ошибка форматирования времени';
         }
     };
 
