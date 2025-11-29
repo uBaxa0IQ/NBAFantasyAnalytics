@@ -9,6 +9,8 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshStatus, setRefreshStatus] = useState(null);
+    const [excludeIr, setExcludeIr] = useState(false);
+    const [compareTeamId, setCompareTeamId] = useState('');
 
     // Загрузка списка команд
     useEffect(() => {
@@ -29,7 +31,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
 
         setLoading(true);
         api.get(`/dashboard/${selectedTeam}`, {
-            params: { period }
+            params: { period, exclude_ir: excludeIr }
         })
             .then(res => res.data)
             .then(data => {
@@ -40,7 +42,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                 console.error('Error fetching dashboard:', err);
                 setLoading(false);
             });
-    }, [selectedTeam, period]);
+    }, [selectedTeam, period, excludeIr]);
 
     // Загрузка статуса обновления
     useEffect(() => {
@@ -156,6 +158,17 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                         </div>
                     </div>
                 )}
+
+                <div className="mt-6">
+                    <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                        <input
+                            type="checkbox"
+                            checked={excludeIr}
+                            onChange={e => setExcludeIr(e.target.checked)}
+                        />
+                        <span className="font-medium">Исключить IR игроков</span>
+                    </label>
+                </div>
             </div>
 
             {dashboardData && (
@@ -258,11 +271,33 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
 
                     {/* Team Balance Radar */}
                     <div className="bg-white border rounded-lg p-6 shadow-sm">
-                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Баланс команды по категориям</h3>
+                        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+                            <h3 className="text-lg font-semibold text-gray-700">Баланс команды по категориям</h3>
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm text-gray-600">Сравнить с:</label>
+                                <select
+                                    value={compareTeamId}
+                                    onChange={(e) => setCompareTeamId(e.target.value)}
+                                    className="border p-2 rounded text-sm min-w-[200px]"
+                                >
+                                    <option value="">Не сравнивать</option>
+                                    {teams
+                                        .filter(team => team.team_id.toString() !== selectedTeam)
+                                        .map(team => (
+                                            <option key={team.team_id} value={team.team_id}>
+                                                {team.team_name}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                        </div>
                         <TeamBalanceRadar
                             teamId={selectedTeam}
                             period={period}
                             puntCategories={puntCategories}
+                            excludeIr={excludeIr}
+                            compareTeamId={compareTeamId || null}
+                            compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
                         />
                     </div>
                 </>
