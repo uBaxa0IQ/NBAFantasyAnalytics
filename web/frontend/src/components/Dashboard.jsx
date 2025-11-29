@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
 import MatchupDetails from './MatchupDetails';
+import MatchupHistory from './MatchupHistory';
 import LineupOptimizerModal from './LineupOptimizerModal';
 import api from '../api';
 
@@ -196,6 +197,11 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                             teamId={selectedTeam} 
                             currentMatchup={dashboardData.current_matchup}
                         />
+                    )}
+
+                    {/* Matchup History */}
+                    {selectedTeam && (
+                        <MatchupHistory teamId={selectedTeam} />
                     )}
 
                     {/* Top Players */}
