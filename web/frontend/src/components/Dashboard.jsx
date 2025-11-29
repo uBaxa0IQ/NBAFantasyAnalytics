@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
+import MatchupDetails from './MatchupDetails';
+import MatchupHistory from './MatchupHistory';
 import api from '../api';
 
 const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
@@ -189,6 +191,19 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                             )}
                         </div>
                     </div>
+
+                    {/* Matchup Details */}
+                    {dashboardData.current_matchup && (
+                        <MatchupDetails 
+                            teamId={selectedTeam} 
+                            currentMatchup={dashboardData.current_matchup}
+                        />
+                    )}
+
+                    {/* Matchup History */}
+                    {selectedTeam && (
+                        <MatchupHistory teamId={selectedTeam} />
+                    )}
 
                     {/* Top Players */}
                     <div className="bg-white border rounded-lg p-6 shadow-sm">
