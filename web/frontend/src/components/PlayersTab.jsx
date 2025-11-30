@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FreeAgents from './FreeAgents';
 import AllPlayers from './AllPlayers';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const PlayersTab = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCategories }) => {
-    const [viewMode, setViewMode] = useState('free-agents'); // 'free-agents' или 'all-players'
+const PlayersTab = ({ onPlayerClick, period, puntCategories, excludeIrForSimulations }) => {
+    const [viewMode, setViewMode] = useState(() => {
+        const saved = loadState(StorageKeys.PLAYERS, {});
+        return saved.viewMode || 'free-agents';
+    }); // 'free-agents' или 'all-players'
+
+    // Сохранение состояния при изменении
+    useEffect(() => {
+        saveState(StorageKeys.PLAYERS, { viewMode });
+    }, [viewMode]);
 
     return (
         <div>
@@ -38,17 +47,14 @@ const PlayersTab = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
                 <FreeAgents
                     onPlayerClick={onPlayerClick}
                     period={period}
-                    setPeriod={setPeriod}
                     puntCategories={puntCategories}
-                    setPuntCategories={setPuntCategories}
                 />
             ) : (
                 <AllPlayers
                     onPlayerClick={onPlayerClick}
                     period={period}
-                    setPeriod={setPeriod}
                     puntCategories={puntCategories}
-                    setPuntCategories={setPuntCategories}
+                    excludeIrForSimulations={excludeIrForSimulations}
                 />
             )}
         </div>

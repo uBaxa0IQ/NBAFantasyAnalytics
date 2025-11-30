@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCategories }) => {
+const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulations }) => {
+    const savedState = loadState(StorageKeys.ALL_PLAYERS, {});
     const [teams, setTeams] = useState([]);
-    const [selectedTeam, setSelectedTeam] = useState('');
-    const [position, setPosition] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedTeam, setSelectedTeam] = useState(savedState.selectedTeam || '');
+    const [position, setPosition] = useState(savedState.position || '');
+    const [searchQuery, setSearchQuery] = useState(savedState.searchQuery || '');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [sortBy, setSortBy] = useState('total_z');
-    const [sortDir, setSortDir] = useState('desc');
-    const [excludeIr, setExcludeIr] = useState(false);
+    const [sortBy, setSortBy] = useState(savedState.sortBy || 'total_z');
+    const [sortDir, setSortDir] = useState(savedState.sortDir || 'desc');
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -21,7 +22,7 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
 
     useEffect(() => {
         setLoading(true);
-        api.get(`/all-players?period=${period}&exclude_ir=${excludeIr}`)
+        api.get(`/all-players?period=${period}&exclude_ir=${excludeIrForSimulations}`)
             .then(res => {
                 setData(res.data);
                 setLoading(false);
@@ -30,13 +31,19 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
                 console.error(err);
                 setLoading(false);
             });
-    }, [period, excludeIr]);
+    }, [period, excludeIrForSimulations]);
 
-    const handlePuntChange = (cat) => {
-        setPuntCategories(prev =>
-            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-        );
-    };
+    // Сохранение состояния при изменении
+    useEffect(() => {
+        saveState(StorageKeys.ALL_PLAYERS, {
+            selectedTeam,
+            position,
+            searchQuery,
+            sortBy,
+            sortDir
+        });
+    }, [selectedTeam, position, searchQuery, sortBy, sortDir]);
+
 
     const calculateTotalZ = (player) => {
         let total = 0;
@@ -114,18 +121,6 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
 
                 <select
                     className="border p-2 rounded"
-                    value={period}
-                    onChange={e => setPeriod(e.target.value)}
-                >
-                    <option value="2026_total">Весь сезон</option>
-                    <option value="2026_last_30">Последние 30 дней</option>
-                    <option value="2026_last_15">Последние 15 дней</option>
-                    <option value="2026_last_7">Последние 7 дней</option>
-                    <option value="2026_projected">Прогноз</option>
-                </select>
-
-                <select
-                    className="border p-2 rounded"
                     value={position}
                     onChange={e => setPosition(e.target.value)}
                 >
@@ -142,31 +137,6 @@ const AllPlayers = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                 />
-
-                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                    <input
-                        type="checkbox"
-                        checked={excludeIr}
-                        onChange={e => setExcludeIr(e.target.checked)}
-                    />
-                    <span className="font-medium">Исключить IR игроков</span>
-                </label>
-            </div>
-
-            <div className="mb-4">
-                <span className="font-bold mr-2">Punt Categories:</span>
-                <div className="flex gap-2 flex-wrap">
-                    {CATEGORIES.map(cat => (
-                        <label key={cat} className="flex items-center gap-1 cursor-pointer bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">
-                            <input
-                                type="checkbox"
-                                checked={puntCategories.includes(cat)}
-                                onChange={() => handlePuntChange(cat)}
-                            />
-                            {cat}
-                        </label>
-                    ))}
-                </div>
             </div>
 
             {loading && <div>Загрузка...</div>}

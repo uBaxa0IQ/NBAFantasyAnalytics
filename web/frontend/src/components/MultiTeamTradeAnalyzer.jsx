@@ -1,22 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
-const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories }) => {
+const MultiTeamTradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
+    const savedState = loadState(StorageKeys.MULTITEAM_TRADE, {});
     const [teams, setTeams] = useState([]);
-    const [teamTrades, setTeamTrades] = useState([{ teamId: '', give: [], receive: [] }]);
+    const [teamTrades, setTeamTrades] = useState(savedState.teamTrades || [{ teamId: '', give: [], receive: [] }]);
     const [teamPlayers, setTeamPlayers] = useState({}); // teamId -> players[]
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState('z-scores');
-    const [excludeIr, setExcludeIr] = useState(false);
+    const [viewMode, setViewMode] = useState(savedState.viewMode || 'z-scores');
     const [validationErrors, setValidationErrors] = useState([]);
-    const [selectedTeamForTable, setSelectedTeamForTable] = useState(null);
+    const [selectedTeamForTable, setSelectedTeamForTable] = useState(savedState.selectedTeamForTable || null);
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
     }, []);
+
+    // Сохранение состояния при изменении
+    useEffect(() => {
+        saveState(StorageKeys.MULTITEAM_TRADE, {
+            teamTrades,
+            selectedTeamForTable,
+            viewMode
+        });
+    }, [teamTrades, selectedTeamForTable, viewMode]);
 
     // Загружаем игроков для выбранных команд
     useEffect(() => {
@@ -25,7 +35,8 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             for (const trade of teamTrades) {
                 if (trade.teamId) {
                     try {
-                        const res = await api.get(`/analytics/${trade.teamId}?period=${period}&exclude_ir=${excludeIr}`);
+                        // В аналитике команды IR игроки всегда включены
+                        const res = await api.get(`/analytics/${trade.teamId}?period=${period}&exclude_ir=false`);
                         newTeamPlayers[trade.teamId] = res.data.players;
                     } catch (err) {
                         console.error(`Error loading players for team ${trade.teamId}:`, err);
@@ -36,7 +47,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             setTeamPlayers(newTeamPlayers);
         };
         loadPlayers();
-    }, [teamTrades.map(t => t.teamId).join(','), period, excludeIr]);
+    }, [teamTrades.map(t => t.teamId).join(','), period]);
 
     // Инициализация выбранной команды для таблицы при получении результата
     useEffect(() => {
@@ -131,7 +142,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             trades,
             period,
             punt_categories: puntCategories,
-            exclude_ir: excludeIr
+            exclude_ir: excludeIrForSimulations
         })
             .then(res => {
                 if (res.data.error) {
@@ -154,11 +165,6 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             });
     };
 
-    const handlePuntChange = (cat) => {
-        setPuntCategories(prev =>
-            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-        );
-    };
 
     // Получаем всех игроков, участвующих в трейде (для отображения в других командах)
     const getAllTradedPlayers = () => {
@@ -171,39 +177,6 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
 
     return (
         <div className="p-4">
-            <div className="mb-4 flex gap-4 items-center flex-wrap">
-                <div>
-                    <label className="mr-2 font-bold">Период:</label>
-                    <select className="border p-2 rounded" value={period} onChange={e => setPeriod(e.target.value)}>
-                        <option value="2026_total">Весь сезон</option>
-                        <option value="2026_last_30">Последние 30 дней</option>
-                        <option value="2026_last_15">Последние 15 дней</option>
-                        <option value="2026_last_7">Последние 7 дней</option>
-                        <option value="2026_projected">Прогноз</option>
-                    </select>
-                </div>
-            </div>
-            <div className="mb-4">
-                <span className="font-bold mr-2">Punt Categories:</span>
-                <div className="flex gap-2 flex-wrap">
-                    {CATEGORIES.map(cat => (
-                        <label key={cat} className="flex items-center gap-1 cursor-pointer bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">
-                            <input type="checkbox" checked={puntCategories.includes(cat)} onChange={() => handlePuntChange(cat)} />
-                            {cat}
-                        </label>
-                    ))}
-                </div>
-            </div>
-            <div className="mb-4">
-                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200 inline-block">
-                    <input
-                        type="checkbox"
-                        checked={excludeIr}
-                        onChange={e => setExcludeIr(e.target.checked)}
-                    />
-                    <span className="font-medium">Исключить IR игроков</span>
-                </label>
-            </div>
 
             {/* Ошибки валидации */}
             {validationErrors.length > 0 && (

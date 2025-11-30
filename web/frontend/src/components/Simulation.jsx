@@ -1,34 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import SimulationDetailsModal from './SimulationDetailsModal';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const Simulation = () => {
+const Simulation = ({ period, excludeIrForSimulations }) => {
+    const savedState = loadState(StorageKeys.SIMULATION, {});
     const [weeks, setWeeks] = useState([]);
     const [currentWeek, setCurrentWeek] = useState(1);
-    const [selectedWeek, setSelectedWeek] = useState('');
-    const [weeksCount, setWeeksCount] = useState(null);  // null = текущая неделя (все недели)
+    const [selectedWeek, setSelectedWeek] = useState(savedState.selectedWeek || '');
+    const [weeksCount, setWeeksCount] = useState(savedState.weeksCount !== undefined ? savedState.weeksCount : null);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [simulationMode, setSimulationMode] = useState('matchup'); // 'matchup', 'team_stats_avg', 'z_scores'
-    const [period, setPeriod] = useState('2026_total');
+    const [simulationMode, setSimulationMode] = useState(savedState.simulationMode || 'matchup'); // 'matchup', 'team_stats_avg', 'z_scores'
     const [selectedTeam, setSelectedTeam] = useState(null);  // Для модального окна
-    const [excludeIr, setExcludeIr] = useState(false);
 
     useEffect(() => {
         api.get('/weeks').then(res => {
             setWeeks(res.data.weeks);
             setCurrentWeek(res.data.current_week);
-            setSelectedWeek(res.data.current_week);
-            setWeeksCount(res.data.current_week);  // По умолчанию - все недели
+            // Используем сохраненное значение или текущую неделю
+            if (!selectedWeek) {
+                setSelectedWeek(res.data.current_week);
+            }
+            // Используем сохраненное значение или текущую неделю
+            if (weeksCount === null && savedState.weeksCount === undefined) {
+                setWeeksCount(res.data.current_week);
+            }
         });
     }, []);
+
+    // Сохранение состояния при изменении
+    useEffect(() => {
+        saveState(StorageKeys.SIMULATION, {
+            simulationMode,
+            selectedWeek,
+            weeksCount
+        });
+    }, [simulationMode, selectedWeek, weeksCount]);
 
     useEffect(() => {
         if (simulationMode === 'matchup') {
             // Для режима matchup нужны недели
             if (selectedWeek && weeksCount !== null) {
                 setLoading(true);
-                api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup&exclude_ir=${excludeIr}`)
+                api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup&exclude_ir=${excludeIrForSimulations}`)
                     .then(res => {
                         setResults(res.data.results);
                         setLoading(false);
@@ -41,7 +56,7 @@ const Simulation = () => {
         } else {
             // Для других режимов нужен период
             setLoading(true);
-            api.get(`/simulation-detailed/1?mode=${simulationMode}&period=${period}&exclude_ir=${excludeIr}`)
+            api.get(`/simulation-detailed/1?mode=${simulationMode}&period=${period}&exclude_ir=${excludeIrForSimulations}`)
                 .then(res => {
                     setResults(res.data.results);
                     setLoading(false);
@@ -51,7 +66,7 @@ const Simulation = () => {
                     setLoading(false);
                 });
         }
-    }, [selectedWeek, weeksCount, simulationMode, period, excludeIr]);
+    }, [selectedWeek, weeksCount, simulationMode, period, excludeIrForSimulations]);
 
     // Генерируем опции для количества недель
     const weeksOptions = selectedWeek ? Array.from({ length: parseInt(selectedWeek) }, (_, i) => i + 1) : [];
@@ -84,7 +99,7 @@ const Simulation = () => {
                     </button>
                 </div>
 
-                {simulationMode === 'matchup' ? (
+                {simulationMode === 'matchup' && (
                     <>
                         <div>
                             <label className="mr-2 font-bold">Выберите неделю:</label>
@@ -114,27 +129,7 @@ const Simulation = () => {
                             </select>
                         </div>
                     </>
-                ) : (
-                    <div>
-                        <label className="mr-2 font-bold">Период:</label>
-                        <select className="border p-2 rounded" value={period} onChange={e => setPeriod(e.target.value)}>
-                            <option value="2026_total">Весь сезон</option>
-                            <option value="2026_last_30">Последние 30 дней</option>
-                            <option value="2026_last_15">Последние 15 дней</option>
-                            <option value="2026_last_7">Последние 7 дней</option>
-                            <option value="2026_projected">Прогноз</option>
-                        </select>
-                    </div>
                 )}
-
-                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                    <input
-                        type="checkbox"
-                        checked={excludeIr}
-                        onChange={e => setExcludeIr(e.target.checked)}
-                    />
-                    <span className="font-medium">Исключить IR игроков</span>
-                </label>
             </div>
 
             {loading && <div>Симуляция матчапов...</div>}

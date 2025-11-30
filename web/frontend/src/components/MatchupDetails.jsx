@@ -5,6 +5,7 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
     const [matchupData, setMatchupData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [showTable, setShowTable] = useState(false);
 
     useEffect(() => {
         if (!teamId || !currentMatchup) {
@@ -43,8 +44,8 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
             // A/TO: округляем до 3 знаков
             return value.toFixed(3);
         } else {
-            // Целые числа: округляем до целого
-            return Math.round(value).toString();
+            // Счетные категории: показываем с одним знаком после запятой
+            return value.toFixed(1);
         }
     };
 
@@ -70,10 +71,21 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
 
     return (
         <div className="bg-white border rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Детали матчапа</h3>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-700">Детали матчапа</h3>
+                <button
+                    onClick={() => setShowTable(!showTable)}
+                    className="text-gray-500 hover:text-gray-700 text-sm font-medium flex items-center gap-2"
+                >
+                    {showTable ? 'Скрыть' : 'Показать'} таблицу
+                    <span className={`transform transition-transform ${showTable ? 'rotate-180' : ''}`}>
+                        ▼
+                    </span>
+                </button>
+            </div>
             
             {/* Заголовок с командами и счетом */}
-            <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+            <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex-1 min-w-[200px]">
                     <div className="font-bold text-lg">{matchupData.my_team.name}</div>
                     {matchupData.my_team.overall_record && (
@@ -106,56 +118,58 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
                 </div>
             </div>
 
-            {/* Таблица сравнения */}
-            <div className="overflow-x-auto">
-                <table className="min-w-full">
-                    <thead>
-                        <tr className="bg-gray-100 border-b">
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Категория</th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">
-                                {matchupData.my_team.name}
-                            </th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">
-                                {matchupData.opponent.name}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {matchupData.categories.map((item, idx) => {
-                            const myWins = item.winner === 'my_team';
-                            const opponentWins = item.winner === 'opponent';
-                            const isTie = item.winner === 'tie';
+            {/* Раскрывающаяся таблица сравнения */}
+            {showTable && (
+                <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead>
+                            <tr className="bg-gray-100 border-b">
+                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Категория</th>
+                                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">
+                                    {matchupData.my_team.name}
+                                </th>
+                                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">
+                                    {matchupData.opponent.name}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {matchupData.categories.map((item, idx) => {
+                                const myWins = item.winner === 'my_team';
+                                const opponentWins = item.winner === 'opponent';
+                                const isTie = item.winner === 'tie';
 
-                            return (
-                                <tr 
-                                    key={item.category} 
-                                    className={`border-b hover:bg-gray-50 ${
-                                        idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                    }`}
-                                >
-                                    <td className="px-4 py-3 text-sm font-medium text-gray-700">
-                                        {item.category}
-                                    </td>
-                                    <td className={`px-4 py-3 text-center text-sm font-semibold ${
-                                        myWins ? 'bg-green-100 text-green-800' : 
-                                        isTie ? 'bg-gray-100 text-gray-600' : 
-                                        'text-gray-700'
-                                    }`}>
-                                        {formatValue(item.category, item.my_value)}
-                                    </td>
-                                    <td className={`px-4 py-3 text-center text-sm font-semibold ${
-                                        opponentWins ? 'bg-green-100 text-green-800' : 
-                                        isTie ? 'bg-gray-100 text-gray-600' : 
-                                        'text-gray-700'
-                                    }`}>
-                                        {formatValue(item.category, item.opponent_value)}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                                return (
+                                    <tr 
+                                        key={item.category} 
+                                        className={`border-b hover:bg-gray-50 ${
+                                            idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                        }`}
+                                    >
+                                        <td className="px-4 py-3 text-sm font-medium text-gray-700">
+                                            {item.category}
+                                        </td>
+                                        <td className={`px-4 py-3 text-center text-sm font-semibold ${
+                                            myWins ? 'bg-green-100 text-green-800' : 
+                                            isTie ? 'bg-gray-100 text-gray-600' : 
+                                            'text-gray-700'
+                                        }`}>
+                                            {formatValue(item.category, item.my_value)}
+                                        </td>
+                                        <td className={`px-4 py-3 text-center text-sm font-semibold ${
+                                            opponentWins ? 'bg-green-100 text-green-800' : 
+                                            isTie ? 'bg-gray-100 text-gray-600' : 
+                                            'text-gray-700'
+                                        }`}>
+                                            {formatValue(item.category, item.opponent_value)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 };
