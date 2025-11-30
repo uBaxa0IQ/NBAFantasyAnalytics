@@ -1,38 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import TeamBalanceRadar from './TeamBalanceRadar';
+import TeamHeroCard from './TeamHeroCard';
 import MatchupDetails from './MatchupDetails';
-import LineupOptimizerModal from './LineupOptimizerModal';
+import MatchupHistory from './MatchupHistory';
+import CategoryRankings from './CategoryRankings';
+import PositionHistoryChart from './PositionHistoryChart';
 import api from '../api';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
+const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
     const [teams, setTeams] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [excludeIr, setExcludeIr] = useState(false);
-    const [compareTeamId, setCompareTeamId] = useState('');
-    const [refreshing, setRefreshing] = useState(false);
-    const [refreshMessage, setRefreshMessage] = useState(null);
-    const [showLineupOptimizer, setShowLineupOptimizer] = useState(false);
+    const [compareTeamId, setCompareTeamId] = useState(() => {
+        const saved = loadState(StorageKeys.DASHBOARD, {});
+        return saved.compareTeamId || '';
+    });
 
     // Загрузка списка команд
     useEffect(() => {
         api.get('/teams')
             .then(res => {
-                const data = res.data;
-                setTeams(data);
-                if (!selectedTeam && data.length > 0) {
-                    setSelectedTeam(data[0].team_id.toString());
-                }
+                setTeams(res.data);
             })
             .catch(err => console.error('Error fetching teams:', err));
     }, []);
 
     // Загрузка данных дашборда
     useEffect(() => {
-        if (!selectedTeam) return;
+        if (!mainTeam) return;
 
         setLoading(true);
-        api.get(`/dashboard/${selectedTeam}`, {
+        api.get(`/dashboard/${mainTeam}`, {
             params: { period, exclude_ir: excludeIr }
         })
             .then(res => res.data)
@@ -44,42 +42,20 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                 console.error('Error fetching dashboard:', err);
                 setLoading(false);
             });
-    }, [selectedTeam, period, excludeIr]);
+    }, [mainTeam, period, excludeIr]);
 
-    // Функция обновления данных с API
-    const handleRefreshData = async () => {
-        setRefreshing(true);
-        setRefreshMessage(null);
-        
-        try {
-            const response = await api.post('/refresh-league');
-            if (response.data.success) {
-                setRefreshMessage({ type: 'success', text: response.data.message });
-                
-                // Перезагружаем список команд и данные дашборда
-                const teamsRes = await api.get('/teams');
-                const teamsData = teamsRes.data;
-                setTeams(teamsData);
-                
-                // Если выбранная команда все еще существует, перезагружаем данные
-                if (selectedTeam) {
-                    const dashboardRes = await api.get(`/dashboard/${selectedTeam}`, {
-                        params: { period, exclude_ir: excludeIr }
-                    });
-                    setDashboardData(dashboardRes.data);
-                }
-            } else {
-                setRefreshMessage({ type: 'error', text: response.data.message });
-            }
-        } catch (err) {
-            console.error('Error refreshing data:', err);
-            setRefreshMessage({ type: 'error', text: 'Ошибка при обновлении данных' });
-        } finally {
-            setRefreshing(false);
-            // Скрываем сообщение через 5 секунд
-            setTimeout(() => setRefreshMessage(null), 5000);
-        }
-    };
+    // Сохранение состояния при изменении compareTeamId
+    useEffect(() => {
+        saveState(StorageKeys.DASHBOARD, { compareTeamId });
+    }, [compareTeamId]);
+
+    if (!mainTeam) {
+        return (
+            <div className="text-center p-8">
+                <p className="text-gray-600">Пожалуйста, выберите основную команду в настройках</p>
+            </div>
+        );
+    }
 
     if (loading) {
         return <div className="text-center p-8">Загрузка...</div>;
@@ -87,85 +63,37 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
 
     return (
         <div className="space-y-6">
-            {/* Team Selector and Refresh Button */}
-            <div className="flex gap-4 items-center flex-wrap">
-                <div>
-                    <label className="block text-sm font-medium mb-2">Выберите команду:</label>
-                    <select
-                        value={selectedTeam}
-                        onChange={(e) => setSelectedTeam(e.target.value)}
-                        className="w-full md:w-64 p-2 border rounded"
-                    >
-                        {teams.map(team => (
-                            <option key={team.team_id} value={team.team_id}>
-                                {team.team_name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="mt-6">
-                    <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                        <input
-                            type="checkbox"
-                            checked={excludeIr}
-                            onChange={e => setExcludeIr(e.target.checked)}
-                        />
-                        <span className="font-medium">Исключить IR игроков</span>
-                    </label>
-                </div>
-
-                <div className="mt-6">
-                    <button
-                        onClick={handleRefreshData}
-                        disabled={refreshing}
-                        className={`px-4 py-2 rounded font-medium transition-colors ${
-                            refreshing
-                                ? 'bg-gray-400 cursor-not-allowed text-white'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white'
-                        }`}
-                    >
-                        {refreshing ? 'Обновление...' : 'Обновить данные'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Refresh Message */}
-            {refreshMessage && (
-                <div className={`p-3 rounded ${
-                    refreshMessage.type === 'success' 
-                        ? 'bg-green-100 text-green-800 border border-green-300' 
-                        : 'bg-red-100 text-red-800 border border-red-300'
-                }`}>
-                    {refreshMessage.text}
-                </div>
-            )}
-
             {dashboardData && (
                 <>
+                    {/* Hero Card with Team Name, Position, and Radar */}
+                    <TeamHeroCard
+                        teamName={dashboardData.team_name}
+                        leaguePosition={dashboardData.league_position}
+                        teamId={mainTeam}
+                        period={period}
+                        excludeIr={excludeIr}
+                        compareTeamId={compareTeamId}
+                        compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
+                        teams={teams}
+                        onCompareChange={(value) => setCompareTeamId(value)}
+                    />
+
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Team Summary */}
+                        {/* Team Stats */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-4">Информация о команде</h3>
-                            <div className="space-y-2">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Название:</span>
-                                    <span className="font-semibold">{dashboardData.team_name}</span>
+                            <h3 className="text-lg font-semibold text-gray-700 mb-4">Статистика команды</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600">Игроков в ростер:</span>
+                                    <span className="font-semibold text-lg">{dashboardData.roster_size}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Игроков:</span>
-                                    <span className="font-semibold">{dashboardData.roster_size}</span>
-                                </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between items-center">
                                     <span className="text-gray-600">Total Z-Score:</span>
-                                    <span className="font-semibold text-blue-600 text-xl">
-                                        {dashboardData.total_z_score}
-                                    </span>
+                                    <span className="font-semibold text-lg text-blue-600">{dashboardData.total_z_score}</span>
                                 </div>
                             </div>
                         </div>
-
 
                         {/* Injured Players */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
@@ -193,9 +121,14 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                     {/* Matchup Details */}
                     {dashboardData.current_matchup && (
                         <MatchupDetails 
-                            teamId={selectedTeam} 
+                            teamId={mainTeam} 
                             currentMatchup={dashboardData.current_matchup}
                         />
+                    )}
+
+                    {/* Matchup History */}
+                    {mainTeam && (
+                        <MatchupHistory teamId={mainTeam} />
                     )}
 
                     {/* Top Players */}
@@ -216,58 +149,29 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                         </div>
                     </div>
 
-                    {/* Team Balance Radar */}
-                    <div className="bg-white border rounded-lg p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-                            <h3 className="text-lg font-semibold text-gray-700">Баланс команды по категориям</h3>
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm text-gray-600">Сравнить с:</label>
-                                <select
-                                    value={compareTeamId}
-                                    onChange={(e) => setCompareTeamId(e.target.value)}
-                                    className="border p-2 rounded text-sm min-w-[200px]"
-                                >
-                                    <option value="">Не сравнивать</option>
-                                    {teams
-                                        .filter(team => team.team_id.toString() !== selectedTeam)
-                                        .map(team => (
-                                            <option key={team.team_id} value={team.team_id}>
-                                                {team.team_name}
-                                            </option>
-                                        ))}
-                                </select>
-                            </div>
-                        </div>
-                        <TeamBalanceRadar
-                            teamId={selectedTeam}
+                    {/* Top 3 Categories */}
+                    {mainTeam && (
+                        <CategoryRankings 
+                            teamId={mainTeam}
                             period={period}
-                            puntCategories={puntCategories}
                             excludeIr={excludeIr}
-                            compareTeamId={compareTeamId || null}
-                            compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
+                            showTopOnly={true}
                         />
-                    </div>
+                    )}
 
-                    {/* Кнопка оптимизации состава */}
-                    <div className="mt-6 flex justify-center">
-                        <button
-                            onClick={() => setShowLineupOptimizer(true)}
-                            className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-                        >
-                            Оптимизация состава
-                        </button>
-                    </div>
+                    {/* Position History Chart */}
+                    {mainTeam && (
+                        <div className="bg-white border rounded-lg p-6 shadow-sm">
+                            <h3 className="text-lg font-semibold text-gray-700 mb-4">Изменение позиции в лиге</h3>
+                            <PositionHistoryChart
+                                teamId={mainTeam}
+                                period={period}
+                                excludeIr={excludeIr}
+                            />
+                        </div>
+                    )}
+
                 </>
-            )}
-
-            {/* Модальное окно оптимизации */}
-            {showLineupOptimizer && selectedTeam && (
-                <LineupOptimizerModal
-                    teamId={parseInt(selectedTeam)}
-                    onClose={() => setShowLineupOptimizer(false)}
-                    puntCategories={puntCategories}
-                    period={period}
-                />
             )}
         </div>
     );

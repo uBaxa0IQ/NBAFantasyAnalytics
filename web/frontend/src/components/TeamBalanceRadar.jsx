@@ -2,7 +2,7 @@ import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 import api from '../api';
 
-const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, compareTeamId = null, compareTeamName = null }) => {
+const TeamBalanceRadar = ({ teamId, period, excludeIr = false, compareTeamId = null, compareTeamName = null }) => {
     const [data, setData] = React.useState(null);
     const [compareData, setCompareData] = React.useState(null);
     const [teamName, setTeamName] = React.useState('');
@@ -18,13 +18,12 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, c
         const fetchBalanceData = async () => {
             try {
                 setLoading(true);
-                const puntStr = puntCategories.join(',');
                 
                 // Загружаем данные для основной команды
                 const response = await api.get(`/team-balance/${teamId}`, {
                     params: {
                         period,
-                        punt_categories: puntStr,
+                        punt_categories: '', // Пустая строка - не используем punt categories
                         exclude_ir: excludeIr
                     }
                 });
@@ -46,7 +45,7 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, c
                     const compareResponse = await api.get(`/team-balance/${compareTeamId}`, {
                         params: {
                             period,
-                            punt_categories: puntStr,
+                            punt_categories: '', // Пустая строка - не используем punt categories
                             exclude_ir: excludeIr
                         }
                     });
@@ -69,7 +68,7 @@ const TeamBalanceRadar = ({ teamId, period, puntCategories, excludeIr = false, c
         };
 
         fetchBalanceData();
-    }, [teamId, period, puntCategories, excludeIr, compareTeamId]);
+    }, [teamId, period, excludeIr, compareTeamId]);
 
     if (loading) {
         return (

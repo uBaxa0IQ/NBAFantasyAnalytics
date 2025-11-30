@@ -1,24 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
-const Analytics = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
+const Analytics = ({ onPlayerClick, period, puntCategories }) => {
     const [teams, setTeams] = useState([]);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
-    const [excludeIr, setExcludeIr] = useState(false);
+    const [selectedTeam, setSelectedTeam] = useState(() => {
+        const saved = loadState(StorageKeys.ANALYTICS, {});
+        return saved.selectedTeam || '';
+    });
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
     }, []);
 
+    // Сохранение состояния при изменении selectedTeam
+    useEffect(() => {
+        saveState(StorageKeys.ANALYTICS, { selectedTeam });
+    }, [selectedTeam]);
+
     useEffect(() => {
         if (selectedTeam) {
             setLoading(true);
-            api.get(`/analytics/${selectedTeam}?period=${period}&exclude_ir=${excludeIr}`)
+            // В аналитике команды IR игроки всегда включены
+            api.get(`/analytics/${selectedTeam}?period=${period}&exclude_ir=false`)
                 .then(res => {
                     setData(res.data);
                     setLoading(false);
@@ -28,13 +38,8 @@ const Analytics = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCa
                     setLoading(false);
                 });
         }
-    }, [selectedTeam, period, excludeIr]);
+    }, [selectedTeam, period]);
 
-    const handlePuntChange = (cat) => {
-        setPuntCategories(prev =>
-            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-        );
-    };
 
     const calculateTotalZ = (player) => {
         let total = 0;
@@ -89,43 +94,6 @@ const Analytics = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCa
                         <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
                     ))}
                 </select>
-
-                <select
-                    className="border p-2 rounded"
-                    value={period}
-                    onChange={e => setPeriod(e.target.value)}
-                >
-                    <option value="2026_total">Весь сезон</option>
-                    <option value="2026_last_30">Последние 30 дней</option>
-                    <option value="2026_last_15">Последние 15 дней</option>
-                    <option value="2026_last_7">Последние 7 дней</option>
-                    <option value="2026_projected">Прогноз</option>
-                </select>
-
-                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                    <input
-                        type="checkbox"
-                        checked={excludeIr}
-                        onChange={e => setExcludeIr(e.target.checked)}
-                    />
-                    <span className="font-medium">Исключить IR игроков</span>
-                </label>
-            </div>
-
-            <div className="mb-4">
-                <span className="font-bold mr-2">Punt Categories:</span>
-                <div className="flex gap-2 flex-wrap">
-                    {CATEGORIES.map(cat => (
-                        <label key={cat} className="flex items-center gap-1 cursor-pointer bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">
-                            <input
-                                type="checkbox"
-                                checked={puntCategories.includes(cat)}
-                                onChange={() => handlePuntChange(cat)}
-                            />
-                            {cat}
-                        </label>
-                    ))}
-                </div>
             </div>
 
             {loading && <div>Загрузка...</div>}

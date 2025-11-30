@@ -1,21 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
-const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories }) => {
+const MultiTeamTradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
+    const savedState = loadState(StorageKeys.MULTITEAM_TRADE, {});
     const [teams, setTeams] = useState([]);
-    const [teamTrades, setTeamTrades] = useState([{ teamId: '', give: [], receive: [] }]);
+    const [teamTrades, setTeamTrades] = useState(savedState.teamTrades || [{ teamId: '', give: [], receive: [] }]);
     const [teamPlayers, setTeamPlayers] = useState({}); // teamId -> players[]
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState('z-scores');
-    const [excludeIr, setExcludeIr] = useState(false);
+    const [viewMode, setViewMode] = useState(savedState.viewMode || 'z-scores');
     const [validationErrors, setValidationErrors] = useState([]);
+    const [selectedTeamForTable, setSelectedTeamForTable] = useState(savedState.selectedTeamForTable || null);
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
     }, []);
+
+    // Сохранение состояния при изменении
+    useEffect(() => {
+        saveState(StorageKeys.MULTITEAM_TRADE, {
+            teamTrades,
+            selectedTeamForTable,
+            viewMode
+        });
+    }, [teamTrades, selectedTeamForTable, viewMode]);
 
     // Загружаем игроков для выбранных команд
     useEffect(() => {
@@ -24,7 +35,8 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             for (const trade of teamTrades) {
                 if (trade.teamId) {
                     try {
-                        const res = await api.get(`/analytics/${trade.teamId}?period=${period}&exclude_ir=${excludeIr}`);
+                        // В аналитике команды IR игроки всегда включены
+                        const res = await api.get(`/analytics/${trade.teamId}?period=${period}&exclude_ir=false`);
                         newTeamPlayers[trade.teamId] = res.data.players;
                     } catch (err) {
                         console.error(`Error loading players for team ${trade.teamId}:`, err);
@@ -35,7 +47,14 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             setTeamPlayers(newTeamPlayers);
         };
         loadPlayers();
-    }, [teamTrades.map(t => t.teamId).join(','), period, excludeIr]);
+    }, [teamTrades.map(t => t.teamId).join(','), period]);
+
+    // Инициализация выбранной команды для таблицы при получении результата
+    useEffect(() => {
+        if (result && result.teams && result.teams.length > 0 && !selectedTeamForTable) {
+            setSelectedTeamForTable(result.teams[0].team_id);
+        }
+    }, [result]);
 
     const addTeam = () => {
         setTeamTrades([...teamTrades, { teamId: '', give: [], receive: [] }]);
@@ -123,7 +142,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             trades,
             period,
             punt_categories: puntCategories,
-            exclude_ir: excludeIr
+            exclude_ir: excludeIrForSimulations
         })
             .then(res => {
                 if (res.data.error) {
@@ -146,11 +165,6 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
             });
     };
 
-    const handlePuntChange = (cat) => {
-        setPuntCategories(prev =>
-            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-        );
-    };
 
     // Получаем всех игроков, участвующих в трейде (для отображения в других командах)
     const getAllTradedPlayers = () => {
@@ -163,39 +177,6 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
 
     return (
         <div className="p-4">
-            <div className="mb-4 flex gap-4 items-center flex-wrap">
-                <div>
-                    <label className="mr-2 font-bold">Период:</label>
-                    <select className="border p-2 rounded" value={period} onChange={e => setPeriod(e.target.value)}>
-                        <option value="2026_total">Весь сезон</option>
-                        <option value="2026_last_30">Последние 30 дней</option>
-                        <option value="2026_last_15">Последние 15 дней</option>
-                        <option value="2026_last_7">Последние 7 дней</option>
-                        <option value="2026_projected">Прогноз</option>
-                    </select>
-                </div>
-            </div>
-            <div className="mb-4">
-                <span className="font-bold mr-2">Punt Categories:</span>
-                <div className="flex gap-2 flex-wrap">
-                    {CATEGORIES.map(cat => (
-                        <label key={cat} className="flex items-center gap-1 cursor-pointer bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">
-                            <input type="checkbox" checked={puntCategories.includes(cat)} onChange={() => handlePuntChange(cat)} />
-                            {cat}
-                        </label>
-                    ))}
-                </div>
-            </div>
-            <div className="mb-4">
-                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200 inline-block">
-                    <input
-                        type="checkbox"
-                        checked={excludeIr}
-                        onChange={e => setExcludeIr(e.target.checked)}
-                    />
-                    <span className="font-medium">Исключить IR игроков</span>
-                </label>
-            </div>
 
             {/* Ошибки валидации */}
             {validationErrors.length > 0 && (
@@ -252,7 +233,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
                                 <>
                                     <div className="mb-3">
                                         <h4 className="font-semibold mb-2 text-sm text-red-600">Отдает:</h4>
-                                        <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-2">
+                                        <div className="space-y-1 max-h-64 overflow-y-auto border rounded p-2">
                                             {teamPlayers[trade.teamId].map(player => (
                                                 <label
                                                     key={player.name}
@@ -272,7 +253,7 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
                                     </div>
                                     <div>
                                         <h4 className="font-semibold mb-2 text-sm text-green-600">Получает:</h4>
-                                        <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-2">
+                                        <div className="space-y-1 max-h-64 overflow-y-auto border rounded p-2">
                                             {tradedPlayers.map(playerName => (
                                                 <label
                                                     key={playerName}
@@ -437,41 +418,58 @@ const MultiTeamTradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCate
                         ))}
                     </div>
 
-                    {/* Детализация по категориям для первой команды */}
-                    {result.teams.length > 0 && (
-                        <div>
-                            <h3 className="text-xl font-bold mb-3">
-                                Детализация по категориям ({viewMode === 'z-scores' ? 'Z-scores' : 'реальные значения'}) - {result.teams[0].team_name}
-                            </h3>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full bg-white border">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            <th className="p-2 border">Категория</th>
-                                            <th className="p-2 border">До</th>
-                                            <th className="p-2 border">После</th>
-                                            <th className="p-2 border">Δ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {Object.entries(viewMode === 'z-scores' ? result.teams[0].categories : result.teams[0].raw_categories).map(([cat, data]) => (
-                                            <tr key={cat} className="hover:bg-gray-50">
-                                                <td className="p-2 border font-medium">{cat}</td>
-                                                <td className="p-2 border text-center">{data.before}</td>
-                                                <td className="p-2 border text-center">{data.after}</td>
-                                                <td className={`p-2 border text-center font-bold ${
-                                                    data.delta > 0 ? 'text-green-600' :
-                                                    data.delta < 0 ? 'text-red-600' : 'text-gray-600'
-                                                }`}>
-                                                    {data.delta > 0 ? '+' : ''}{data.delta}
-                                                </td>
-                                            </tr>
+                    {/* Детализация по категориям с переключателем команды */}
+                    {result.teams.length > 0 && selectedTeamForTable && (() => {
+                        const selectedTeam = result.teams.find(t => t.team_id === selectedTeamForTable) || result.teams[0];
+                        if (!selectedTeam) return null;
+                        return (
+                            <div>
+                                <div className="mb-4 flex items-center justify-center gap-4 flex-wrap">
+                                    <h3 className="text-xl font-bold">
+                                        Детализация по категориям ({viewMode === 'z-scores' ? 'Z-scores' : 'реальные значения'})
+                                    </h3>
+                                    <select
+                                        value={selectedTeamForTable}
+                                        onChange={(e) => setSelectedTeamForTable(parseInt(e.target.value))}
+                                        className="border p-2 rounded text-sm font-medium min-w-[200px]"
+                                    >
+                                        {result.teams.map(team => (
+                                            <option key={team.team_id} value={team.team_id}>
+                                                {team.team_name}
+                                            </option>
                                         ))}
-                                    </tbody>
-                                </table>
+                                    </select>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full bg-white border">
+                                        <thead>
+                                            <tr className="bg-gray-100">
+                                                <th className="p-2 border">Категория</th>
+                                                <th className="p-2 border">До</th>
+                                                <th className="p-2 border">После</th>
+                                                <th className="p-2 border">Δ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(viewMode === 'z-scores' ? selectedTeam.categories : selectedTeam.raw_categories).map(([cat, data]) => (
+                                                <tr key={cat} className="hover:bg-gray-50">
+                                                    <td className="p-2 border font-medium">{cat}</td>
+                                                    <td className="p-2 border text-center">{data.before}</td>
+                                                    <td className="p-2 border text-center">{data.after}</td>
+                                                    <td className={`p-2 border text-center font-bold ${
+                                                        data.delta > 0 ? 'text-green-600' :
+                                                        data.delta < 0 ? 'text-red-600' : 'text-gray-600'
+                                                    }`}>
+                                                        {data.delta > 0 ? '+' : ''}{data.delta}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </div>
             )}
         </div>

@@ -1,50 +1,67 @@
 ﻿import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
 import MultiTeamTradeAnalyzer from './MultiTeamTradeAnalyzer';
 
-const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories }) => {
-    const [tradeMode, setTradeMode] = useState('two-team'); // 'two-team' или 'multi-team'
+const TradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
+    const savedState = loadState(StorageKeys.TRADE, {});
+    const [tradeMode, setTradeMode] = useState(savedState.tradeMode || 'two-team'); // 'two-team' или 'multi-team'
     const [teams, setTeams] = useState([]);
-    const [myTeam, setMyTeam] = useState('');
-    const [theirTeam, setTheirTeam] = useState('');
+    const [myTeam, setMyTeam] = useState(savedState.myTeam || '');
+    const [theirTeam, setTheirTeam] = useState(savedState.theirTeam || '');
     const [myPlayers, setMyPlayers] = useState([]);
     const [theirPlayers, setTheirPlayers] = useState([]);
-    const [selectedGive, setSelectedGive] = useState([]);
-    const [selectedReceive, setSelectedReceive] = useState([]);
+    const [selectedGive, setSelectedGive] = useState(savedState.selectedGive || []);
+    const [selectedReceive, setSelectedReceive] = useState(savedState.selectedReceive || []);
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState('z-scores');
-    const [scopeMode, setScopeMode] = useState('team'); // 'team' или 'trade'
-    const [excludeIr, setExcludeIr] = useState(false);
+    const [viewMode, setViewMode] = useState(savedState.viewMode || 'z-scores');
+    const [scopeMode, setScopeMode] = useState(savedState.scopeMode || 'team'); // 'team' или 'trade'
+    const [selectedTeamForTable, setSelectedTeamForTable] = useState('my_team'); // 'my_team' или 'their_team'
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
     }, []);
 
+    // Сохранение состояния при изменении
+    useEffect(() => {
+        saveState(StorageKeys.TRADE, {
+            tradeMode,
+            myTeam,
+            theirTeam,
+            selectedGive,
+            selectedReceive,
+            viewMode,
+            scopeMode
+        });
+    }, [tradeMode, myTeam, theirTeam, selectedGive, selectedReceive, viewMode, scopeMode]);
+
     useEffect(() => {
         if (myTeam) {
-            api.get(`/analytics/${myTeam}?period=${period}&exclude_ir=${excludeIr}`)
+            // В аналитике команды IR игроки всегда включены
+            api.get(`/analytics/${myTeam}?period=${period}&exclude_ir=false`)
                 .then(res => setMyPlayers(res.data.players))
                 .catch(err => console.error(err));
         } else {
             setMyPlayers([]);
         }
-        setSelectedGive([]);
-    }, [myTeam, period, excludeIr]);
+        // Не сбрасываем selectedGive, так как состояние сохраняется
+    }, [myTeam, period]);
 
     useEffect(() => {
         if (theirTeam) {
-            api.get(`/analytics/${theirTeam}?period=${period}&exclude_ir=${excludeIr}`)
+            // В аналитике команды IR игроки всегда включены
+            api.get(`/analytics/${theirTeam}?period=${period}&exclude_ir=false`)
                 .then(res => setTheirPlayers(res.data.players))
                 .catch(err => console.error(err));
         } else {
             setTheirPlayers([]);
         }
-        setSelectedReceive([]);
-    }, [theirTeam, period, excludeIr]);
+        // Не сбрасываем selectedReceive, так как состояние сохраняется
+    }, [theirTeam, period]);
 
     const handleToggleGive = (playerName) => {
         setSelectedGive(prev =>
@@ -77,7 +94,7 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
             period,
             punt_categories: puntCategories,
             scope_mode: scopeMode,
-            exclude_ir: excludeIr
+            exclude_ir: excludeIrForSimulations
         })
             .then(res => {
                 setResult(res.data);
@@ -90,11 +107,6 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
             });
     };
 
-    const handlePuntChange = (cat) => {
-        setPuntCategories(prev =>
-            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-        );
-    };
 
     // Если выбран мультикомандный режим, показываем соответствующий компонент
     if (tradeMode === 'multi-team') {
@@ -122,9 +134,8 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
                 </div>
                 <MultiTeamTradeAnalyzer
                     period={period}
-                    setPeriod={setPeriod}
                     puntCategories={puntCategories}
-                    setPuntCategories={setPuntCategories}
+                    excludeIrForSimulations={excludeIrForSimulations}
                 />
             </div>
         );
@@ -151,39 +162,6 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
                         Мультикомандный
                     </button>
                 </div>
-            </div>
-            <div className="mb-4 flex gap-4 items-center flex-wrap">
-                <div>
-                    <label className="mr-2 font-bold">Период:</label>
-                    <select className="border p-2 rounded" value={period} onChange={e => setPeriod(e.target.value)}>
-                        <option value="2026_total">Весь сезон</option>
-                        <option value="2026_last_30">Последние 30 дней</option>
-                        <option value="2026_last_15">Последние 15 дней</option>
-                        <option value="2026_last_7">Последние 7 дней</option>
-                        <option value="2026_projected">Прогноз</option>
-                    </select>
-                </div>
-            </div>
-            <div className="mb-4">
-                <span className="font-bold mr-2">Punt Categories:</span>
-                <div className="flex gap-2 flex-wrap">
-                    {CATEGORIES.map(cat => (
-                        <label key={cat} className="flex items-center gap-1 cursor-pointer bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">
-                            <input type="checkbox" checked={puntCategories.includes(cat)} onChange={() => handlePuntChange(cat)} />
-                            {cat}
-                        </label>
-                    ))}
-                </div>
-            </div>
-            <div className="mb-4">
-                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200 inline-block">
-                    <input
-                        type="checkbox"
-                        checked={excludeIr}
-                        onChange={e => setExcludeIr(e.target.checked)}
-                    />
-                    <span className="font-medium">Исключить IR игроков</span>
-                </label>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="border rounded p-4">
@@ -378,9 +356,23 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
                                         </div>
                                     </div>
                                 )}
-                                <h3 className="text-xl font-bold mb-3">
-                                    {viewMode === 'z-scores' ? 'Детализация по категориям (Z-scores)' : 'Детализация по категориям (реальные значения)'} - {scopeMode === 'team' ? 'моя команда' : 'игроки трейда (я отдаю)'}
-                                </h3>
+                                <div className="mb-4 flex items-center justify-center gap-4 flex-wrap">
+                                    <h3 className="text-xl font-bold">
+                                        {viewMode === 'z-scores' ? 'Детализация по категориям (Z-scores)' : 'Детализация по категориям (реальные значения)'}
+                                    </h3>
+                                    <select
+                                        value={selectedTeamForTable}
+                                        onChange={(e) => setSelectedTeamForTable(e.target.value)}
+                                        className="border p-2 rounded text-sm font-medium min-w-[200px]"
+                                    >
+                                        <option value="my_team">
+                                            {scopeMode === 'team' ? result.my_team.name : 'Игроки трейда (я отдаю)'}
+                                        </option>
+                                        <option value="their_team">
+                                            {scopeMode === 'team' ? result.their_team.name : 'Игроки трейда (я получаю)'}
+                                        </option>
+                                    </select>
+                                </div>
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full bg-white border">
                                         <thead>
@@ -392,7 +384,10 @@ const TradeAnalyzer = ({ period, setPeriod, puntCategories, setPuntCategories })
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {Object.entries(viewMode === 'z-scores' ? myData.categories : myData.raw_categories).map(([cat, data]) => (
+                                            {Object.entries(viewMode === 'z-scores' 
+                                                ? (selectedTeamForTable === 'my_team' ? myData.categories : theirData.categories)
+                                                : (selectedTeamForTable === 'my_team' ? myData.raw_categories : theirData.raw_categories)
+                                            ).map(([cat, data]) => (
                                                 <tr key={cat} className="hover:bg-gray-50">
                                                     <td className="p-2 border font-medium">{cat}</td>
                                                     <td className="p-2 border text-center">{data.before}</td>

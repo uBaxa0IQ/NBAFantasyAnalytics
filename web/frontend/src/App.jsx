@@ -7,12 +7,14 @@ import PlayerModal from './components/PlayerModal';
 import TradeAnalyzer from './components/TradeAnalyzer';
 import ComparisonBar from './components/ComparisonBar';
 import PlayerComparisonModal from './components/PlayerComparisonModal';
+import SettingsModal from './components/SettingsModal';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [comparisonPlayers, setComparisonPlayers] = useState([]);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Общие настройки для всех вкладок с сохранением в localStorage
   const [period, setPeriod] = useState(() => {
@@ -24,8 +26,13 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [selectedTeam, setSelectedTeam] = useState(() => {
-    return localStorage.getItem('selectedTeam') || '';
+  const [excludeIrForSimulations, setExcludeIrForSimulations] = useState(() => {
+    const saved = localStorage.getItem('excludeIrForSimulations');
+    return saved === 'true';
+  });
+
+  const [mainTeam, setMainTeam] = useState(() => {
+    return localStorage.getItem('mainTeam') || '';
   });
 
   // Сохранение в localStorage при изменении
@@ -38,8 +45,19 @@ function App() {
   }, [puntCategories]);
 
   useEffect(() => {
-    localStorage.setItem('selectedTeam', selectedTeam);
-  }, [selectedTeam]);
+    localStorage.setItem('excludeIrForSimulations', excludeIrForSimulations.toString());
+  }, [excludeIrForSimulations]);
+
+  useEffect(() => {
+    localStorage.setItem('mainTeam', mainTeam);
+  }, [mainTeam]);
+
+  const handleSaveSettings = (settings) => {
+    setPeriod(settings.period);
+    setPuntCategories(settings.puntCategories);
+    setExcludeIrForSimulations(settings.excludeIrForSimulations);
+    setMainTeam(settings.mainTeam);
+  };
 
   const handlePlayerClick = (player) => {
     setSelectedPlayer(player);
@@ -75,41 +93,53 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-blue-900 text-white p-4 shadow-md">
-        <h1 className="text-2xl font-bold">NBA Fantasy Analytics</h1>
+        <h1 className="text-2xl font-bold text-center">NBA Fantasy Analytics</h1>
       </header>
 
       <div className="sticky top-0 bg-white z-10 border-b shadow-sm">
         <div className="container mx-auto max-w-7xl">
-          <div className="grid grid-cols-5 gap-0 overflow-x-auto">
+          <div className="flex items-center">
+            <div className="grid grid-cols-5 gap-0 overflow-x-auto flex-1">
+              <button
+                className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'analytics' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('analytics')}
+              >
+                Аналитика команды
+              </button>
+              <button
+                className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'simulation' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('simulation')}
+              >
+                Симуляция матчапов
+              </button>
+              <button
+                className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'dashboard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('dashboard')}
+              >
+                Dashboard
+              </button>
+              <button
+                className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'players' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('players')}
+              >
+                Игроки
+              </button>
+              <button
+                className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'trade' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('trade')}
+              >
+                Анализ трейдов
+              </button>
+            </div>
             <button
-              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'analytics' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('analytics')}
+              onClick={() => setShowSettingsModal(true)}
+              className="ml-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+              title="Настройки"
             >
-              Аналитика команды
-            </button>
-            <button
-              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'simulation' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('simulation')}
-            >
-              Симуляция матчапов
-            </button>
-            <button
-              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'dashboard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('dashboard')}
-            >
-              Dashboard
-            </button>
-            <button
-              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'players' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('players')}
-            >
-              Игроки
-            </button>
-            <button
-              className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'trade' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setActiveTab('trade')}
-            >
-              Анализ трейдов
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
             </button>
           </div>
         </div>
@@ -120,40 +150,37 @@ function App() {
           {activeTab === 'dashboard' && (
             <Dashboard
               period={period}
-              setPeriod={setPeriod}
               puntCategories={puntCategories}
-              setPuntCategories={setPuntCategories}
-              selectedTeam={selectedTeam}
-              setSelectedTeam={setSelectedTeam}
+              mainTeam={mainTeam}
+              excludeIr={excludeIrForSimulations}
             />
           )}
           {activeTab === 'analytics' && (
             <Analytics
               onPlayerClick={handlePlayerClick}
               period={period}
-              setPeriod={setPeriod}
               puntCategories={puntCategories}
-              setPuntCategories={setPuntCategories}
-              selectedTeam={selectedTeam}
-              setSelectedTeam={setSelectedTeam}
             />
           )}
-          {activeTab === 'simulation' && <Simulation />}
+          {activeTab === 'simulation' && (
+            <Simulation
+              period={period}
+              excludeIrForSimulations={excludeIrForSimulations}
+            />
+          )}
           {activeTab === 'players' && (
             <PlayersTab
               onPlayerClick={handlePlayerClick}
               period={period}
-              setPeriod={setPeriod}
               puntCategories={puntCategories}
-              setPuntCategories={setPuntCategories}
+              excludeIrForSimulations={excludeIrForSimulations}
             />
           )}
           {activeTab === 'trade' && (
             <TradeAnalyzer
               period={period}
-              setPeriod={setPeriod}
               puntCategories={puntCategories}
-              setPuntCategories={setPuntCategories}
+              excludeIrForSimulations={excludeIrForSimulations}
             />
           )}
         </div>
@@ -184,6 +211,18 @@ function App() {
           onClose={() => setShowComparisonModal(false)}
         />
       )}
+
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onSave={handleSaveSettings}
+        initialSettings={{
+          period,
+          puntCategories,
+          excludeIrForSimulations,
+          mainTeam
+        }}
+      />
     </div>
   );
 }

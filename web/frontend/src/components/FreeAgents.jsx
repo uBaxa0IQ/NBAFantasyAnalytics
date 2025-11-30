@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const FreeAgents = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntCategories }) => {
+const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
+    const savedState = loadState(StorageKeys.FREE_AGENTS, {});
     const [teams, setTeams] = useState([]);
-    const [myTeam, setMyTeam] = useState('');
-    const [position, setPosition] = useState('');
+    const [myTeam, setMyTeam] = useState(savedState.myTeam || '');
+    const [position, setPosition] = useState(savedState.position || '');
     const [data, setData] = useState(null);
     const [myTeamData, setMyTeamData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [filterBetterThanMine, setFilterBetterThanMine] = useState(false);
+    const [filterBetterThanMine, setFilterBetterThanMine] = useState(savedState.filterBetterThanMine || false);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
 
@@ -41,11 +43,15 @@ const FreeAgents = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
         }
     }, [myTeam, period, filterBetterThanMine]);
 
-    const handlePuntChange = (cat) => {
-        setPuntCategories(prev =>
-            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-        );
-    };
+    // Сохранение состояния при изменении
+    useEffect(() => {
+        saveState(StorageKeys.FREE_AGENTS, {
+            myTeam,
+            position,
+            filterBetterThanMine
+        });
+    }, [myTeam, position, filterBetterThanMine]);
+
 
     const calculateTotalZ = (player) => {
         let total = 0;
@@ -103,18 +109,6 @@ const FreeAgents = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
             <div className="mb-4 flex gap-4 items-center flex-wrap">
                 <select
                     className="border p-2 rounded"
-                    value={period}
-                    onChange={e => setPeriod(e.target.value)}
-                >
-                    <option value="2026_total">Весь сезон</option>
-                    <option value="2026_last_30">Последние 30 дней</option>
-                    <option value="2026_last_15">Последние 15 дней</option>
-                    <option value="2026_last_7">Последние 7 дней</option>
-                    <option value="2026_projected">Прогноз</option>
-                </select>
-
-                <select
-                    className="border p-2 rounded"
                     value={position}
                     onChange={e => setPosition(e.target.value)}
                 >
@@ -148,22 +142,6 @@ const FreeAgents = ({ onPlayerClick, period, setPeriod, puntCategories, setPuntC
                             ))}
                         </select>
                     )}
-                </div>
-            </div>
-
-            <div className="mb-4">
-                <span className="font-bold mr-2">Punt Categories:</span>
-                <div className="flex gap-2 flex-wrap">
-                    {CATEGORIES.map(cat => (
-                        <label key={cat} className="flex items-center gap-1 cursor-pointer bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">
-                            <input
-                                type="checkbox"
-                                checked={puntCategories.includes(cat)}
-                                onChange={() => handlePuntChange(cat)}
-                            />
-                            {cat}
-                        </label>
-                    ))}
                 </div>
             </div>
 

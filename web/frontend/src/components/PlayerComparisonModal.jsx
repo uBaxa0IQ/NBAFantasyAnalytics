@@ -95,9 +95,10 @@ const PlayerComparisonModal = ({ players, onClose }) => {
         } else if (category === 'A/TO') {
             return value.toFixed(2);
         } else {
+            // Для счетных категорий (PTS, REB, AST и т.д.) показываем с одним знаком после запятой
             if (category === 'PTS' || category === 'REB' || category === 'AST' || 
                 category === 'STL' || category === 'BLK' || category === '3PM' || category === 'DD') {
-                return Math.round(value).toString();
+                return value.toFixed(1);
             }
             return value.toFixed(1);
         }

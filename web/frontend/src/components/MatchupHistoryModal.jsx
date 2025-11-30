@@ -30,14 +30,15 @@ const MatchupHistoryModal = ({ teamId, matchup, onClose }) => {
         } else if (category === 'A/TO') {
             return value.toFixed(3);
         } else {
-            return Math.round(value).toString();
+            // Счетные категории: показываем с одним знаком после запятой
+            return value.toFixed(1);
         }
     };
 
     if (!matchup) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" onClick={onClose}>
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
                 <div className="p-6">
                     {/* Header */}
