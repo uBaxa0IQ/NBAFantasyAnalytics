@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
 import MatchupDetails from './MatchupDetails';
 import MatchupHistory from './MatchupHistory';
-import PlayerValueModal from './PlayerValueModal';
 import api from '../api';
 
 const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selectedTeam, setSelectedTeam }) => {
@@ -12,7 +11,6 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
     const [refreshStatus, setRefreshStatus] = useState(null);
     const [excludeIr, setExcludeIr] = useState(false);
     const [compareTeamId, setCompareTeamId] = useState('');
-    const [showPlayerValueModal, setShowPlayerValueModal] = useState(false);
 
     // Загрузка списка команд
     useEffect(() => {
@@ -302,28 +300,7 @@ const Dashboard = ({ period, setPeriod, puntCategories, setPuntCategories, selec
                             compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
                         />
                     </div>
-
-                    {/* Кнопка для открытия модального окна с ценностью игроков */}
-                    <div className="mt-6 flex justify-center">
-                        <button
-                            onClick={() => setShowPlayerValueModal(true)}
-                            className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
-                        >
-                            Ценность игроков
-                        </button>
-                    </div>
                 </>
-            )}
-
-            {/* Модальное окно с ценностью игроков */}
-            {showPlayerValueModal && selectedTeam && (
-                <PlayerValueModal
-                    teamId={parseInt(selectedTeam)}
-                    onClose={() => setShowPlayerValueModal(false)}
-                    puntCategories={puntCategories}
-                    period={period}
-                    excludeIr={excludeIr}
-                />
             )}
         </div>
     );
