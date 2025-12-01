@@ -10,7 +10,8 @@ from utils.calculations import (
     calculate_total_z,
     calculate_category_z,
     calculate_raw_stats,
-    calculate_simulation_ranks
+    calculate_simulation_ranks,
+    calculate_category_rankings
 )
 import math
 
@@ -238,6 +239,46 @@ def analyze_trade(
         }
     }
     
+    # Рассчитываем позиции по категориям ДО и ПОСЛЕ трейда
+    category_rankings_before = calculate_category_rankings(
+        all_players_before, request.my_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+    )
+    category_rankings_after = calculate_category_rankings(
+        all_players_after, request.my_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+    )
+    
+    their_category_rankings_before = calculate_category_rankings(
+        all_players_before, request.their_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+    )
+    their_category_rankings_after = calculate_category_rankings(
+        all_players_after, request.their_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+    )
+    
+    # Формируем данные о позициях по категориям
+    my_category_rankings = {}
+    for cat in CATEGORIES:
+        if cat not in request.punt_categories:
+            before_rank = category_rankings_before.get(cat)
+            after_rank = category_rankings_after.get(cat)
+            if before_rank is not None and after_rank is not None:
+                my_category_rankings[cat] = {
+                    'before': before_rank,
+                    'after': after_rank,
+                    'delta': after_rank - before_rank
+                }
+    
+    their_category_rankings = {}
+    for cat in CATEGORIES:
+        if cat not in request.punt_categories:
+            before_rank = their_category_rankings_before.get(cat)
+            after_rank = their_category_rankings_after.get(cat)
+            if before_rank is not None and after_rank is not None:
+                their_category_rankings[cat] = {
+                    'before': before_rank,
+                    'after': after_rank,
+                    'delta': after_rank - before_rank
+                }
+    
     return {
         "my_team": {
             "name": my_team_name,
@@ -271,7 +312,11 @@ def analyze_trade(
             "categories": their_trade_categories,
             "raw_categories": their_trade_raw_categories
         },
-        "simulation_ranks": simulation_ranks
+        "simulation_ranks": simulation_ranks,
+        "category_rankings": {
+            "my_team": my_category_rankings,
+            "their_team": their_category_rankings
+        }
     }
 
 
@@ -460,9 +505,36 @@ def analyze_multi_team_trade(
             'delta': (ranks_after_avg.get(team_id, 0) - ranks_before_avg.get(team_id, 0)) if (team_id in ranks_after_avg and team_id in ranks_before_avg) else None
         }
     
+    # Рассчитываем позиции по категориям для каждой команды ДО и ПОСЛЕ трейда
+    category_rankings = {}
+    for trade in request.trades:
+        team_id = trade.team_id
+        category_rankings_before = calculate_category_rankings(
+            all_players_before, team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+        )
+        category_rankings_after = calculate_category_rankings(
+            all_players_after, team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+        )
+        
+        # Формируем данные о позициях по категориям
+        team_category_rankings = {}
+        for cat in CATEGORIES:
+            if cat not in request.punt_categories:
+                before_rank = category_rankings_before.get(cat)
+                after_rank = category_rankings_after.get(cat)
+                if before_rank is not None and after_rank is not None:
+                    team_category_rankings[cat] = {
+                        'before': before_rank,
+                        'after': after_rank,
+                        'delta': after_rank - before_rank
+                    }
+        
+        category_rankings[team_id] = team_category_rankings
+    
     return {
         "teams": teams_results,
         "simulation_ranks": simulation_ranks,
+        "category_rankings": category_rankings,
         "validation": {
             "is_valid": True,
             "errors": []

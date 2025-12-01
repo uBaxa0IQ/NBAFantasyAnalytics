@@ -21,6 +21,7 @@ const TradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
     const [viewMode, setViewMode] = useState(savedState.viewMode || 'z-scores');
     const [scopeMode, setScopeMode] = useState(savedState.scopeMode || 'team'); // 'team' или 'trade'
     const [selectedTeamForTable, setSelectedTeamForTable] = useState('my_team'); // 'my_team' или 'their_team'
+    const [isCategoryDetailsExpanded, setIsCategoryDetailsExpanded] = useState(false);
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -356,53 +357,188 @@ const TradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
                                         </div>
                                     </div>
                                 )}
-                                <div className="mb-4 flex items-center justify-center gap-4 flex-wrap">
-                                    <h3 className="text-xl font-bold">
-                                        {viewMode === 'z-scores' ? 'Детализация по категориям (Z-scores)' : 'Детализация по категориям (реальные значения)'}
-                                    </h3>
-                                    <select
-                                        value={selectedTeamForTable}
-                                        onChange={(e) => setSelectedTeamForTable(e.target.value)}
-                                        className="border p-2 rounded text-sm font-medium min-w-[200px]"
-                                    >
-                                        <option value="my_team">
-                                            {scopeMode === 'team' ? result.my_team.name : 'Игроки трейда (я отдаю)'}
-                                        </option>
-                                        <option value="their_team">
-                                            {scopeMode === 'team' ? result.their_team.name : 'Игроки трейда (я получаю)'}
-                                        </option>
-                                    </select>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full bg-white border">
-                                        <thead>
-                                            <tr className="bg-gray-100">
-                                                <th className="p-2 border">Категория</th>
-                                                <th className="p-2 border">До</th>
-                                                <th className="p-2 border">После</th>
-                                                <th className="p-2 border">Δ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {Object.entries(viewMode === 'z-scores' 
-                                                ? (selectedTeamForTable === 'my_team' ? myData.categories : theirData.categories)
-                                                : (selectedTeamForTable === 'my_team' ? myData.raw_categories : theirData.raw_categories)
-                                            ).map(([cat, data]) => (
-                                                <tr key={cat} className="hover:bg-gray-50">
-                                                    <td className="p-2 border font-medium">{cat}</td>
-                                                    <td className="p-2 border text-center">{data.before}</td>
-                                                    <td className="p-2 border text-center">{data.after}</td>
-                                                    <td className={`p-2 border text-center font-bold ${data.delta > 0 ? 'text-green-600' : data.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                                        {data.delta > 0 ? '+' : ''}{data.delta}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                
+                                {/* Детализация по категориям - Коллапсируемый блок */}
+                                <div className="bg-white border rounded-lg p-6 shadow-sm mb-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-700">
+                                            {viewMode === 'z-scores' ? 'Детализация по категориям (Z-scores)' : 'Детализация по категориям (реальные значения)'}
+                                        </h3>
+                                        <button
+                                            onClick={() => setIsCategoryDetailsExpanded(!isCategoryDetailsExpanded)}
+                                            className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                                        >
+                                            {isCategoryDetailsExpanded ? 'Скрыть' : 'Показать'} таблицу
+                                        </button>
+                                    </div>
+                                    
+                                    {isCategoryDetailsExpanded && (
+                                        <div>
+                                            {/* Переключатель команд */}
+                                            <div className="mb-4 flex items-center justify-center gap-4">
+                                                <select
+                                                    value={selectedTeamForTable}
+                                                    onChange={(e) => setSelectedTeamForTable(e.target.value)}
+                                                    className="border p-2 rounded text-sm font-medium min-w-[200px]"
+                                                >
+                                                    <option value="my_team">
+                                                        {scopeMode === 'team' ? result.my_team.name : 'Игроки трейда (я отдаю)'}
+                                                    </option>
+                                                    <option value="their_team">
+                                                        {scopeMode === 'team' ? result.their_team.name : 'Игроки трейда (я получаю)'}
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            
+                                            {/* Таблица */}
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full bg-white border">
+                                                    <thead>
+                                                        <tr className="bg-gray-100">
+                                                            <th className="p-3 border text-left font-semibold">Категория</th>
+                                                            <th className="p-3 border text-center font-semibold">До</th>
+                                                            <th className="p-3 border text-center font-semibold">После</th>
+                                                            <th className="p-3 border text-center font-semibold">Δ</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Object.entries(viewMode === 'z-scores' 
+                                                            ? (selectedTeamForTable === 'my_team' ? myData.categories : theirData.categories)
+                                                            : (selectedTeamForTable === 'my_team' ? myData.raw_categories : theirData.raw_categories)
+                                                        ).map(([cat, data]) => (
+                                                            <tr key={cat} className="hover:bg-gray-50">
+                                                                <td className="p-3 border font-medium">{cat}</td>
+                                                                <td className="p-3 border text-center">{data.before}</td>
+                                                                <td className="p-3 border text-center">{data.after}</td>
+                                                                <td className={`p-3 border text-center font-bold ${data.delta > 0 ? 'text-green-600' : data.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                                    {data.delta > 0 ? '+' : ''}{data.delta}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         );
                     })()}
+                    
+                    {/* Category Rankings Changes - Collapsible Block */}
+                    {result.category_rankings && (
+                        <CategoryRankingsChanges 
+                            categoryRankings={result.category_rankings}
+                            myTeamName={result.my_team.name}
+                            theirTeamName={result.their_team.name}
+                        />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Компонент для отображения изменений позиций по категориям
+const CategoryRankingsChanges = ({ categoryRankings, myTeamName, theirTeamName }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [selectedTeam, setSelectedTeam] = useState('my_team');
+    
+    // Получаем все категории для полной таблицы
+    const allCategories = Object.keys(categoryRankings.my_team || {});
+    
+    // Функция для получения цвета бейджа позиции (как в CategoryRankings)
+    const getRankBadgeColor = (rank) => {
+        if (rank === 1) return 'bg-yellow-500 text-white';
+        if (rank === 2) return 'bg-gray-400 text-white';
+        if (rank === 3) return 'bg-orange-500 text-white';
+        return 'bg-gray-300 text-gray-700';
+    };
+    
+    // Функция для получения цвета изменения
+    const getRankChangeColor = (delta) => {
+        if (delta < 0) return 'text-green-600 font-semibold'; // Улучшение (меньше = лучше)
+        if (delta > 0) return 'text-red-600 font-semibold'; // Ухудшение
+        return 'text-gray-500'; // Без изменений
+    };
+    
+    // Функция для форматирования изменения
+    const formatDelta = (delta) => {
+        if (delta === 0) return '—';
+        const sign = delta < 0 ? '-' : '+';
+        return `${sign}${Math.abs(delta)}`;
+    };
+    
+    return (
+        <div className="bg-white border rounded-lg p-6 shadow-sm mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-700">Изменения позиций по категориям</h3>
+                <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                >
+                    {isExpanded ? 'Скрыть' : 'Показать'} таблицу
+                </button>
+            </div>
+            
+            {isExpanded && (
+                <div>
+                    {/* Переключатель команд */}
+                    <div className="mb-4 flex items-center justify-center gap-4">
+                        <select
+                            value={selectedTeam}
+                            onChange={(e) => setSelectedTeam(e.target.value)}
+                            className="border p-2 rounded text-sm font-medium min-w-[200px]"
+                        >
+                            <option value="my_team">{myTeamName}</option>
+                            <option value="their_team">{theirTeamName}</option>
+                        </select>
+                    </div>
+                    
+                    {/* Таблица для выбранной команды */}
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full bg-white border">
+                            <thead>
+                                <tr className="bg-gray-100">
+                                    <th className="p-3 border text-left font-semibold">Категория</th>
+                                    <th className="p-3 border text-center font-semibold">До</th>
+                                    <th className="p-3 border text-center font-semibold">После</th>
+                                    <th className="p-3 border text-center font-semibold">Изменение</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {allCategories.map((cat) => {
+                                    const data = selectedTeam === 'my_team' 
+                                        ? categoryRankings.my_team[cat]
+                                        : categoryRankings.their_team[cat];
+                                    if (!data) return null;
+                                    return (
+                                        <tr 
+                                            key={cat} 
+                                            className={`hover:bg-gray-50 ${
+                                                data.delta !== 0 ? 'bg-yellow-50' : ''
+                                            }`}
+                                        >
+                                            <td className="p-3 border font-medium">{cat}</td>
+                                            <td className="p-3 border text-center">
+                                                <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getRankBadgeColor(data.before)}`}>
+                                                    {data.before}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 border text-center">
+                                                <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getRankBadgeColor(data.after)}`}>
+                                                    {data.after}
+                                                </span>
+                                            </td>
+                                            <td className={`p-3 border text-center ${getRankChangeColor(data.delta)}`}>
+                                                {formatDelta(data.delta)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>
