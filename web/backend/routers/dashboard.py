@@ -499,20 +499,9 @@ def get_position_history(
     # Для каждой недели от 1 до текущей
     for week in range(1, current_week + 1):
         try:
-            # Получаем все команды
-            teams = league_meta.get_teams()
-            team_stats = {}
-            
-            # Собираем статистику ТОЛЬКО за текущую неделю (не накопительно)
-            for t in teams:
-                # Получаем статистику только за эту конкретную неделю
-                box = league_meta.get_matchup_box_score(week, t.team_id)
-                if box:
-                    stats = league_meta.filter_stats_by_categories(box['totals'])
-                    team_stats[t.team_id] = {
-                        'name': t.team_name,
-                        'stats': stats
-                    }
+            # Оптимизация: получаем статистику всех команд за неделю одним запросом к API
+            # Вместо N вызовов get_matchup_box_score (где N = количество команд)
+            team_stats = league_meta.get_all_teams_stats_for_week(week)
             
             if not team_stats or team_id not in team_stats:
                 # Если нет данных для этой недели, пропускаем

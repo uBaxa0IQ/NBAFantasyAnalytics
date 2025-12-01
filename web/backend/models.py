@@ -31,3 +31,4 @@ class MultiTeamTradeRequest(BaseModel):
     punt_categories: List[str] = []
     exclude_ir: bool = False
 
+

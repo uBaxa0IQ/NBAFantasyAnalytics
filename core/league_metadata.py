@@ -479,6 +479,137 @@ class LeagueMetadata:
             'totals': totals
         }
     
+    def get_all_teams_stats_for_week(self, week: int) -> Dict[int, Dict[str, Any]]:
+        """
+        Оптимизированный метод для получения статистики всех команд за неделю.
+        Делает один запрос к ESPN API вместо N запросов (где N = количество команд).
+        
+        Args:
+            week: Номер недели матчапа
+            
+        Returns:
+            Словарь {team_id: {'name': str, 'stats': dict}} со статистикой всех команд за неделю
+        """
+        if not self.league:
+            if not self.connect_to_league():
+                return {}
+        
+        try:
+            # Один запрос к API для получения всех матчапов за неделю
+            box_scores = self.league.box_scores(matchup_period=week)
+        except Exception as e:
+            print(f"Ошибка получения матчапов за неделю {week}: {e}")
+            return {}
+        
+        if not box_scores:
+            return {}
+        
+        teams_stats = {}
+        
+        # Обрабатываем все матчапы за неделю
+        for box in box_scores:
+            # Обрабатываем домашнюю команду
+            home_team_id = box.home_team.team_id
+            home_lineup = box.home_lineup
+            home_stats = self._extract_team_stats_from_lineup(home_lineup, box.home_team.team_name)
+            if home_stats:
+                teams_stats[home_team_id] = home_stats
+            
+            # Обрабатываем гостевую команду
+            away_team_id = box.away_team.team_id
+            away_lineup = box.away_lineup
+            away_stats = self._extract_team_stats_from_lineup(away_lineup, box.away_team.team_name)
+            if away_stats:
+                teams_stats[away_team_id] = away_stats
+        
+        return teams_stats
+    
+    def _extract_team_stats_from_lineup(self, lineup, team_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Вспомогательный метод для извлечения статистики команды из состава матчапа.
+        
+        Args:
+            lineup: Состав команды из box.home_lineup или box.away_lineup
+            team_name: Название команды
+            
+        Returns:
+            Словарь {'name': str, 'stats': dict} или None
+        """
+        if not lineup:
+            return None
+        
+        # Собираем статистику игроков
+        # В матчапе статистика хранится под ключом '0', а не номером недели
+        players_data = []
+        matchup_stats_key = '0'
+        
+        # Для расчета TOTALS нужны исходные данные (FGM, FGA и т.д.)
+        total_fgm = 0.0
+        total_fga = 0.0
+        total_ftm = 0.0
+        total_fta = 0.0
+        total_3pm = 0.0
+        total_3pa = 0.0
+        total_ast = 0.0
+        total_to = 0.0
+        
+        for player in lineup:
+            # Пропускаем игроков на IR
+            if hasattr(player, 'slot_position') and player.slot_position == 'IR':
+                continue
+            
+            # Получаем статистику игрока из матчапа (ключ '0')
+            player_stats = self.get_player_stats(player, matchup_stats_key, 'total')
+            
+            if player_stats:
+                # Получаем исходные данные для расчета TOTALS
+                total_fgm += player_stats.get('FGM', 0)
+                total_fga += player_stats.get('FGA', 0)
+                total_ftm += player_stats.get('FTM', 0)
+                total_fta += player_stats.get('FTA', 0)
+                total_3pm += player_stats.get('3PM', 0)
+                total_3pa += player_stats.get('3PA', 0)
+                total_ast += player_stats.get('AST', 0)
+                total_to += player_stats.get('TO', 0)
+                
+                player_data = {
+                    'name': player.name,
+                    'position': getattr(player, 'position', 'N/A'),
+                    'stats': player_stats
+                }
+                players_data.append(player_data)
+        
+        if not players_data:
+            return None
+        
+        # Рассчитываем TOTALS (суммарные значения команды)
+        totals = {}
+        
+        # Простые категории - суммируем
+        for player_data in players_data:
+            stats = player_data['stats']
+            for key, value in stats.items():
+                if key in ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'TO', 'FGM', 'FGA', 'FTM', 'FTA', '3PA']:
+                    totals[key] = totals.get(key, 0.0) + value
+        
+        # Рассчитываем проценты для TOTALS
+        if total_fga > 0:
+            totals['FG%'] = total_fgm / total_fga
+        if total_fta > 0:
+            totals['FT%'] = total_ftm / total_fta
+        if total_3pa > 0:
+            totals['3PT%'] = total_3pm / total_3pa
+        if total_to > 0:
+            totals['A/TO'] = total_ast / total_to
+        
+        # Фильтруем только нужные категории
+        filtered_stats = self.filter_stats_by_categories(totals)
+        
+        return {
+            'name': team_name,
+            'stats': filtered_stats
+        }
+    
     def get_matchup_summary(self, week: int, team1_id: int, team2_id: int) -> Optional[Dict[str, Any]]:
         """
         Получает сводку матчапа между двумя командами за указанную неделю.
