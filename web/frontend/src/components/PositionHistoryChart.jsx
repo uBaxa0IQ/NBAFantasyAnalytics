@@ -46,6 +46,8 @@ const PositionHistoryChart = ({ teamId, period, excludeIr }) => {
                         errorMessage = 'Ошибка сервера при расчете позиций';
                     } else if (status === 503) {
                         errorMessage = 'Сервис временно недоступен';
+                    } else if (status === 504) {
+                        errorMessage = 'Превышено время ожидания ответа сервера. Расчет позиций занимает слишком много времени. Попробуйте позже или обратитесь к администратору';
                     } else {
                         errorMessage = `Ошибка сервера (код ${status})`;
                     }
