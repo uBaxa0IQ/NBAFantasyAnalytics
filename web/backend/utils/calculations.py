@@ -369,3 +369,105 @@ def calculate_simulation_ranks(all_players_list, mode_type, league_meta, period,
     
     return ranks
 
+
+def calculate_category_rankings(all_players_list, team_id, league_meta, period, exclude_ir, punt_categories):
+    """
+    Рассчитывает позиции команды по категориям в лиге.
+    Аналогично логике из /api/dashboard/{team_id}/category-rankings.
+    
+    Args:
+        all_players_list: Список всех игроков лиги (с учетом или без учета трейда)
+        team_id: ID команды для которой рассчитываем позиции
+        league_meta: Экземпляр LeagueMetadata
+        period: Период для расчета
+        exclude_ir: Исключать ли игроков на IR
+        punt_categories: Список категорий для исключения (punt)
+    
+    Returns:
+        dict: Словарь {category: rank} где rank - позиция в лиге (1 = первое место)
+    """
+    # Получаем статистику всех игроков за период
+    all_players_week_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
+    
+    # Создаем словарь для быстрого поиска stats по имени
+    stats_by_name = {p['name']: p['stats'] for p in all_players_week_stats}
+    
+    # Группируем игроков по командам (с учетом перемещений из all_players_list)
+    players_by_team = {}
+    for player in all_players_list:
+        team_id_player = player['team_id']
+        if team_id_player not in players_by_team:
+            players_by_team[team_id_player] = []
+        # Получаем stats для этого игрока
+        player_stats = stats_by_name.get(player['name'], {})
+        players_by_team[team_id_player].append({
+            'name': player['name'],
+            'stats': player_stats
+        })
+    
+    # Получаем все команды
+    teams = league_meta.get_teams()
+    
+    # Рассчитываем статистику для каждой команды
+    team_stats = {}
+    for team_obj in teams:
+        if team_obj.team_id in players_by_team:
+            team_players = players_by_team[team_obj.team_id]
+            team_raw_stats = calculate_team_raw_stats(team_players)
+            
+            # Фильтруем только нужные категории
+            filtered_stats = {}
+            for cat in CATEGORIES:
+                if cat not in punt_categories:
+                    if cat in team_raw_stats:
+                        filtered_stats[cat] = team_raw_stats[cat]
+                    else:
+                        filtered_stats[cat] = 0.0
+            
+            team_stats[team_obj.team_id] = {
+                'name': team_obj.team_name,
+                'stats': filtered_stats
+            }
+        else:
+            # Команда без игроков
+            team_stats[team_obj.team_id] = {
+                'name': team_obj.team_name,
+                'stats': {cat: 0.0 for cat in CATEGORIES if cat not in punt_categories}
+            }
+    
+    if team_id not in team_stats:
+        return {}
+    
+    my_team_stats = team_stats[team_id]['stats']
+    category_rankings = {}
+    
+    # Рассчитываем позицию по каждой категории
+    for cat in CATEGORIES:
+        if cat in punt_categories:
+            continue
+            
+        # Собираем значения всех команд по этой категории
+        category_values = []
+        for tid, team_data in team_stats.items():
+            value = team_data['stats'].get(cat, 0.0)
+            category_values.append({
+                'team_id': tid,
+                'value': value
+            })
+        
+        # Сортируем по убыванию (больше = лучше)
+        category_values.sort(key=lambda x: x['value'], reverse=True)
+        
+        # Находим позицию нашей команды
+        my_value = my_team_stats.get(cat, 0.0)
+        rank = 1
+        for team_data in category_values:
+            if team_data['team_id'] == team_id:
+                break
+            if team_data['value'] > my_value:
+                rank += 1
+        
+        category_rankings[cat] = rank
+    
+    return category_rankings
+

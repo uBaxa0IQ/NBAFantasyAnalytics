@@ -119,11 +119,20 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                     </div>
 
                     {/* Matchup Details */}
-                    {dashboardData.current_matchup && (
+                    {dashboardData.current_matchup ? (
                         <MatchupDetails 
                             teamId={mainTeam} 
                             currentMatchup={dashboardData.current_matchup}
                         />
+                    ) : (
+                        <div className="bg-white border rounded-lg p-6 shadow-sm">
+                            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                                Детали матчапа
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                                Данные по текущему матчапу пока недоступны.
+                            </p>
+                        </div>
                     )}
 
                     {/* Matchup History */}

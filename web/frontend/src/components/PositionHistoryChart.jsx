@@ -18,12 +18,53 @@ const PositionHistoryChart = ({ teamId, period, excludeIr }) => {
             params: { period, exclude_ir: excludeIr }
         })
             .then(res => {
-                setData(res.data);
-                setError(null);
+                // Проверяем, есть ли ошибка в ответе сервера
+                if (res.data && res.data.error) {
+                    setError(res.data.error);
+                    setData(null);
+                } else {
+                    setData(res.data);
+                    setError(null);
+                }
             })
             .catch(err => {
                 console.error('Error fetching position history:', err);
-                setError('Ошибка загрузки данных');
+                
+                // Извлекаем конкретное сообщение об ошибке
+                let errorMessage = 'Ошибка загрузки данных';
+                
+                if (err.response) {
+                    // Сервер ответил с ошибкой
+                    const status = err.response.status;
+                    const serverError = err.response.data?.error || err.response.data?.detail;
+                    
+                    if (serverError) {
+                        errorMessage = serverError;
+                    } else if (status === 404) {
+                        errorMessage = 'Команда не найдена';
+                    } else if (status === 500) {
+                        errorMessage = 'Ошибка сервера при расчете позиций';
+                    } else if (status === 503) {
+                        errorMessage = 'Сервис временно недоступен';
+                    } else if (status === 504) {
+                        errorMessage = 'Превышено время ожидания ответа сервера. Расчет позиций занимает слишком много времени. Попробуйте позже или обратитесь к администратору';
+                    } else {
+                        errorMessage = `Ошибка сервера (код ${status})`;
+                    }
+                } else if (err.request) {
+                    // Запрос отправлен, но ответа нет (таймаут или сеть)
+                    if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+                        errorMessage = 'Превышено время ожидания ответа. Попробуйте позже';
+                    } else {
+                        errorMessage = 'Нет связи с сервером. Проверьте подключение к интернету';
+                    }
+                } else {
+                    // Ошибка при настройке запроса
+                    errorMessage = `Ошибка запроса: ${err.message || 'Неизвестная ошибка'}`;
+                }
+                
+                setError(errorMessage);
+                setData(null);
             })
             .finally(() => {
                 setLoading(false);

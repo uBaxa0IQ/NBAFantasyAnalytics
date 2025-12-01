@@ -470,6 +470,124 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, excludeIrForSimulation
                             </div>
                         );
                     })()}
+                    
+                    {/* Category Rankings Changes */}
+                    {result.category_rankings && (
+                        <MultiTeamCategoryRankingsChanges 
+                            categoryRankings={result.category_rankings}
+                            teams={result.teams}
+                        />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Компонент для отображения изменений позиций по категориям в мультитрейде
+const MultiTeamCategoryRankingsChanges = ({ categoryRankings, teams }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [selectedTeamId, setSelectedTeamId] = useState(teams && teams.length > 0 ? teams[0].team_id : null);
+    
+    if (!teams || teams.length === 0 || !selectedTeamId) return null;
+    
+    const selectedTeamRankings = categoryRankings[selectedTeamId] || {};
+    const allCategories = Object.keys(selectedTeamRankings);
+    const selectedTeamName = teams.find(t => t.team_id === selectedTeamId)?.team_name || '';
+    
+    // Функция для получения цвета бейджа позиции
+    const getRankBadgeColor = (rank) => {
+        if (rank === 1) return 'bg-yellow-500 text-white';
+        if (rank === 2) return 'bg-gray-400 text-white';
+        if (rank === 3) return 'bg-orange-500 text-white';
+        return 'bg-gray-300 text-gray-700';
+    };
+    
+    // Функция для получения цвета изменения
+    const getRankChangeColor = (delta) => {
+        if (delta < 0) return 'text-green-600 font-semibold'; // Улучшение (меньше = лучше)
+        if (delta > 0) return 'text-red-600 font-semibold'; // Ухудшение
+        return 'text-gray-500'; // Без изменений
+    };
+    
+    // Функция для форматирования изменения
+    const formatDelta = (delta) => {
+        if (delta === 0) return '—';
+        const sign = delta < 0 ? '-' : '+';
+        return `${sign}${Math.abs(delta)}`;
+    };
+    
+    return (
+        <div className="bg-white border rounded-lg p-6 shadow-sm mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-700">Изменения позиций по категориям</h3>
+                <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                >
+                    {isExpanded ? 'Скрыть' : 'Показать'} таблицу
+                </button>
+            </div>
+            
+            {isExpanded && (
+                <div>
+                    {/* Переключатель команд */}
+                    <div className="mb-4 flex items-center justify-center gap-4">
+                        <select
+                            value={selectedTeamId}
+                            onChange={(e) => setSelectedTeamId(parseInt(e.target.value))}
+                            className="border p-2 rounded text-sm font-medium min-w-[200px]"
+                        >
+                            {teams.map(team => (
+                                <option key={team.team_id} value={team.team_id}>
+                                    {team.team_name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    {/* Таблица для выбранной команды */}
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full bg-white border">
+                            <thead>
+                                <tr className="bg-gray-100">
+                                    <th className="p-3 border text-left font-semibold">Категория</th>
+                                    <th className="p-3 border text-center font-semibold">До</th>
+                                    <th className="p-3 border text-center font-semibold">После</th>
+                                    <th className="p-3 border text-center font-semibold">Изменение</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {allCategories.map((cat) => {
+                                    const data = selectedTeamRankings[cat];
+                                    if (!data) return null;
+                                    return (
+                                        <tr 
+                                            key={cat} 
+                                            className={`hover:bg-gray-50 ${
+                                                data.delta !== 0 ? 'bg-yellow-50' : ''
+                                            }`}
+                                        >
+                                            <td className="p-3 border font-medium">{cat}</td>
+                                            <td className="p-3 border text-center">
+                                                <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getRankBadgeColor(data.before)}`}>
+                                                    {data.before}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 border text-center">
+                                                <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getRankBadgeColor(data.after)}`}>
+                                                    {data.after}
+                                                </span>
+                                            </td>
+                                            <td className={`p-3 border text-center ${getRankChangeColor(data.delta)}`}>
+                                                {formatDelta(data.delta)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>

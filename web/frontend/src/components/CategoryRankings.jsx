@@ -98,7 +98,7 @@ const CategoryRankings = ({ teamId, period, excludeIr, showTopOnly = false }) =>
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-2xl font-bold text-gray-800">{category.category}</span>
                                     <span className={`px-3 py-1 rounded-full text-sm font-bold ${getRankBadgeColor(category.rank)}`}>
-                                        #{category.rank}
+                                        {category.rank}
                                     </span>
                                 </div>
                                 <div className="text-3xl font-bold text-blue-600 mb-2">
@@ -131,7 +131,7 @@ const CategoryRankings = ({ teamId, period, excludeIr, showTopOnly = false }) =>
                                                 <td className="p-3 border font-medium">{ranking.category}</td>
                                                 <td className="p-3 border text-center">
                                                     <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getRankBadgeColor(ranking.rank)}`}>
-                                                        #{ranking.rank}
+                                                        {ranking.rank}
                                                     </span>
                                                 </td>
                                                 <td className="p-3 border text-center font-semibold text-lg">
@@ -221,7 +221,7 @@ const CategoryRankings = ({ teamId, period, excludeIr, showTopOnly = false }) =>
                                                 >
                                                     <td className="p-3 border text-center">
                                                         <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${getRankBadgeColor(team.rank)}`}>
-                                                            #{team.rank}
+                                                            {team.rank}
                                                         </span>
                                                     </td>
                                                     <td className="p-3 border">

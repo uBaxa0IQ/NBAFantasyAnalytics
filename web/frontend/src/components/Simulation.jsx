@@ -11,6 +11,7 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
     const [weeksCount, setWeeksCount] = useState(savedState.weeksCount !== undefined ? savedState.weeksCount : null);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [simulationMode, setSimulationMode] = useState(savedState.simulationMode || 'matchup'); // 'matchup', 'team_stats_avg', 'z_scores'
     const [selectedTeam, setSelectedTeam] = useState(null);  // Для модального окна
 
@@ -39,17 +40,36 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
     }, [simulationMode, selectedWeek, weeksCount]);
 
     useEffect(() => {
+        // каждый новый запрос сбрасывает предыдущую ошибку
+        setError(null);
+
         if (simulationMode === 'matchup') {
             // Для режима matchup нужны недели
             if (selectedWeek && weeksCount !== null) {
                 setLoading(true);
                 api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup&exclude_ir=${excludeIrForSimulations}`)
                     .then(res => {
-                        setResults(res.data.results);
+                        if (res.data && res.data.error) {
+                            // Для случая отсутствия статистики за выбранную неделю
+                            if (res.data.error === 'No stats found' && parseInt(selectedWeek, 10) === currentWeek) {
+                                setError('Симуляция по матчапам для текущей недели пока недоступна.');
+                            } else {
+                                setError(res.data.error);
+                            }
+                            setResults(null);
+                        } else {
+                            setResults(res.data.results);
+                        }
                         setLoading(false);
                     })
                     .catch(err => {
                         console.error(err);
+                        // Если это текущая неделя, даём более понятное сообщение
+                        if (parseInt(selectedWeek, 10) === currentWeek) {
+                            setError('Симуляция по матчапам для текущей недели пока недоступна или произошла ошибка. Попробуйте выбрать прошлую неделю или зайдите позже.');
+                        } else {
+                            setError('Не удалось загрузить результаты симуляции. Попробуйте позже.');
+                        }
                         setLoading(false);
                     });
             }
@@ -58,11 +78,17 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
             setLoading(true);
             api.get(`/simulation-detailed/1?mode=${simulationMode}&period=${period}&exclude_ir=${excludeIrForSimulations}`)
                 .then(res => {
-                    setResults(res.data.results);
+                    if (res.data && res.data.error) {
+                        setError(res.data.error);
+                        setResults(null);
+                    } else {
+                        setResults(res.data.results);
+                    }
                     setLoading(false);
                 })
                 .catch(err => {
                     console.error(err);
+                    setError('Не удалось загрузить результаты симуляции. Попробуйте позже.');
                     setLoading(false);
                 });
         }
@@ -133,6 +159,11 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
             </div>
 
             {loading && <div>Симуляция матчапов...</div>}
+            {error && !loading && (
+                <div className="mb-4 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-3">
+                    {error}
+                </div>
+            )}
 
             {results && (
                 <div className="overflow-x-auto">
