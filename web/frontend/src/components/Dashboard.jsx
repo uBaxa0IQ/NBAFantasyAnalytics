@@ -92,12 +92,6 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                                     <span className="text-gray-600">Total Z-Score:</span>
                                     <span className="font-semibold text-lg text-blue-600">{dashboardData.total_z_score}</span>
                                 </div>
-                                {dashboardData.expected_position !== null && dashboardData.expected_position !== undefined && (
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Ожидаемая позиция:</span>
-                                        <span className="font-semibold text-lg text-green-600">{dashboardData.expected_position}</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
