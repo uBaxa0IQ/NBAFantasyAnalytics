@@ -4,6 +4,7 @@ import MatchupDetails from './MatchupDetails';
 import MatchupHistory from './MatchupHistory';
 import CategoryRankings from './CategoryRankings';
 import PositionHistoryChart from './PositionHistoryChart';
+import SeasonProjectionModal from './SeasonProjectionModal';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
@@ -11,6 +12,9 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
     const [teams, setTeams] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [seasonProjection, setSeasonProjection] = useState(null);
+    const [projectionLoading, setProjectionLoading] = useState(false);
+    const [showProjectionModal, setShowProjectionModal] = useState(false);
     const [compareTeamId, setCompareTeamId] = useState(() => {
         const saved = loadState(StorageKeys.DASHBOARD, {});
         return saved.compareTeamId || '';
@@ -48,6 +52,28 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
     useEffect(() => {
         saveState(StorageKeys.DASHBOARD, { compareTeamId });
     }, [compareTeamId]);
+
+    // Загрузка прогноза сезона (не блокирует основной дашборд)
+    useEffect(() => {
+        if (!mainTeam) {
+            setSeasonProjection(null);
+            return;
+        }
+
+        setProjectionLoading(true);
+        api.get(`/dashboard/${mainTeam}/season-projection`, {
+            params: { period, exclude_ir: excludeIr }
+        })
+            .then(res => {
+                setSeasonProjection(res.data);
+                setProjectionLoading(false);
+            })
+            .catch(err => {
+                console.error('Error fetching season projection:', err);
+                setSeasonProjection(null);
+                setProjectionLoading(false);
+            });
+    }, [mainTeam, period, excludeIr]);
 
     if (!mainTeam) {
         return (
@@ -92,6 +118,22 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                                     <span className="text-gray-600">Total Z-Score:</span>
                                     <span className="font-semibold text-lg text-blue-600">{dashboardData.total_z_score}</span>
                                 </div>
+                                {projectionLoading ? (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-600">Прогноз места:</span>
+                                        <span className="text-sm text-gray-500">Загрузка...</span>
+                                    </div>
+                                ) : seasonProjection && !seasonProjection.error ? (
+                                    <div 
+                                        className="flex justify-between items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors"
+                                        onClick={() => setShowProjectionModal(true)}
+                                    >
+                                        <span className="text-gray-600">Прогноз места:</span>
+                                        <span className="font-semibold text-lg text-blue-600">
+                                            {seasonProjection.projected_position} / {seasonProjection.total_teams}
+                                        </span>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
 
@@ -181,6 +223,14 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                     )}
 
                 </>
+            )}
+
+            {/* Season Projection Modal */}
+            {showProjectionModal && seasonProjection && !seasonProjection.error && (
+                <SeasonProjectionModal
+                    projection={seasonProjection}
+                    onClose={() => setShowProjectionModal(false)}
+                />
             )}
         </div>
     );
