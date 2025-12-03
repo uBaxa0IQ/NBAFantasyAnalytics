@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
+import PlayerFiltersModal from './PlayerFiltersModal';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
@@ -16,6 +17,8 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
     const [filterBetterThanMine, setFilterBetterThanMine] = useState(savedState.filterBetterThanMine || false);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
+    const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
+    const [filters, setFilters] = useState(savedState.filters || {});
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -48,9 +51,10 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
         saveState(StorageKeys.FREE_AGENTS, {
             myTeam,
             position,
-            filterBetterThanMine
+            filterBetterThanMine,
+            filters
         });
-    }, [myTeam, position, filterBetterThanMine]);
+    }, [myTeam, position, filterBetterThanMine, filters]);
 
 
     const calculateTotalZ = (player) => {
@@ -99,10 +103,40 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
         sortedPlayers = sortedPlayers.filter(p => calculateTotalZ(p) > minZ);
     }
 
+    // Фильтры по статистике
+    if (Object.keys(filters).length > 0) {
+        sortedPlayers = sortedPlayers.filter(player => {
+            if (!player.stats) return false;
+            
+            return Object.entries(filters).every(([category, minValue]) => {
+                const playerValue = player.stats[category];
+                if (playerValue === undefined || playerValue === null) return false;
+                
+                // Для процентных категорий значения могут быть в формате 0-1 или 0-100
+                // Нормализуем к 0-100 для сравнения
+                let normalizedPlayerValue = playerValue;
+                if (['FG%', 'FT%', '3PT%'].includes(category)) {
+                    // Если значение меньше 1, значит это 0-1 формат, конвертируем в проценты
+                    if (normalizedPlayerValue < 1.0) {
+                        normalizedPlayerValue = normalizedPlayerValue * 100;
+                    }
+                }
+                
+                return normalizedPlayerValue > minValue;
+            });
+        });
+    }
+
     const SortIcon = ({ column }) => {
         if (sortBy !== column) return <span className="text-gray-400 ml-1">⇅</span>;
         return sortDir === 'asc' ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
     };
+
+    const handleApplyFilters = (newFilters) => {
+        setFilters(newFilters);
+    };
+
+    const hasActiveFilters = Object.keys(filters).length > 0;
 
     return (
         <div className="p-4">
@@ -143,6 +177,17 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
                         </select>
                     )}
                 </div>
+
+                <button
+                    onClick={() => setIsFiltersModalOpen(true)}
+                    className={`px-4 py-2 border rounded font-medium transition-colors ${
+                        hasActiveFilters
+                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    Фильтры {hasActiveFilters && `(${Object.keys(filters).length})`}
+                </button>
             </div>
 
             {loading && <div>Загрузка...</div>}
@@ -200,6 +245,13 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
                     </table>
                 </div>
             )}
+
+            <PlayerFiltersModal
+                isOpen={isFiltersModalOpen}
+                onClose={() => setIsFiltersModalOpen(false)}
+                onApply={handleApplyFilters}
+                initialFilters={filters}
+            />
         </div>
     );
 };
