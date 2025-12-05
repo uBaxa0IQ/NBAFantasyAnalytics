@@ -24,14 +24,17 @@ def analyze_trade(
     league_meta=Depends(get_league_meta)
 ):
     """Анализирует трейд между двумя командами."""
+    # Определяем exclude_ir на основе simulation_mode
+    exclude_ir = (request.simulation_mode == "exclude_ir")
+    
     # Получаем Z-scores всех игроков
-    data = calculate_z_scores(league_meta, request.period, exclude_ir=request.exclude_ir)
+    data = calculate_z_scores(league_meta, request.period, exclude_ir=exclude_ir)
     
     if not data['players']:
         return {"error": "No data found"}
     
     # Получаем полные данные игроков со статистикой
-    all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=request.exclude_ir)
+    all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=exclude_ir)
     
     # Создаем словарь для быстрого поиска stats по имени игрока
     stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
@@ -198,17 +201,23 @@ def analyze_trade(
             all_players_after.append(player_copy)
     
     # Рассчитываем места для обоих режимов ДО и ПОСЛЕ трейда
+    # ДО трейда: используем custom_team_players (если задан)
+    # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
     ranks_before_z = calculate_simulation_ranks(
-        all_players_before, 'z_scores', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_before, 'z_scores', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, request.custom_team_players
     )
     ranks_after_z = calculate_simulation_ranks(
-        all_players_after, 'z_scores', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_after, 'z_scores', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, None  # После трейда не используем custom_team_players
     )
     ranks_before_avg = calculate_simulation_ranks(
-        all_players_before, 'team_stats_avg', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_before, 'team_stats_avg', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, request.custom_team_players
     )
     ranks_after_avg = calculate_simulation_ranks(
-        all_players_after, 'team_stats_avg', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_after, 'team_stats_avg', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, None  # После трейда не используем custom_team_players
     )
     
     # Формируем данные о местах для ответа
@@ -240,18 +249,24 @@ def analyze_trade(
     }
     
     # Рассчитываем позиции по категориям ДО и ПОСЛЕ трейда
+    # ДО трейда: используем custom_team_players (если задан)
+    # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
     category_rankings_before = calculate_category_rankings(
-        all_players_before, request.my_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_before, request.my_team_id, league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, request.custom_team_players
     )
     category_rankings_after = calculate_category_rankings(
-        all_players_after, request.my_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_after, request.my_team_id, league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, None  # После трейда не используем custom_team_players
     )
     
     their_category_rankings_before = calculate_category_rankings(
-        all_players_before, request.their_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_before, request.their_team_id, league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, request.custom_team_players
     )
     their_category_rankings_after = calculate_category_rankings(
-        all_players_after, request.their_team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_after, request.their_team_id, league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, None  # После трейда не используем custom_team_players
     )
     
     # Формируем данные о позициях по категориям
@@ -380,13 +395,13 @@ def analyze_multi_team_trade(
                 player_movements[player_name] = receiving_team
     
     # Получаем Z-scores всех игроков
-    data = calculate_z_scores(league_meta, request.period, exclude_ir=request.exclude_ir)
+    data = calculate_z_scores(league_meta, request.period, exclude_ir=exclude_ir)
     
     if not data['players']:
         return {"error": "No data found"}
     
     # Получаем полные данные игроков со статистикой
-    all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=request.exclude_ir)
+    all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=exclude_ir)
     stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
     
     # Добавляем stats к каждому игроку
@@ -473,17 +488,23 @@ def analyze_multi_team_trade(
             player_copy['team_name'] = team_names.get(player_movements[player['name']], f"Team {player_movements[player['name']]}")
         all_players_after.append(player_copy)
     
+    # ДО трейда: используем custom_team_players (если задан)
+    # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
     ranks_before_z = calculate_simulation_ranks(
-        all_players_before, 'z_scores', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_before, 'z_scores', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, request.custom_team_players
     )
     ranks_after_z = calculate_simulation_ranks(
-        all_players_after, 'z_scores', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_after, 'z_scores', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, None  # После трейда не используем custom_team_players
     )
     ranks_before_avg = calculate_simulation_ranks(
-        all_players_before, 'team_stats_avg', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_before, 'team_stats_avg', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, request.custom_team_players
     )
     ranks_after_avg = calculate_simulation_ranks(
-        all_players_after, 'team_stats_avg', league_meta, request.period, request.exclude_ir, request.punt_categories
+        all_players_after, 'team_stats_avg', league_meta, request.period, request.simulation_mode, request.punt_categories,
+        request.top_n_players, None  # После трейда не используем custom_team_players
     )
     
     # Формируем данные о местах для каждой команды
@@ -509,11 +530,15 @@ def analyze_multi_team_trade(
     category_rankings = {}
     for trade in request.trades:
         team_id = trade.team_id
+        # ДО трейда: используем custom_team_players (если задан)
+        # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
         category_rankings_before = calculate_category_rankings(
-            all_players_before, team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+            all_players_before, team_id, league_meta, request.period, request.simulation_mode, request.punt_categories,
+            request.top_n_players, request.custom_team_players
         )
         category_rankings_after = calculate_category_rankings(
-            all_players_after, team_id, league_meta, request.period, request.exclude_ir, request.punt_categories
+            all_players_after, team_id, league_meta, request.period, request.simulation_mode, request.punt_categories,
+            request.top_n_players, None  # После трейда не используем custom_team_players
         )
         
         # Формируем данные о позициях по категориям

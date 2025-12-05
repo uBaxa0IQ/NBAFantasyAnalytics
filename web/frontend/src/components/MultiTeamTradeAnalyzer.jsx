@@ -4,7 +4,7 @@ import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
-const MultiTeamTradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
+const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => {
     const savedState = loadState(StorageKeys.MULTITEAM_TRADE, {});
     const [teams, setTeams] = useState([]);
     const [teamTrades, setTeamTrades] = useState(savedState.teamTrades || [{ teamId: '', give: [], receive: [] }]);
@@ -138,12 +138,42 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, excludeIrForSimulation
                 receive: t.receive
             }));
 
-        api.post('/multi-team-trade-analysis', {
+        // Формируем тело запроса
+        const requestBody = {
             trades,
             period,
             punt_categories: puntCategories,
-            exclude_ir: excludeIrForSimulations
-        })
+            simulation_mode: simulationMode
+        };
+        
+        // Если режим top_n, добавляем дополнительные параметры
+        if (simulationMode === 'top_n') {
+            requestBody.top_n_players = 13;
+            // Загружаем выбранных игроков из localStorage для всех команд
+            const customTeamPlayers = {};
+            
+            for (const trade of teamTrades) {
+                if (trade.teamId && mainTeam && trade.teamId === mainTeam) {
+                    const saved = localStorage.getItem(`customTeamPlayers_${trade.teamId}`);
+                    if (saved) {
+                        try {
+                            const customPlayers = JSON.parse(saved);
+                            if (customPlayers.length > 0) {
+                                customTeamPlayers[parseInt(trade.teamId)] = customPlayers;
+                            }
+                        } catch (e) {
+                            console.error(`Error parsing custom players for team ${trade.teamId}:`, e);
+                        }
+                    }
+                }
+            }
+            
+            if (Object.keys(customTeamPlayers).length > 0) {
+                requestBody.custom_team_players = customTeamPlayers;
+            }
+        }
+        
+        api.post('/multi-team-trade-analysis', requestBody)
             .then(res => {
                 if (res.data.error) {
                     setValidationErrors(res.data.validation_errors || [res.data.error]);

@@ -6,7 +6,7 @@ import PlayerFiltersModal from './PlayerFiltersModal';
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulations }) => {
+const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) => {
     const savedState = loadState(StorageKeys.ALL_PLAYERS, {});
     const [teams, setTeams] = useState([]);
     const [selectedTeam, setSelectedTeam] = useState(savedState.selectedTeam || '');
@@ -25,7 +25,11 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
 
     useEffect(() => {
         setLoading(true);
-        api.get(`/all-players?period=${period}&exclude_ir=${excludeIrForSimulations}`)
+        
+        // Определяем exclude_ir на основе simulation_mode
+        const exclude_ir = (simulationMode === 'exclude_ir');
+        
+        api.get(`/all-players?period=${period}&exclude_ir=${exclude_ir}`)
             .then(res => {
                 setData(res.data);
                 setLoading(false);
@@ -34,7 +38,7 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
                 console.error(err);
                 setLoading(false);
             });
-    }, [period, excludeIrForSimulations]);
+    }, [period, simulationMode]);
 
     // Сохранение состояния при изменении
     useEffect(() => {

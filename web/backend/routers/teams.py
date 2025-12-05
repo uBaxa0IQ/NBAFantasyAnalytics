@@ -3,6 +3,8 @@
 """
 from fastapi import APIRouter, Depends
 from dependencies import get_league_meta
+from core.z_score import calculate_z_scores
+import math
 
 router = APIRouter(prefix="/api", tags=["teams"])
 
@@ -73,4 +75,72 @@ def get_refresh_status(league_meta=Depends(get_league_meta)):
         "last_refresh_time": last_refresh.isoformat() if last_refresh else None,
         "auto_refresh_enabled": True,
         "refresh_interval_minutes": 5
+    }
+
+
+@router.get("/teams/{team_id}/players-for-selection")
+def get_players_for_selection(
+    team_id: int,
+    period: str = "2026_total",
+    league_meta=Depends(get_league_meta)
+):
+    """
+    Получает список всех игроков команды (включая IR) с их Z-scores,
+    отсортированных по total Z-score.
+    
+    Args:
+        team_id: ID команды
+        period: Период статистики
+    
+    Returns:
+        Список игроков с их Z-scores, отсортированных по total Z-score
+    """
+    # Получаем команду
+    team = league_meta.get_team_by_id(team_id)
+    if not team:
+        return {"error": "Team not found"}
+    
+    # Получаем ростер команды (включая IR)
+    roster = league_meta.get_team_roster(team_id)
+    
+    # Получаем Z-scores для всех игроков (включая IR)
+    z_data = calculate_z_scores(league_meta, period, exclude_ir=False)
+    
+    if not z_data['players']:
+        return {"error": "No data found"}
+    
+    # Создаем словарь Z-scores по имени игрока
+    z_scores_by_name = {p['name']: p['z_scores'] for p in z_data['players']}
+    
+    # Формируем список игроков с их Z-scores
+    players_list = []
+    for player in roster:
+        player_name = player.name
+        z_scores = z_scores_by_name.get(player_name, {})
+        
+        # Рассчитываем total Z-score
+        total_z = 0
+        for cat, z_val in z_scores.items():
+            if isinstance(z_val, (int, float)) and math.isfinite(z_val):
+                total_z += z_val
+        
+        # Проверяем, находится ли игрок в IR
+        lineup_slot = getattr(player, 'lineupSlot', '')
+        is_ir = (lineup_slot == 'IR')
+        
+        players_list.append({
+            'name': player_name,
+            'position': getattr(player, 'position', 'N/A'),
+            'z_scores': z_scores,
+            'total_z': round(total_z, 2),
+            'is_ir': is_ir
+        })
+    
+    # Сортируем по total Z-score (по убыванию)
+    players_list.sort(key=lambda x: x['total_z'], reverse=True)
+    
+    return {
+        'team_id': team_id,
+        'team_name': team.team_name,
+        'players': players_list
     }

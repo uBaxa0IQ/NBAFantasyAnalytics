@@ -3,7 +3,7 @@ import FreeAgents from './FreeAgents';
 import AllPlayers from './AllPlayers';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const PlayersTab = ({ onPlayerClick, period, puntCategories, excludeIrForSimulations }) => {
+const PlayersTab = ({ onPlayerClick, period, puntCategories, simulationMode }) => {
     const [viewMode, setViewMode] = useState(() => {
         const saved = loadState(StorageKeys.PLAYERS, {});
         return saved.viewMode || 'free-agents';
@@ -54,7 +54,7 @@ const PlayersTab = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
                     onPlayerClick={onPlayerClick}
                     period={period}
                     puntCategories={puntCategories}
-                    excludeIrForSimulations={excludeIrForSimulations}
+                    simulationMode={simulationMode}
                 />
             )}
         </div>
