@@ -16,7 +16,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, 'core'))
 
 from config import get_cors_origins
-from routers import teams, analytics, simulation, players, trades, dashboard, balance, lineup
+from routers import teams, analytics, simulation, players, trades, dashboard, balance, lineup, prompt
 from dependencies import get_league_meta
 
 # Настройка логирования
@@ -103,6 +103,7 @@ app.include_router(trades.router)
 app.include_router(dashboard.router)
 app.include_router(balance.router)
 app.include_router(lineup.router)
+app.include_router(prompt.router)
 
 
 @app.get("/")

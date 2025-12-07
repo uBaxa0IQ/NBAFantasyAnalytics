@@ -12,6 +12,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState(savedState.viewMode || 'z-scores');
+    const [scopeMode, setScopeMode] = useState(savedState.scopeMode || 'team'); // 'team' или 'trade'
     const [validationErrors, setValidationErrors] = useState([]);
     const [selectedTeamForTable, setSelectedTeamForTable] = useState(savedState.selectedTeamForTable || null);
 
@@ -24,9 +25,10 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
         saveState(StorageKeys.MULTITEAM_TRADE, {
             teamTrades,
             selectedTeamForTable,
-            viewMode
+            viewMode,
+            scopeMode
         });
-    }, [teamTrades, selectedTeamForTable, viewMode]);
+    }, [teamTrades, selectedTeamForTable, viewMode, scopeMode]);
 
     // Загружаем игроков для выбранных команд
     useEffect(() => {
@@ -325,6 +327,24 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                     <div className="flex justify-center gap-4 mb-6 flex-wrap">
                         <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
                             <button
+                                onClick={() => setScopeMode('team')}
+                                className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                                    scopeMode === 'team' ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                Вся команда
+                            </button>
+                            <button
+                                onClick={() => setScopeMode('trade')}
+                                className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                                    scopeMode === 'trade' ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                Только трейд
+                            </button>
+                        </div>
+                        <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+                            <button
                                 onClick={() => setViewMode('z-scores')}
                                 className={`px-4 py-2 rounded-md font-medium transition-colors ${
                                     viewMode === 'z-scores' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
@@ -410,48 +430,55 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
 
                     {/* Результаты по командам */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                        {result.teams.map(team => (
-                            <div key={team.team_id} className="border rounded-lg p-6 bg-white">
-                                <h3 className="text-xl font-bold mb-4">{team.team_name}</h3>
-                                <div className="space-y-2 mb-4">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Total Z до:</span>
-                                        <span className="font-bold text-lg">{team.before_z}</span>
+                        {result.teams.map(team => {
+                            const display = scopeMode === 'trade' && team.trade_scope ? team.trade_scope : team;
+                            return (
+                                <div key={team.team_id} className="border rounded-lg p-6 bg-white">
+                                    <h3 className="text-xl font-bold mb-2">{team.team_name}</h3>
+                                    <p className="text-xs text-gray-500 mb-2">
+                                        {scopeMode === 'trade' && team.trade_scope ? 'Показаны только игроки трейда' : 'Показана вся команда'}
+                                    </p>
+                                    <div className="space-y-2 mb-4">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600">Total Z до:</span>
+                                            <span className="font-bold text-lg">{display.before_z}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600">Total Z после:</span>
+                                            <span className="font-bold text-lg">{display.after_z}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-t pt-2">
+                                            <span className="font-bold">Изменение (Δ):</span>
+                                            <span className={`font-bold text-xl ${
+                                                display.delta > 0 ? 'text-green-600' :
+                                                display.delta < 0 ? 'text-red-600' : 'text-gray-600'
+                                            }`}>
+                                                {display.delta > 0 ? '+' : ''}{display.delta}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Total Z после:</span>
-                                        <span className="font-bold text-lg">{team.after_z}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center border-t pt-2">
-                                        <span className="font-bold">Изменение (Δ):</span>
-                                        <span className={`font-bold text-xl ${
-                                            team.delta > 0 ? 'text-green-600' :
-                                            team.delta < 0 ? 'text-red-600' : 'text-gray-600'
-                                        }`}>
-                                            {team.delta > 0 ? '+' : ''}{team.delta}
-                                        </span>
-                                    </div>
+                                    {team.players_given.length > 0 && (
+                                        <div className="mb-2">
+                                            <span className="text-sm text-gray-600">Отдает: </span>
+                                            <span className="text-sm font-medium">{team.players_given.join(', ')}</span>
+                                        </div>
+                                    )}
+                                    {team.players_received.length > 0 && (
+                                        <div className="mb-2">
+                                            <span className="text-sm text-gray-600">Получает: </span>
+                                            <span className="text-sm font-medium">{team.players_received.join(', ')}</span>
+                                        </div>
+                                    )}
                                 </div>
-                                {team.players_given.length > 0 && (
-                                    <div className="mb-2">
-                                        <span className="text-sm text-gray-600">Отдает: </span>
-                                        <span className="text-sm font-medium">{team.players_given.join(', ')}</span>
-                                    </div>
-                                )}
-                                {team.players_received.length > 0 && (
-                                    <div className="mb-2">
-                                        <span className="text-sm text-gray-600">Получает: </span>
-                                        <span className="text-sm font-medium">{team.players_received.join(', ')}</span>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Детализация по категориям с переключателем команды */}
                     {result.teams.length > 0 && selectedTeamForTable && (() => {
                         const selectedTeam = result.teams.find(t => t.team_id === selectedTeamForTable) || result.teams[0];
                         if (!selectedTeam) return null;
+                        const scopedTeam = scopeMode === 'trade' && selectedTeam.trade_scope ? selectedTeam.trade_scope : selectedTeam;
                         return (
                             <div>
                                 <div className="mb-4 flex items-center justify-center gap-4 flex-wrap">
@@ -481,7 +508,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {Object.entries(viewMode === 'z-scores' ? selectedTeam.categories : selectedTeam.raw_categories).map(([cat, data]) => (
+                                            {Object.entries(viewMode === 'z-scores' ? scopedTeam.categories : scopedTeam.raw_categories).map(([cat, data]) => (
                                                 <tr key={cat} className="hover:bg-gray-50">
                                                     <td className="p-2 border font-medium">{cat}</td>
                                                     <td className="p-2 border text-center">{data.before}</td>

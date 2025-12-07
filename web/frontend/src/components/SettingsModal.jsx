@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import PlayerSelectionModal from './PlayerSelectionModal';
+import PromptModal from './PromptModal';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
@@ -13,6 +14,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
     const [refreshStatus, setRefreshStatus] = useState(null);
     const [showPlayerSelection, setShowPlayerSelection] = useState(false);
     const [selectedPlayersCount, setSelectedPlayersCount] = useState(0);
+    const [showPromptModal, setShowPromptModal] = useState(false);
 
     // Форматирование времени последнего обновления
     const formatLastRefresh = (isoString) => {
@@ -137,6 +139,10 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
 
     const handlePlayerSelectionSave = (selectedPlayers) => {
         setSelectedPlayersCount(selectedPlayers.length);
+    };
+
+    const handleGeneratePrompt = () => {
+        setShowPromptModal(true);
     };
 
     if (!isOpen) return null;
@@ -279,6 +285,24 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                             </div>
                         )}
 
+                        {/* Генерация промпта для LLM */}
+                        <div className="border-t pt-4">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                                Промпт для LLM
+                            </h3>
+                            <div className="bg-gray-50 border rounded px-3 py-3 text-sm">
+                                <p className="text-gray-600 mb-3">
+                                    Сгенерируйте промпт с полным контекстом лиги для использования в LLM (ChatGPT, Claude и т.д.)
+                                </p>
+                                <button
+                                    onClick={handleGeneratePrompt}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                                >
+                                    Получить промпт
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Информация о последнем обновлении */}
                         <div className="border-t pt-4">
                             <h3 className="text-sm font-semibold text-gray-700 mb-3">
@@ -332,6 +356,19 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                     teamId={mainTeam}
                     period={period}
                     onSave={handlePlayerSelectionSave}
+                />
+            )}
+
+            {/* Модальное окно промпта */}
+            {showPromptModal && (
+                <PromptModal
+                    isOpen={showPromptModal}
+                    onClose={() => setShowPromptModal(false)}
+                    period={period}
+                    simulationMode={simulationMode}
+                    topNPlayers={13}
+                    mainTeamId={mainTeam}
+                    puntCategories={puntCategories}
                 />
             )}
         </div>

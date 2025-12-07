@@ -11,7 +11,8 @@ from utils.calculations import (
     calculate_category_z,
     calculate_raw_stats,
     calculate_simulation_ranks,
-    calculate_category_rankings
+    calculate_category_rankings,
+    select_top_n_players
 )
 import math
 
@@ -36,16 +37,37 @@ def analyze_trade(
     # Получаем полные данные игроков со статистикой
     all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=exclude_ir)
     
-    # Создаем словарь для быстрого поиска stats по имени игрока
+    # Создаем словари для быстрого поиска
     stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
+    z_scores_by_name = {p['name']: p['z_scores'] for p in data['players']}
     
     # Добавляем stats к каждому игроку
     for player in data['players']:
         player['stats'] = stats_by_name.get(player['name'], {})
     
-    # Фильтруем игроков по командам
-    my_team_players = [p for p in data['players'] if p['team_id'] == request.my_team_id]
-    their_team_players = [p for p in data['players'] if p['team_id'] == request.their_team_id]
+    # Хелпер выбора состава в соответствии с режимом симуляции
+    def select_roster(team_players, team_id, allow_custom=True):
+        if request.simulation_mode == "top_n":
+            custom_map = request.custom_team_players if allow_custom else None
+            if custom_map and team_id in custom_map:
+                selected_names = custom_map[team_id]
+                team_players = [p for p in team_players if p['name'] in selected_names]
+            else:
+                team_players = select_top_n_players(
+                    team_players,
+                    request.top_n_players,
+                    punt_categories=request.punt_categories,
+                    z_scores_data=z_scores_by_name
+                )
+        return team_players
+    
+    # Фильтруем игроков по командам (полный состав до применения top_n/custom)
+    my_team_players_full = [p for p in data['players'] if p['team_id'] == request.my_team_id]
+    their_team_players_full = [p for p in data['players'] if p['team_id'] == request.their_team_id]
+    
+    # Применяем режим симуляции: ДО трейда учитываем custom_team_players, ПОСЛЕ — только авто top_n
+    my_team_players = select_roster(my_team_players_full, request.my_team_id, allow_custom=True)
+    their_team_players = select_roster(their_team_players_full, request.their_team_id, allow_custom=True)
     
     # Расчет "До трейда"
     my_before_z = calculate_total_z(my_team_players, request.punt_categories)
@@ -57,39 +79,44 @@ def analyze_trade(
     my_before_raw = calculate_raw_stats(my_team_players, request.punt_categories)
     their_before_raw = calculate_raw_stats(their_team_players, request.punt_categories)
     
-    # Найти игроков для обмена
-    players_i_give = [p for p in my_team_players if p['name'] in request.i_give]
-    players_i_receive = [p for p in their_team_players if p['name'] in request.i_receive]
+    # Найти игроков для обмена (по полным составам)
+    players_i_give = [p for p in my_team_players_full if p['name'] in request.i_give]
+    players_i_receive = [p for p in their_team_players_full if p['name'] in request.i_receive]
     
-    # Расчет "После трейда"
+    # Расчет "После трейда" на полных составах, затем применение режима симуляции
     # Моя команда: убрать отдаваемых, добавить получаемых
-    my_after_players = [p for p in my_team_players if p['name'] not in request.i_give] + players_i_receive
+    my_after_players_full = [p for p in my_team_players_full if p['name'] not in request.i_give] + players_i_receive
+    my_after_players = select_roster(my_after_players_full, request.my_team_id, allow_custom=False)
     my_after_z = calculate_total_z(my_after_players, request.punt_categories)
     my_after_cats = calculate_category_z(my_after_players, request.punt_categories)
     my_after_raw = calculate_raw_stats(my_after_players, request.punt_categories)
     
     # Их команда: убрать отдаваемых, добавить получаемых
-    their_after_players = [p for p in their_team_players if p['name'] not in request.i_receive] + players_i_give
+    their_after_players_full = [p for p in their_team_players_full if p['name'] not in request.i_receive] + players_i_give
+    their_after_players = select_roster(their_after_players_full, request.their_team_id, allow_custom=False)
     their_after_z = calculate_total_z(their_after_players, request.punt_categories)
     their_after_cats = calculate_category_z(their_after_players, request.punt_categories)
     their_after_raw = calculate_raw_stats(their_after_players, request.punt_categories)
     
-    # Расчет для режима "Только трейд" (только игроки трейда)
+    # Расчет для режима "Только трейд" (используем тот же состав, что и в симуляции до трейда)
+    trade_players_given = [p for p in my_team_players if p['name'] in request.i_give]
+    trade_players_received = [p for p in their_team_players if p['name'] in request.i_receive]
+    
     # Моя команда: до = отдаваемые, после = получаемые
-    my_trade_before_z = calculate_total_z(players_i_give, request.punt_categories)
-    my_trade_after_z = calculate_total_z(players_i_receive, request.punt_categories)
-    my_trade_before_cats = calculate_category_z(players_i_give, request.punt_categories)
-    my_trade_after_cats = calculate_category_z(players_i_receive, request.punt_categories)
-    my_trade_before_raw = calculate_raw_stats(players_i_give, request.punt_categories)
-    my_trade_after_raw = calculate_raw_stats(players_i_receive, request.punt_categories)
+    my_trade_before_z = calculate_total_z(trade_players_given, request.punt_categories)
+    my_trade_after_z = calculate_total_z(trade_players_received, request.punt_categories)
+    my_trade_before_cats = calculate_category_z(trade_players_given, request.punt_categories)
+    my_trade_after_cats = calculate_category_z(trade_players_received, request.punt_categories)
+    my_trade_before_raw = calculate_raw_stats(trade_players_given, request.punt_categories)
+    my_trade_after_raw = calculate_raw_stats(trade_players_received, request.punt_categories)
     
     # Их команда: до = получаемые (которые я получаю), после = отдаваемые (которые я отдаю)
-    their_trade_before_z = calculate_total_z(players_i_receive, request.punt_categories)
-    their_trade_after_z = calculate_total_z(players_i_give, request.punt_categories)
-    their_trade_before_cats = calculate_category_z(players_i_receive, request.punt_categories)
-    their_trade_after_cats = calculate_category_z(players_i_give, request.punt_categories)
-    their_trade_before_raw = calculate_raw_stats(players_i_receive, request.punt_categories)
-    their_trade_after_raw = calculate_raw_stats(players_i_give, request.punt_categories)
+    their_trade_before_z = calculate_total_z(trade_players_received, request.punt_categories)
+    their_trade_after_z = calculate_total_z(trade_players_given, request.punt_categories)
+    their_trade_before_cats = calculate_category_z(trade_players_received, request.punt_categories)
+    their_trade_after_cats = calculate_category_z(trade_players_given, request.punt_categories)
+    their_trade_before_raw = calculate_raw_stats(trade_players_received, request.punt_categories)
+    their_trade_after_raw = calculate_raw_stats(trade_players_given, request.punt_categories)
     
     # Формируем ответ
     my_team_name = my_team_players[0]['team_name'] if my_team_players else "Unknown"
@@ -346,6 +373,9 @@ def analyze_multi_team_trade(
     Анализ мультикомандного трейда.
     Поддерживает любое количество команд, участвующих в трейде.
     """
+    # Учитываем режим симуляции для исключения игроков из IR
+    exclude_ir = (getattr(request, "simulation_mode", "") == "exclude_ir")
+    
     # Валидация
     validation_errors = []
     
@@ -405,10 +435,26 @@ def analyze_multi_team_trade(
     # Получаем полные данные игроков со статистикой
     all_players_with_stats = league_meta.get_all_players_stats(request.period, 'avg', exclude_ir=exclude_ir)
     stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
+    z_scores_by_name = {p['name']: p['z_scores'] for p in data['players']}
     
     # Добавляем stats к каждому игроку
     for player in data['players']:
         player['stats'] = stats_by_name.get(player['name'], {})
+    
+    def select_roster(team_players, team_id, allow_custom=True):
+        if request.simulation_mode == "top_n":
+            custom_map = request.custom_team_players if allow_custom else None
+            if custom_map and team_id in custom_map:
+                selected_names = custom_map[team_id]
+                team_players = [p for p in team_players if p['name'] in selected_names]
+            else:
+                team_players = select_top_n_players(
+                    team_players,
+                    request.top_n_players,
+                    punt_categories=request.punt_categories,
+                    z_scores_data=z_scores_by_name
+                )
+        return team_players
     
     # Получаем названия команд
     all_teams = league_meta.get_teams()
@@ -421,26 +467,36 @@ def analyze_multi_team_trade(
         team_id = trade.team_id
         team_name = team_names.get(team_id, f"Team {team_id}")
         
-        # Получаем игроков команды ДО трейда
-        team_players_before = [p for p in data['players'] if p['team_id'] == team_id]
+        # Игроки команды ДО трейда (полный состав)
+        team_players_before_full = [p for p in data['players'] if p['team_id'] == team_id]
+        team_players_before = select_roster(team_players_before_full, team_id, allow_custom=True)
         
         # Рассчитываем ДО
         before_z = calculate_total_z(team_players_before, request.punt_categories)
         before_cats = calculate_category_z(team_players_before, request.punt_categories)
         before_raw = calculate_raw_stats(team_players_before, request.punt_categories)
         
-        # Формируем состав ПОСЛЕ трейда
-        # Убираем игроков, которых отдаем
-        team_players_after = [p for p in team_players_before if p['name'] not in trade.give]
-        
-        # Добавляем игроков, которых получаем
+        # Формируем состав ПОСЛЕ трейда на полном составе, затем применяем режим симуляции
+        team_players_after_full = [p for p in team_players_before_full if p['name'] not in trade.give]
         players_received = [p for p in data['players'] if p['name'] in trade.receive]
-        team_players_after.extend(players_received)
+        team_players_after_full.extend(players_received)
+        team_players_after = select_roster(team_players_after_full, team_id, allow_custom=False)
         
         # Рассчитываем ПОСЛЕ
         after_z = calculate_total_z(team_players_after, request.punt_categories)
         after_cats = calculate_category_z(team_players_after, request.punt_categories)
         after_raw = calculate_raw_stats(team_players_after, request.punt_categories)
+        
+        # Режим "только трейд": сравниваем только пакет отдаваемых и получаемых игроков (с учетом top_n/custom ДО трейда)
+        trade_players_given = [p for p in team_players_before if p['name'] in trade.give]
+        trade_players_received = [p for p in select_roster(players_received, team_id, allow_custom=True) if p['name'] in trade.receive]
+        
+        trade_before_z = calculate_total_z(trade_players_given, request.punt_categories)
+        trade_after_z = calculate_total_z(trade_players_received, request.punt_categories)
+        trade_before_cats = calculate_category_z(trade_players_given, request.punt_categories)
+        trade_after_cats = calculate_category_z(trade_players_received, request.punt_categories)
+        trade_before_raw = calculate_raw_stats(trade_players_given, request.punt_categories)
+        trade_after_raw = calculate_raw_stats(trade_players_received, request.punt_categories)
         
         # Формируем данные по категориям
         categories = {}
@@ -463,6 +519,26 @@ def analyze_multi_team_trade(
                     "delta": round(after_raw_val - before_raw_val, 2)
                 }
         
+        trade_categories = {}
+        trade_raw_categories = {}
+        for cat in CATEGORIES:
+            if cat not in request.punt_categories:
+                trade_before_val = trade_before_cats.get(cat, 0)
+                trade_after_val = trade_after_cats.get(cat, 0)
+                trade_categories[cat] = {
+                    "before": round(trade_before_val, 2),
+                    "after": round(trade_after_val, 2),
+                    "delta": round(trade_after_val - trade_before_val, 2)
+                }
+                
+                trade_before_raw_val = trade_before_raw.get(cat, 0)
+                trade_after_raw_val = trade_after_raw.get(cat, 0)
+                trade_raw_categories[cat] = {
+                    "before": round(trade_before_raw_val, 2),
+                    "after": round(trade_after_raw_val, 2),
+                    "delta": round(trade_after_raw_val - trade_before_raw_val, 2)
+                }
+        
         teams_results.append({
             "team_id": team_id,
             "team_name": team_name,
@@ -471,6 +547,13 @@ def analyze_multi_team_trade(
             "delta": round(after_z - before_z, 2),
             "categories": categories,
             "raw_categories": raw_categories,
+            "trade_scope": {
+                "before_z": round(trade_before_z, 2),
+                "after_z": round(trade_after_z, 2),
+                "delta": round(trade_after_z - trade_before_z, 2),
+                "categories": trade_categories,
+                "raw_categories": trade_raw_categories
+            },
             "players_given": trade.give,
             "players_received": trade.receive
         })
