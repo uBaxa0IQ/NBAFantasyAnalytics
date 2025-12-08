@@ -10,6 +10,9 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
     const [mainTeam, setMainTeam] = useState(initialSettings.mainTeam || '');
     const [teams, setTeams] = useState([]);
     const [refreshStatus, setRefreshStatus] = useState(null);
+    const [promptLoading, setPromptLoading] = useState(false);
+    const [promptError, setPromptError] = useState(null);
+    const [promptText, setPromptText] = useState(null);
 
     // Форматирование времени последнего обновления
     const formatLastRefresh = (isoString) => {
@@ -113,6 +116,74 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
         };
         onSave(settings);
         onClose();
+    };
+
+    const handleGetPrompt = () => {
+        setPromptLoading(true);
+        setPromptError(null);
+        setPromptText(null);
+
+        api.get('/generate-prompt', {
+            params: {
+                period: period,
+                exclude_ir: excludeIrForSimulations
+            }
+        })
+            .then(res => {
+                if (res.data.error) {
+                    setPromptError(res.data.error);
+                } else {
+                    setPromptText(res.data.prompt);
+                }
+                setPromptLoading(false);
+            })
+            .catch(err => {
+                console.error('Error fetching prompt:', err);
+                
+                let errorMessage = 'Ошибка при получении промпта';
+                
+                if (err.response) {
+                    // Сервер ответил с кодом ошибки
+                    const status = err.response.status;
+                    const serverError = err.response.data?.error || err.response.data?.detail;
+                    
+                    if (serverError) {
+                        errorMessage = serverError;
+                    } else if (status === 500) {
+                        errorMessage = 'Ошибка сервера при генерации промпта';
+                    } else if (status === 504) {
+                        errorMessage = 'Превышено время ожидания ответа сервера. Генерация промпта занимает слишком много времени. Попробуйте позже';
+                    } else {
+                        errorMessage = `Ошибка сервера (код ${status})`;
+                    }
+                } else if (err.request) {
+                    // Запрос отправлен, но ответа нет (таймаут или сеть)
+                    if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+                        errorMessage = 'Превышено время ожидания ответа. Генерация промпта занимает слишком много времени. Попробуйте позже';
+                    } else {
+                        errorMessage = 'Нет связи с сервером. Проверьте подключение к интернету';
+                    }
+                } else {
+                    // Ошибка при настройке запроса
+                    errorMessage = `Ошибка запроса: ${err.message || 'Неизвестная ошибка'}`;
+                }
+                
+                setPromptError(errorMessage);
+                setPromptLoading(false);
+            });
+    };
+
+    const handleCopyPrompt = () => {
+        if (promptText) {
+            navigator.clipboard.writeText(promptText)
+                .then(() => {
+                    alert('Промпт скопирован в буфер обмена');
+                })
+                .catch(err => {
+                    console.error('Error copying to clipboard:', err);
+                    alert('Ошибка при копировании промпта');
+                });
+        }
     };
 
     if (!isOpen) return null;
@@ -230,6 +301,51 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                             ) : (
                                 <div className="text-sm text-gray-500">Загрузка информации...</div>
                             )}
+                        </div>
+
+                        {/* Промпт для LLM */}
+                        <div className="border-t pt-4">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                                Промпт для LLM
+                            </h3>
+                            <div className="bg-white border rounded px-3 py-2 text-sm">
+                                <p className="text-gray-600 mb-3">
+                                    Сгенерируйте промпт с полным контекстом лиги для использования в LLM (ChatGPT, Claude и т.д.)
+                                </p>
+                                
+                                {promptError && (
+                                    <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
+                                        {promptError}
+                                    </div>
+                                )}
+                                
+                                {promptText && (
+                                    <div className="mb-3">
+                                        <div className="flex justify-end mb-2">
+                                            <button
+                                                onClick={handleCopyPrompt}
+                                                className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                            >
+                                                Копировать
+                                            </button>
+                                        </div>
+                                        <textarea
+                                            readOnly
+                                            value={promptText}
+                                            className="w-full h-64 p-2 border rounded text-xs font-mono overflow-auto"
+                                            style={{ resize: 'vertical' }}
+                                        />
+                                    </div>
+                                )}
+                                
+                                <button
+                                    onClick={handleGetPrompt}
+                                    disabled={promptLoading}
+                                    className="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+                                >
+                                    {promptLoading ? 'Генерация промпта...' : 'Получить промпт'}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
