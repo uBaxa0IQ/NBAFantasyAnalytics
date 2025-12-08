@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from dependencies import get_league_meta
 from core.z_score import calculate_z_scores
 from core.config import CATEGORIES
+from utils.calculations import select_top_n_players
+from typing import Optional, List
 import math
 
 router = APIRouter(prefix="/api", tags=["balance"])
@@ -15,18 +17,17 @@ def get_team_balance(
     team_id: int,
     period: str = "2026_total",
     punt_categories: str = "",
-    exclude_ir: bool = False,
+    simulation_mode: str = "all",
+    top_n_players: int = 13,
+    custom_team_players: Optional[str] = None,
     league_meta=Depends(get_league_meta)
 ):
     """
     Получает данные для радар-графика баланса команды.
     Возвращает Z-scores по категориям.
     """
-    # Парсим punt категории (для обратной совместимости, но не используем)
-    # В дашборде всегда показываем все категории
-    # punt_cats = []
-    # if punt_categories:
-    #     punt_cats = punt_categories.split(',')
+    # Определяем exclude_ir на основе simulation_mode
+    exclude_ir = (simulation_mode == "exclude_ir")
     
     # Рассчитываем Z-scores для всей лиги
     data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
@@ -36,6 +37,28 @@ def get_team_balance(
     
     # Фильтруем данные только для выбранной команды
     team_players = [p for p in data['players'] if p['team_id'] == team_id]
+    
+    # Если режим "top_n", применяем логику выбора топ-N игроков
+    if simulation_mode == "top_n":
+        # Парсим custom_team_players из строки в список
+        custom_players_list = None
+        if custom_team_players:
+            custom_players_list = [name.strip() for name in custom_team_players.split(',') if name.strip()]
+        
+        z_scores_by_name = {p['name']: p['z_scores'] for p in data['players']}
+        
+        # Для custom_team_players используем выбранных игроков или топ-N
+        if custom_players_list:
+            # Фильтруем только выбранных игроков
+            team_players = [p for p in team_players if p['name'] in custom_players_list]
+        else:
+            # Выбираем топ-N игроков
+            team_players = select_top_n_players(
+                team_players, 
+                top_n_players, 
+                punt_categories=[], 
+                z_scores_data=z_scores_by_name
+            )
     
     if not team_players:
         return {"error": "Team not found"}

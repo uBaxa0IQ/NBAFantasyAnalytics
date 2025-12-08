@@ -3,7 +3,7 @@ import api from '../api';
 import SimulationDetailsModal from './SimulationDetailsModal';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const Simulation = ({ period, excludeIrForSimulations }) => {
+const Simulation = ({ period, simulationMode, mainTeam }) => {
     const savedState = loadState(StorageKeys.SIMULATION, {});
     const [weeks, setWeeks] = useState([]);
     const [currentWeek, setCurrentWeek] = useState(1);
@@ -12,7 +12,7 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [simulationMode, setSimulationMode] = useState(savedState.simulationMode || 'matchup'); // 'matchup', 'team_stats_avg', 'z_scores'
+    const [simulationType, setSimulationType] = useState(savedState.simulationType || 'matchup'); // 'matchup', 'team_stats_avg', 'z_scores'
     const [selectedTeam, setSelectedTeam] = useState(null);  // Для модального окна
 
     useEffect(() => {
@@ -33,21 +33,22 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
     // Сохранение состояния при изменении
     useEffect(() => {
         saveState(StorageKeys.SIMULATION, {
-            simulationMode,
+            simulationType,
             selectedWeek,
             weeksCount
         });
-    }, [simulationMode, selectedWeek, weeksCount]);
+    }, [simulationType, selectedWeek, weeksCount]);
 
     useEffect(() => {
         // каждый новый запрос сбрасывает предыдущую ошибку
         setError(null);
 
-        if (simulationMode === 'matchup') {
+        if (simulationType === 'matchup') {
             // Для режима matchup нужны недели
             if (selectedWeek && weeksCount !== null) {
                 setLoading(true);
-                api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup&exclude_ir=${excludeIrForSimulations}`)
+                // Для режима matchup не используем simulation_mode (он работает по матчапам)
+                api.get(`/simulation-detailed/${selectedWeek}?weeks_count=${weeksCount}&mode=matchup&simulation_mode=${simulationMode}`)
                     .then(res => {
                         if (res.data && res.data.error) {
                             // Для случая отсутствия статистики за выбранную неделю
@@ -76,7 +77,40 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
         } else {
             // Для других режимов нужен период
             setLoading(true);
-            api.get(`/simulation-detailed/1?mode=${simulationMode}&period=${period}&exclude_ir=${excludeIrForSimulations}`)
+            
+            // Формируем параметры запроса
+            const params = {
+                mode: simulationType,
+                period: period,
+                simulation_mode: simulationMode
+            };
+            
+            // Если режим top_n, добавляем дополнительные параметры
+            if (simulationMode === 'top_n') {
+                params.top_n_players = 13;
+                if (mainTeam) {
+                    params.custom_team_id = mainTeam;
+                    // Загружаем выбранных игроков из localStorage
+                    const saved = localStorage.getItem(`customTeamPlayers_${mainTeam}`);
+                    if (saved) {
+                        try {
+                            const customPlayers = JSON.parse(saved);
+                            if (customPlayers.length > 0) {
+                                params.custom_team_players = customPlayers.join(',');
+                            }
+                        } catch (e) {
+                            console.error('Error parsing custom players:', e);
+                        }
+                    }
+                }
+            }
+            
+            // Формируем query string
+            const queryString = Object.entries(params)
+                .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+                .join('&');
+            
+            api.get(`/simulation-detailed/1?${queryString}`)
                 .then(res => {
                     if (res.data && res.data.error) {
                         setError(res.data.error);
@@ -92,7 +126,7 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
                     setLoading(false);
                 });
         }
-    }, [selectedWeek, weeksCount, simulationMode, period, excludeIrForSimulations]);
+    }, [selectedWeek, weeksCount, simulationType, period, simulationMode, mainTeam]);
 
     // Генерируем опции для количества недель
     const weeksOptions = selectedWeek ? Array.from({ length: parseInt(selectedWeek) }, (_, i) => i + 1) : [];
@@ -106,26 +140,26 @@ const Simulation = ({ period, excludeIrForSimulations }) => {
             <div className="mb-4 flex gap-4 items-center flex-wrap">
                 <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
                     <button
-                        onClick={() => setSimulationMode('matchup')}
-                        className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationMode === 'matchup' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                        onClick={() => setSimulationType('matchup')}
+                        className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationType === 'matchup' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         По матчапам
                     </button>
                     <button
-                        onClick={() => setSimulationMode('team_stats_avg')}
-                        className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationMode === 'team_stats_avg' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                        onClick={() => setSimulationType('team_stats_avg')}
+                        className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationType === 'team_stats_avg' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         По статистике (avg)
                     </button>
                     <button
-                        onClick={() => setSimulationMode('z_scores')}
-                        className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationMode === 'z_scores' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                        onClick={() => setSimulationType('z_scores')}
+                        className={`px-4 py-2 rounded-md font-medium transition-colors ${simulationType === 'z_scores' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         По Z-score
                     </button>
                 </div>
 
-                {simulationMode === 'matchup' && (
+                {simulationType === 'matchup' && (
                     <>
                         <div>
                             <label className="mr-2 font-bold">Выберите неделю:</label>

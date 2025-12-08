@@ -26,9 +26,9 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [excludeIrForSimulations, setExcludeIrForSimulations] = useState(() => {
-    const saved = localStorage.getItem('excludeIrForSimulations');
-    return saved === 'true';
+  const [simulationMode, setSimulationMode] = useState(() => {
+    const saved = localStorage.getItem('simulationMode');
+    return saved || 'all';
   });
 
   const [mainTeam, setMainTeam] = useState(() => {
@@ -45,8 +45,8 @@ function App() {
   }, [puntCategories]);
 
   useEffect(() => {
-    localStorage.setItem('excludeIrForSimulations', excludeIrForSimulations.toString());
-  }, [excludeIrForSimulations]);
+    localStorage.setItem('simulationMode', simulationMode);
+  }, [simulationMode]);
 
   useEffect(() => {
     localStorage.setItem('mainTeam', mainTeam);
@@ -55,7 +55,7 @@ function App() {
   const handleSaveSettings = (settings) => {
     setPeriod(settings.period);
     setPuntCategories(settings.puntCategories);
-    setExcludeIrForSimulations(settings.excludeIrForSimulations);
+    setSimulationMode(settings.simulationMode);
     setMainTeam(settings.mainTeam);
   };
 
@@ -152,7 +152,7 @@ function App() {
               period={period}
               puntCategories={puntCategories}
               mainTeam={mainTeam}
-              excludeIr={excludeIrForSimulations}
+              simulationMode={simulationMode}
             />
           )}
           {activeTab === 'analytics' && (
@@ -165,7 +165,8 @@ function App() {
           {activeTab === 'simulation' && (
             <Simulation
               period={period}
-              excludeIrForSimulations={excludeIrForSimulations}
+              simulationMode={simulationMode}
+              mainTeam={mainTeam}
             />
           )}
           {activeTab === 'players' && (
@@ -173,14 +174,14 @@ function App() {
               onPlayerClick={handlePlayerClick}
               period={period}
               puntCategories={puntCategories}
-              excludeIrForSimulations={excludeIrForSimulations}
+              simulationMode={simulationMode}
             />
           )}
           {activeTab === 'trade' && (
             <TradeAnalyzer
               period={period}
               puntCategories={puntCategories}
-              excludeIrForSimulations={excludeIrForSimulations}
+              simulationMode={simulationMode}
             />
           )}
         </div>
@@ -219,7 +220,7 @@ function App() {
         initialSettings={{
           period,
           puntCategories,
-          excludeIrForSimulations,
+          simulationMode,
           mainTeam
         }}
       />

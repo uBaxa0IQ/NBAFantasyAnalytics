@@ -1,7 +1,7 @@
 import React from 'react';
 import TeamBalanceRadar from './TeamBalanceRadar';
 
-const TeamHeroCard = ({ teamName, leaguePosition, teamId, period, excludeIr, compareTeamId, compareTeamName, teams, onCompareChange }) => {
+const TeamHeroCard = ({ teamName, leaguePosition, teamId, period, simulationMode, compareTeamId, compareTeamName, teams, onCompareChange }) => {
     return (
         <div className="bg-white border rounded-lg p-6 shadow-sm">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -41,7 +41,7 @@ const TeamHeroCard = ({ teamName, leaguePosition, teamId, period, excludeIr, com
                     <TeamBalanceRadar
                         teamId={teamId}
                         period={period}
-                        excludeIr={excludeIr}
+                        simulationMode={simulationMode}
                         compareTeamId={compareTeamId || null}
                         compareTeamName={compareTeamName}
                     />
@@ -52,5 +52,8 @@ const TeamHeroCard = ({ teamName, leaguePosition, teamId, period, excludeIr, com
 };
 
 export default TeamHeroCard;
+
+
+
 
 

@@ -1,0 +1,243 @@
+[
+    {
+      "week": 1,
+      "matchups": [
+        "denver cogets vs League Tyrants",
+        "Ivan's Impressive Team vs OUT TEAM",
+        "Maxoncheck vs Leenchixx's Loud Team",
+        "Saint-P Splashers vs ZAL UPA",
+        "Miami huiami  vs Bad Kebab",
+        "uBaxa's team vs sixseven",
+        "LAKERS NEW vs SHMAL' Team"
+      ]
+    },
+    {
+      "week": 2,
+      "matchups": [
+        "Ivan's Impressive Team vs denver cogets",
+        "League Tyrants vs Maxoncheck",
+        "OUT TEAM vs Saint-P Splashers",
+        "Leenchixx's Loud Team vs Miami huiami ",
+        "ZAL UPA vs uBaxa's team",
+        "Bad Kebab vs LAKERS NEW",
+        "sixseven vs SHMAL' Team"
+      ]
+    },
+    {
+      "week": 3,
+      "matchups": [
+        "denver cogets vs Maxoncheck",
+        "Saint-P Splashers vs Ivan's Impressive Team",
+        "Miami huiami  vs League Tyrants",
+        "uBaxa's team vs OUT TEAM",
+        "LAKERS NEW vs Leenchixx's Loud Team",
+        "SHMAL' Team vs ZAL UPA",
+        "sixseven vs Bad Kebab"
+      ]
+    },
+    {
+      "week": 4,
+      "matchups": [
+        "Saint-P Splashers vs denver cogets",
+        "Maxoncheck vs Miami huiami ",
+        "Ivan's Impressive Team vs uBaxa's team",
+        "League Tyrants vs LAKERS NEW",
+        "OUT TEAM vs SHMAL' Team",
+        "Leenchixx's Loud Team vs sixseven",
+        "ZAL UPA vs Bad Kebab"
+      ]
+    },
+    {
+      "week": 5,
+      "matchups": [
+        "denver cogets vs Miami huiami ",
+        "uBaxa's team vs Saint-P Splashers",
+        "LAKERS NEW vs Maxoncheck",
+        "SHMAL' Team vs Ivan's Impressive Team",
+        "sixseven vs League Tyrants",
+        "Bad Kebab vs OUT TEAM",
+        "ZAL UPA vs Leenchixx's Loud Team"
+      ]
+    },
+    {
+      "week": 6,
+      "matchups": [
+        "uBaxa's team vs denver cogets",
+        "Miami huiami  vs LAKERS NEW",
+        "Saint-P Splashers vs SHMAL' Team",
+        "Maxoncheck vs sixseven",
+        "Ivan's Impressive Team vs Bad Kebab",
+        "League Tyrants vs ZAL UPA",
+        "OUT TEAM vs Leenchixx's Loud Team"
+      ]
+    },
+    {
+      "week": 7,
+      "matchups": [
+        "denver cogets vs LAKERS NEW",
+        "SHMAL' Team vs uBaxa's team",
+        "sixseven vs Miami huiami ",
+        "Bad Kebab vs Saint-P Splashers",
+        "ZAL UPA vs Maxoncheck",
+        "Leenchixx's Loud Team vs Ivan's Impressive Team",
+        "OUT TEAM vs League Tyrants"
+      ]
+    },
+    {
+      "week": 8,
+      "matchups": [
+        "SHMAL' Team vs denver cogets",
+        "LAKERS NEW vs sixseven",
+        "uBaxa's team vs Bad Kebab",
+        "Miami huiami  vs ZAL UPA",
+        "Saint-P Splashers vs Leenchixx's Loud Team",
+        "Maxoncheck vs OUT TEAM",
+        "Ivan's Impressive Team vs League Tyrants"
+      ]
+    },
+    {
+      "week": 9,
+      "matchups": [
+        "denver cogets vs sixseven",
+        "Bad Kebab vs SHMAL' Team",
+        "ZAL UPA vs LAKERS NEW",
+        "Leenchixx's Loud Team vs uBaxa's team",
+        "OUT TEAM vs Miami huiami ",
+        "League Tyrants vs Saint-P Splashers",
+        "Ivan's Impressive Team vs Maxoncheck"
+      ]
+    },
+    {
+      "week": 10,
+      "matchups": [
+        "Bad Kebab vs denver cogets",
+        "sixseven vs ZAL UPA",
+        "SHMAL' Team vs Leenchixx's Loud Team",
+        "LAKERS NEW vs OUT TEAM",
+        "uBaxa's team vs League Tyrants",
+        "Miami huiami  vs Ivan's Impressive Team",
+        "Saint-P Splashers vs Maxoncheck"
+      ]
+    },
+    {
+      "week": 11,
+      "matchups": [
+        "denver cogets vs ZAL UPA",
+        "Leenchixx's Loud Team vs Bad Kebab",
+        "OUT TEAM vs sixseven",
+        "League Tyrants vs SHMAL' Team",
+        "Ivan's Impressive Team vs LAKERS NEW",
+        "Maxoncheck vs uBaxa's team",
+        "Saint-P Splashers vs Miami huiami "
+      ]
+    },
+    {
+      "week": 12,
+      "matchups": [
+        "Leenchixx's Loud Team vs denver cogets",
+        "ZAL UPA vs OUT TEAM",
+        "Bad Kebab vs League Tyrants",
+        "sixseven vs Ivan's Impressive Team",
+        "SHMAL' Team vs Maxoncheck",
+        "LAKERS NEW vs Saint-P Splashers",
+        "uBaxa's team vs Miami huiami "
+      ]
+    },
+    {
+      "week": 13,
+      "matchups": [
+        "denver cogets vs OUT TEAM",
+        "League Tyrants vs Leenchixx's Loud Team",
+        "Ivan's Impressive Team vs ZAL UPA",
+        "Maxoncheck vs Bad Kebab",
+        "Saint-P Splashers vs sixseven",
+        "Miami huiami  vs SHMAL' Team",
+        "uBaxa's team vs LAKERS NEW"
+      ]
+    },
+    {
+      "week": 14,
+      "matchups": [
+        "League Tyrants vs denver cogets",
+        "OUT TEAM vs Ivan's Impressive Team",
+        "Leenchixx's Loud Team vs Maxoncheck",
+        "ZAL UPA vs Saint-P Splashers",
+        "Bad Kebab vs Miami huiami ",
+        "sixseven vs uBaxa's team",
+        "SHMAL' Team vs LAKERS NEW"
+      ]
+    },
+    {
+      "week": 15,
+      "matchups": [
+        "denver cogets vs Ivan's Impressive Team",
+        "Maxoncheck vs League Tyrants",
+        "Saint-P Splashers vs OUT TEAM",
+        "Miami huiami  vs Leenchixx's Loud Team",
+        "uBaxa's team vs ZAL UPA",
+        "LAKERS NEW vs Bad Kebab",
+        "SHMAL' Team vs sixseven"
+      ]
+    },
+    {
+      "week": 16,
+      "matchups": [
+        "Maxoncheck vs denver cogets",
+        "Ivan's Impressive Team vs Saint-P Splashers",
+        "League Tyrants vs Miami huiami ",
+        "OUT TEAM vs uBaxa's team",
+        "Leenchixx's Loud Team vs LAKERS NEW",
+        "ZAL UPA vs SHMAL' Team",
+        "Bad Kebab vs sixseven"
+      ]
+    },
+    {
+      "week": 17,
+      "matchups": [
+        "denver cogets vs Saint-P Splashers",
+        "Miami huiami  vs Maxoncheck",
+        "uBaxa's team vs Ivan's Impressive Team",
+        "LAKERS NEW vs League Tyrants",
+        "SHMAL' Team vs OUT TEAM",
+        "sixseven vs Leenchixx's Loud Team",
+        "Bad Kebab vs ZAL UPA"
+      ]
+    },
+    {
+      "week": 18,
+      "matchups": [
+        "Miami huiami  vs denver cogets",
+        "Saint-P Splashers vs uBaxa's team",
+        "Maxoncheck vs LAKERS NEW",
+        "Ivan's Impressive Team vs SHMAL' Team",
+        "League Tyrants vs sixseven",
+        "OUT TEAM vs Bad Kebab",
+        "Leenchixx's Loud Team vs ZAL UPA"
+      ]
+    },
+    {
+      "week": 19,
+      "matchups": [
+        "denver cogets vs uBaxa's team",
+        "LAKERS NEW vs Miami huiami ",
+        "SHMAL' Team vs Saint-P Splashers",
+        "sixseven vs Maxoncheck",
+        "Bad Kebab vs Ivan's Impressive Team",
+        "ZAL UPA vs League Tyrants",
+        "Leenchixx's Loud Team vs OUT TEAM"
+      ]
+    },
+    {
+      "week": 20,
+      "matchups": [
+        "LAKERS NEW vs denver cogets",
+        "uBaxa's team vs SHMAL' Team",
+        "Miami huiami  vs sixseven",
+        "Saint-P Splashers vs Bad Kebab",
+        "Maxoncheck vs ZAL UPA",
+        "Ivan's Impressive Team vs Leenchixx's Loud Team",
+        "League Tyrants vs OUT TEAM"
+      ]
+    }
+  ]
+

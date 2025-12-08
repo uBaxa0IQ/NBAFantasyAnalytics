@@ -4,13 +4,17 @@ import MatchupDetails from './MatchupDetails';
 import MatchupHistory from './MatchupHistory';
 import CategoryRankings from './CategoryRankings';
 import PositionHistoryChart from './PositionHistoryChart';
+import SeasonProjectionModal from './SeasonProjectionModal';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
+const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
     const [teams, setTeams] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [seasonProjection, setSeasonProjection] = useState(null);
+    const [projectionLoading, setProjectionLoading] = useState(false);
+    const [showProjectionModal, setShowProjectionModal] = useState(false);
     const [compareTeamId, setCompareTeamId] = useState(() => {
         const saved = loadState(StorageKeys.DASHBOARD, {});
         return saved.compareTeamId || '';
@@ -25,14 +29,69 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
             .catch(err => console.error('Error fetching teams:', err));
     }, []);
 
+    // Отслеживаем изменения в localStorage для выбранных игроков
+    const [customPlayersKey, setCustomPlayersKey] = useState(0);
+
+    useEffect(() => {
+        if (!mainTeam || simulationMode !== 'top_n') return;
+
+        const storageKey = `customTeamPlayers_${mainTeam}`;
+        
+        // Функция для проверки изменений
+        const checkStorage = () => {
+            setCustomPlayersKey(prev => prev + 1); // Принудительно обновляем
+        };
+
+        // Проверяем при монтировании
+        checkStorage();
+
+        // Слушаем события storage (для обновлений из других вкладок)
+        window.addEventListener('storage', (e) => {
+            if (e.key === storageKey) {
+                checkStorage();
+            }
+        });
+
+        // Слушаем кастомное событие для обновлений в той же вкладке
+        window.addEventListener('customTeamPlayersUpdated', (e) => {
+            if (e.detail && e.detail.teamId === mainTeam) {
+                checkStorage();
+            }
+        });
+
+        return () => {
+            window.removeEventListener('storage', checkStorage);
+            window.removeEventListener('customTeamPlayersUpdated', checkStorage);
+        };
+    }, [mainTeam, simulationMode]);
+
     // Загрузка данных дашборда
     useEffect(() => {
         if (!mainTeam) return;
 
         setLoading(true);
-        api.get(`/dashboard/${mainTeam}`, {
-            params: { period, exclude_ir: excludeIr }
-        })
+        
+        // Формируем параметры запроса
+        const params = { period, simulation_mode: simulationMode };
+        
+        // Если режим top_n, добавляем дополнительные параметры
+        if (simulationMode === 'top_n') {
+            params.top_n_players = 13;
+            // Загружаем выбранных игроков из localStorage
+            const saved = localStorage.getItem(`customTeamPlayers_${mainTeam}`);
+            if (saved) {
+                try {
+                    const customPlayers = JSON.parse(saved);
+                    if (customPlayers.length > 0) {
+                        params.custom_team_players = customPlayers.join(',');
+                    }
+                } catch (e) {
+                    console.error('Error parsing custom players:', e);
+                }
+            }
+        }
+        
+        api.get(`/dashboard/${mainTeam}`, { params })
             .then(res => res.data)
             .then(data => {
                 setDashboardData(data);
@@ -42,12 +101,53 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                 console.error('Error fetching dashboard:', err);
                 setLoading(false);
             });
-    }, [mainTeam, period, excludeIr]);
+    }, [mainTeam, period, simulationMode, customPlayersKey]);
 
     // Сохранение состояния при изменении compareTeamId
     useEffect(() => {
         saveState(StorageKeys.DASHBOARD, { compareTeamId });
     }, [compareTeamId]);
+
+    // Загрузка прогноза сезона (не блокирует основной дашборд)
+    useEffect(() => {
+        if (!mainTeam) {
+            setSeasonProjection(null);
+            return;
+        }
+
+        setProjectionLoading(true);
+        
+        // Формируем параметры запроса
+        const params = { period, simulation_mode: simulationMode };
+        
+        // Если режим top_n, добавляем дополнительные параметры
+        if (simulationMode === 'top_n') {
+            params.top_n_players = 13;
+            // Загружаем выбранных игроков из localStorage
+            const saved = localStorage.getItem(`customTeamPlayers_${mainTeam}`);
+            if (saved) {
+                try {
+                    const customPlayers = JSON.parse(saved);
+                    if (customPlayers.length > 0) {
+                        params.custom_team_players = customPlayers.join(',');
+                    }
+                } catch (e) {
+                    console.error('Error parsing custom players:', e);
+                }
+            }
+        }
+        
+        api.get(`/dashboard/${mainTeam}/season-projection`, { params })
+            .then(res => {
+                setSeasonProjection(res.data);
+                setProjectionLoading(false);
+            })
+            .catch(err => {
+                console.error('Error fetching season projection:', err);
+                setSeasonProjection(null);
+                setProjectionLoading(false);
+            });
+    }, [mainTeam, period, simulationMode]);
 
     if (!mainTeam) {
         return (
@@ -71,7 +171,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                         leaguePosition={dashboardData.league_position}
                         teamId={mainTeam}
                         period={period}
-                        excludeIr={excludeIr}
+                        simulationMode={simulationMode}
                         compareTeamId={compareTeamId}
                         compareTeamName={compareTeamId ? teams.find(t => t.team_id.toString() === compareTeamId)?.team_name : null}
                         teams={teams}
@@ -92,6 +192,22 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                                     <span className="text-gray-600">Total Z-Score:</span>
                                     <span className="font-semibold text-lg text-blue-600">{dashboardData.total_z_score}</span>
                                 </div>
+                                {projectionLoading ? (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-600">Прогноз места:</span>
+                                        <span className="text-sm text-gray-500">Загрузка...</span>
+                                    </div>
+                                ) : seasonProjection && !seasonProjection.error ? (
+                                    <div 
+                                        className="flex justify-between items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors"
+                                        onClick={() => setShowProjectionModal(true)}
+                                    >
+                                        <span className="text-gray-600">Прогноз места:</span>
+                                        <span className="font-semibold text-lg text-blue-600">
+                                            {seasonProjection.projected_position} / {seasonProjection.total_teams}
+                                        </span>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
 
@@ -163,7 +279,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                         <CategoryRankings 
                             teamId={mainTeam}
                             period={period}
-                            excludeIr={excludeIr}
+                            simulationMode={simulationMode}
                             showTopOnly={true}
                         />
                     )}
@@ -175,12 +291,20 @@ const Dashboard = ({ period, puntCategories, mainTeam, excludeIr }) => {
                             <PositionHistoryChart
                                 teamId={mainTeam}
                                 period={period}
-                                excludeIr={excludeIr}
+                                simulationMode={simulationMode}
                             />
                         </div>
                     )}
 
                 </>
+            )}
+
+            {/* Season Projection Modal */}
+            {showProjectionModal && seasonProjection && !seasonProjection.error && (
+                <SeasonProjectionModal
+                    projection={seasonProjection}
+                    onClose={() => setShowProjectionModal(false)}
+                />
             )}
         </div>
     );
