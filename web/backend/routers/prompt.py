@@ -58,7 +58,11 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
 - Формат: H2H категории; используем категории PTS, REB, AST, STL, BLK, 3PM, DD, FG%, FT%, 3PT%, A/TO
 - Порядок категорий фиксирован в массиве cats, все числовые массивы stats/z/tr соответствуют этому порядку
 - Числа округлены до 2 знаков (4 для weighted_avg), inf/nan заменены на 0
-{period_line}{sim_mode_line}{top_n_line}{punt_line}{main_team_line}{custom_players_line}{refresh_line}
+{period_line}{sim_mode_line}{top_n_line}
+- В расчётах на команду берётся максимум 13 играющих (не травмированных/не IR) игроков
+- ВАЖНО: Максимум здоровых (не травмированных/не IR) игроков в составе команды = 13
+- Если в составе команды больше 13 здоровых игроков, это временная ситуация - главные игроки команды находятся на травме (IR)
+{punt_line}{main_team_line}{custom_players_line}{refresh_line}
 
 Z-SCORE:
 - Нормализованная метрика: на сколько стандартных отклонений игрок отличается от среднего лиги
@@ -66,7 +70,7 @@ Z-SCORE:
 - Total Z = сумма Z-scores по всем категориям
 
 ДАННЫЕ В JSON:
-- Команды (t): id, название, рекорды, винрейт, позиция, размер ростера, текущий матчап
+- Команды (t): id, название, рекорды, винрейт, позиция, размер ростера (rs), количество здоровых игроков (hp), текущий матчап
 - Игроки (p): stats/z массивы по cats, total_z, тренды (tr) по периодам, games played, injury/IR, ссылки на фэнтези-команду
 - Свободные агенты (fa): тот же формат stats/z + total_z
 - История матчапов основной команды (mh) и будущие матчапы (um)
@@ -141,6 +145,16 @@ def generate_prompt(
                     "on": current_matchup["opponent_name"]
                 }
             
+            # Подсчитываем количество здоровых (не травмированных/не IR) игроков
+            roster = league_meta.get_team_roster(team.team_id)
+            healthy_players_count = 0
+            for roster_player in roster:
+                lineup_slot = getattr(roster_player, 'lineupSlot', '')
+                is_ir = (lineup_slot == 'IR')
+                is_injured = getattr(roster_player, 'injured', False)
+                if not is_ir and not is_injured:
+                    healthy_players_count += 1
+            
             teams_data.append({
                 "id": team.team_id,
                 "n": team.team_name,  # name
@@ -148,7 +162,8 @@ def generate_prompt(
                 "l": losses,
                 "t": ties,
                 "wr": round(win_rate, 3),  # win_rate
-                "rs": len(league_meta.get_team_roster(team.team_id)),  # roster_size
+                "rs": len(roster),  # roster_size
+                "hp": healthy_players_count,  # healthy_players_count
                 "m": matchup_data  # current_matchup
             })
         
@@ -258,7 +273,7 @@ def generate_prompt(
                         })
                     player_trends = trends_compressed
             except Exception as e:
-                print(f"Error getting trends for {player_name}: {e}")
+                pass  # Игнорируем ошибки получения трендов
             
             stats_payload = (
                 [cleaned_stats[cat] for cat in CATEGORIES]
@@ -310,7 +325,7 @@ def generate_prompt(
             "ctp": custom_players_list  # custom_team_players
         }
         
-        # 5. История матчапов основной команды
+        # 5. История матчапов основной команды (если выбрана)
         matchup_history = []
         if main_team_id:
             for week in range(1, current_week):
@@ -375,7 +390,7 @@ def generate_prompt(
                                         "t2n": team2_name  # team2_name
                                     })
             except Exception as e:
-                print(f"Error loading schedule: {e}")
+                pass  # Игнорируем ошибки загрузки расписания
         
         # 7. Топ-50 свободных агентов
         free_agents_list = league_meta.get_free_agents(size=50)
@@ -505,8 +520,23 @@ def generate_prompt(
                     "sm": simulation_mode,  # simulation_mode
                     "r": sim_results_avg  # results
                 }
+            else:
+                # Если симуляция не вернула список, создаем пустой результат
+                simulations_data["by_avg"] = {
+                    "m": "avg",
+                    "p": period,
+                    "sm": simulation_mode,
+                    "r": []
+                }
         except Exception as e:
-            print(f"Error getting avg simulation: {e}")
+            pass  # Игнорируем ошибки симуляции
+            # В случае ошибки создаем пустой результат вместо None
+            simulations_data["by_avg"] = {
+                "m": "avg",
+                "p": period,
+                "sm": simulation_mode,
+                "r": []
+            }
         
         # Симуляция по z-score
         try:
@@ -554,17 +584,37 @@ def generate_prompt(
                     "sm": simulation_mode,  # simulation_mode
                     "r": sim_results_z  # results
                 }
+            else:
+                # Если симуляция не вернула список, создаем пустой результат
+                simulations_data["by_z_score"] = {
+                    "m": "z_score",
+                    "p": period,
+                    "sm": simulation_mode,
+                    "r": []
+                }
         except Exception as e:
-            print(f"Error getting z-score simulation: {e}")
+            pass  # Игнорируем ошибки симуляции
+            # В случае ошибки создаем пустой результат вместо None
+            simulations_data["by_z_score"] = {
+                "m": "z_score",
+                "p": period,
+                "sm": simulation_mode,
+                "r": []
+            }
         
-        # 9. Рейтинг команд по категориям
+        # 9. Рейтинг команд по категориям (для всех команд)
         category_rankings = {}
         
-        if main_team_id:
-            try:
-                from routers.dashboard import get_category_rankings
+        # Генерируем рейтинги категорий для всех команд
+        # Используем первую команду для вызова функции, так как она возвращает данные по всем командам
+        try:
+            from routers.dashboard import get_category_rankings
+            # Используем первую команду из списка, если основная не выбрана
+            team_id_for_rankings = main_team_id if main_team_id else teams_data[0]['id'] if teams_data else None
+            
+            if team_id_for_rankings:
                 rankings_data = get_category_rankings(
-                    team_id=main_team_id,
+                    team_id=team_id_for_rankings,
                     period=period,
                     simulation_mode=simulation_mode,
                     top_n_players=top_n_players,
@@ -594,8 +644,8 @@ def generate_prompt(
                                 round(value, 2) if isinstance(value, (int, float)) else value  # value
                             ])
                         category_rankings[cat] = simplified_teams
-            except Exception as e:
-                print(f"Error getting category rankings: {e}")
+        except Exception as e:
+            pass  # Игнорируем ошибки получения рейтингов
         
         # 10. Метрики лиги (сжатый формат)
         league_metrics = {}
