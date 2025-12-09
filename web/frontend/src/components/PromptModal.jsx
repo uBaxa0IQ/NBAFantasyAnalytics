@@ -95,13 +95,57 @@ const PromptModal = ({ isOpen, onClose, period, simulationMode, topNPlayers, mai
     };
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(prompt).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }).catch(err => {
+        if (!prompt) {
+            alert('Нет данных для копирования');
+            return;
+        }
+
+        // Используем более надежный метод копирования
+        const textarea = document.createElement('textarea');
+        textarea.value = prompt;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-999999px';
+        textarea.style.top = '-999999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } else {
+                // Fallback на navigator.clipboard если execCommand не сработал
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(prompt).then(() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                        alert('Не удалось скопировать промпт. Попробуйте выделить текст вручную.');
+                    });
+                } else {
+                    alert('Не удалось скопировать промпт. Попробуйте выделить текст вручную.');
+                }
+            }
+        } catch (err) {
             console.error('Failed to copy:', err);
-            alert('Не удалось скопировать промпт');
-        });
+            // Fallback на navigator.clipboard
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(prompt).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    alert('Не удалось скопировать промпт. Попробуйте выделить текст вручную.');
+                });
+            } else {
+                alert('Не удалось скопировать промпт. Попробуйте выделить текст вручную.');
+            }
+        } finally {
+            document.body.removeChild(textarea);
+        }
     };
 
     if (!isOpen) return null;
