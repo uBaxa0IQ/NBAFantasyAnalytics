@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import PlayerSelectionModal from './PlayerSelectionModal';
+import PromptModal from './PromptModal';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
 const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
     const [period, setPeriod] = useState(initialSettings.period || '2026_total');
     const [puntCategories, setPuntCategories] = useState(initialSettings.puntCategories || []);
-    const [excludeIrForSimulations, setExcludeIrForSimulations] = useState(initialSettings.excludeIrForSimulations || false);
+    const [simulationMode, setSimulationMode] = useState(initialSettings.simulationMode || 'all');
     const [mainTeam, setMainTeam] = useState(initialSettings.mainTeam || '');
     const [teams, setTeams] = useState([]);
     const [refreshStatus, setRefreshStatus] = useState(null);
+    const [showPlayerSelection, setShowPlayerSelection] = useState(false);
+    const [selectedPlayersCount, setSelectedPlayersCount] = useState(0);
+    const [showPromptModal, setShowPromptModal] = useState(false);
 
     // Форматирование времени последнего обновления
     const formatLastRefresh = (isoString) => {
@@ -93,10 +98,27 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
         if (initialSettings) {
             setPeriod(initialSettings.period || '2026_total');
             setPuntCategories(initialSettings.puntCategories || []);
-            setExcludeIrForSimulations(initialSettings.excludeIrForSimulations || false);
+            setSimulationMode(initialSettings.simulationMode || 'all');
             setMainTeam(initialSettings.mainTeam || '');
         }
     }, [initialSettings]);
+
+    useEffect(() => {
+        // Загружаем количество выбранных игроков из localStorage
+        if (mainTeam) {
+            const saved = localStorage.getItem(`customTeamPlayers_${mainTeam}`);
+            if (saved) {
+                try {
+                    const savedList = JSON.parse(saved);
+                    setSelectedPlayersCount(savedList.length);
+                } catch (e) {
+                    setSelectedPlayersCount(0);
+                }
+            } else {
+                setSelectedPlayersCount(0);
+            }
+        }
+    }, [mainTeam]);
 
     const handlePuntChange = (cat) => {
         setPuntCategories(prev =>
@@ -108,11 +130,19 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
         const settings = {
             period,
             puntCategories,
-            excludeIrForSimulations,
+            simulationMode,
             mainTeam
         };
         onSave(settings);
         onClose();
+    };
+
+    const handlePlayerSelectionSave = (selectedPlayers) => {
+        setSelectedPlayersCount(selectedPlayers.length);
+    };
+
+    const handleGeneratePrompt = () => {
+        setShowPromptModal(true);
     };
 
     if (!isOpen) return null;
@@ -172,19 +202,43 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                             </div>
                         </div>
 
-                        {/* Исключить IR игроков из симуляций */}
+                        {/* Режим симуляций */}
                         <div>
-                            <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                                <input
-                                    type="checkbox"
-                                    checked={excludeIrForSimulations}
-                                    onChange={e => setExcludeIrForSimulations(e.target.checked)}
-                                />
-                                <span className="font-medium">Исключить IR игроков из симуляций</span>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Режим симуляций:
                             </label>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Примечание: В аналитике команды IR игроки всегда включены
-                            </p>
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                                    <input
+                                        type="radio"
+                                        name="simulationMode"
+                                        value="all"
+                                        checked={simulationMode === 'all'}
+                                        onChange={e => setSimulationMode(e.target.value)}
+                                    />
+                                    <span className="font-medium">Все игроки</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                                    <input
+                                        type="radio"
+                                        name="simulationMode"
+                                        value="exclude_ir"
+                                        checked={simulationMode === 'exclude_ir'}
+                                        onChange={e => setSimulationMode(e.target.value)}
+                                    />
+                                    <span className="font-medium">Убрать IR игроков</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
+                                    <input
+                                        type="radio"
+                                        name="simulationMode"
+                                        value="top_n"
+                                        checked={simulationMode === 'top_n'}
+                                        onChange={e => setSimulationMode(e.target.value)}
+                                    />
+                                    <span className="font-medium">Топ-13 игроков команды</span>
+                                </label>
+                            </div>
                         </div>
 
                         {/* Основная команда */}
@@ -204,6 +258,49 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Настройка игроков для режима top_n */}
+                        {simulationMode === 'top_n' && mainTeam && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Настройка игроков для симуляции:
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setShowPlayerSelection(true)}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                    >
+                                        Настроить игроков
+                                    </button>
+                                    {selectedPlayersCount > 0 && (
+                                        <span className="text-sm text-gray-600">
+                                            Выбрано игроков: <span className="font-bold">{selectedPlayersCount}/13</span>
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Выберите игроков для своей команды. Если не выбрано, будут использоваться топ-13 по Z-score.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Генерация промпта для LLM */}
+                        <div className="border-t pt-4">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                                Промпт для LLM
+                            </h3>
+                            <div className="bg-gray-50 border rounded px-3 py-3 text-sm">
+                                <p className="text-gray-600 mb-3">
+                                    Сгенерируйте промпт с полным контекстом лиги для использования в LLM (ChatGPT, Claude и т.д.)
+                                </p>
+                                <button
+                                    onClick={handleGeneratePrompt}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                                >
+                                    Получить промпт
+                                </button>
+                            </div>
                         </div>
 
                         {/* Информация о последнем обновлении */}
@@ -250,6 +347,30 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Модальное окно выбора игроков */}
+            {showPlayerSelection && mainTeam && (
+                <PlayerSelectionModal
+                    isOpen={showPlayerSelection}
+                    onClose={() => setShowPlayerSelection(false)}
+                    teamId={mainTeam}
+                    period={period}
+                    onSave={handlePlayerSelectionSave}
+                />
+            )}
+
+            {/* Модальное окно промпта */}
+            {showPromptModal && (
+                <PromptModal
+                    isOpen={showPromptModal}
+                    onClose={() => setShowPromptModal(false)}
+                    period={period}
+                    simulationMode={simulationMode}
+                    topNPlayers={13}
+                    mainTeamId={mainTeam}
+                    puntCategories={puntCategories}
+                />
+            )}
         </div>
     );
 };

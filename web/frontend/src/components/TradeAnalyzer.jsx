@@ -6,7 +6,7 @@ const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%'
 
 import MultiTeamTradeAnalyzer from './MultiTeamTradeAnalyzer';
 
-const TradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
+const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => {
     const savedState = loadState(StorageKeys.TRADE, {});
     const [tradeMode, setTradeMode] = useState(savedState.tradeMode || 'two-team'); // 'two-team' или 'multi-team'
     const [teams, setTeams] = useState([]);
@@ -87,7 +87,9 @@ const TradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
         }
 
         setLoading(true);
-        api.post('/trade-analysis', {
+        
+        // Формируем тело запроса
+        const requestBody = {
             my_team_id: parseInt(myTeam),
             their_team_id: parseInt(theirTeam),
             i_give: selectedGive,
@@ -95,8 +97,51 @@ const TradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
             period,
             punt_categories: puntCategories,
             scope_mode: scopeMode,
-            exclude_ir: excludeIrForSimulations
-        })
+            simulation_mode: simulationMode
+        };
+        
+        // Если режим top_n, добавляем дополнительные параметры
+        if (simulationMode === 'top_n') {
+            requestBody.top_n_players = 13;
+            // Загружаем выбранных игроков из localStorage для обеих команд
+            const customTeamPlayers = {};
+            
+            // Для моей команды
+            if (myTeam) {
+                const saved = localStorage.getItem(`customTeamPlayers_${myTeam}`);
+                if (saved) {
+                    try {
+                        const customPlayers = JSON.parse(saved);
+                        if (customPlayers.length > 0) {
+                            customTeamPlayers[parseInt(myTeam)] = customPlayers;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing custom players for my team:', e);
+                    }
+                }
+            }
+            
+            // Для их команды (если mainTeam установлен и это их команда)
+            if (theirTeam && mainTeam && theirTeam === mainTeam) {
+                const saved = localStorage.getItem(`customTeamPlayers_${theirTeam}`);
+                if (saved) {
+                    try {
+                        const customPlayers = JSON.parse(saved);
+                        if (customPlayers.length > 0) {
+                            customTeamPlayers[parseInt(theirTeam)] = customPlayers;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing custom players for their team:', e);
+                    }
+                }
+            }
+            
+            if (Object.keys(customTeamPlayers).length > 0) {
+                requestBody.custom_team_players = customTeamPlayers;
+            }
+        }
+        
+        api.post('/trade-analysis', requestBody)
             .then(res => {
                 setResult(res.data);
                 setLoading(false);
@@ -136,7 +181,8 @@ const TradeAnalyzer = ({ period, puntCategories, excludeIrForSimulations }) => {
                 <MultiTeamTradeAnalyzer
                     period={period}
                     puntCategories={puntCategories}
-                    excludeIrForSimulations={excludeIrForSimulations}
+                    simulationMode={simulationMode}
+                    mainTeam={mainTeam}
                 />
             </div>
         );

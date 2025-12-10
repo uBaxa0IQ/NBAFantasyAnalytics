@@ -2,10 +2,41 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../api';
 
-const PositionHistoryChart = ({ teamId, period, excludeIr }) => {
+const PositionHistoryChart = ({ teamId, period, simulationMode }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [customPlayersKey, setCustomPlayersKey] = useState(0);
+
+    // Отслеживаем изменения в localStorage
+    useEffect(() => {
+        if (!teamId || simulationMode !== 'top_n') return;
+
+        const storageKey = `customTeamPlayers_${teamId}`;
+        
+        const checkStorage = () => {
+            setCustomPlayersKey(prev => prev + 1);
+        };
+
+        checkStorage();
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === storageKey) {
+                checkStorage();
+            }
+        });
+
+        window.addEventListener('customTeamPlayersUpdated', (e) => {
+            if (e.detail && e.detail.teamId === teamId) {
+                checkStorage();
+            }
+        });
+
+        return () => {
+            window.removeEventListener('storage', checkStorage);
+            window.removeEventListener('customTeamPlayersUpdated', checkStorage);
+        };
+    }, [teamId, simulationMode]);
 
     useEffect(() => {
         if (!teamId) {
@@ -14,9 +45,28 @@ const PositionHistoryChart = ({ teamId, period, excludeIr }) => {
         }
 
         setLoading(true);
-        api.get(`/dashboard/${teamId}/position-history`, {
-            params: { period, exclude_ir: excludeIr }
-        })
+        
+        // Формируем параметры запроса
+        const params = { period, simulation_mode: simulationMode };
+        
+        // Если режим top_n, добавляем дополнительные параметры
+        if (simulationMode === 'top_n') {
+            params.top_n_players = 13;
+            // Загружаем выбранных игроков из localStorage
+            const saved = localStorage.getItem(`customTeamPlayers_${teamId}`);
+            if (saved) {
+                try {
+                    const customPlayers = JSON.parse(saved);
+                    if (customPlayers.length > 0) {
+                        params.custom_team_players = customPlayers.join(',');
+                    }
+                } catch (e) {
+                    console.error('Error parsing custom players:', e);
+                }
+            }
+        }
+        
+        api.get(`/dashboard/${teamId}/position-history`, { params })
             .then(res => {
                 // Проверяем, есть ли ошибка в ответе сервера
                 if (res.data && res.data.error) {
@@ -69,7 +119,7 @@ const PositionHistoryChart = ({ teamId, period, excludeIr }) => {
             .finally(() => {
                 setLoading(false);
             });
-    }, [teamId, period, excludeIr]);
+    }, [teamId, period, simulationMode, customPlayersKey]);
 
     if (loading) {
         return (

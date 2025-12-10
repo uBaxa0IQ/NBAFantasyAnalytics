@@ -2,12 +2,43 @@ import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 import api from '../api';
 
-const TeamBalanceRadar = ({ teamId, period, excludeIr = false, compareTeamId = null, compareTeamName = null }) => {
+const TeamBalanceRadar = ({ teamId, period, simulationMode = 'all', compareTeamId = null, compareTeamName = null }) => {
     const [data, setData] = React.useState(null);
     const [compareData, setCompareData] = React.useState(null);
     const [teamName, setTeamName] = React.useState('');
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
+    const [customPlayersKey, setCustomPlayersKey] = React.useState(0);
+
+    // Отслеживаем изменения в localStorage
+    React.useEffect(() => {
+        if (!teamId || simulationMode !== 'top_n') return;
+
+        const storageKey = `customTeamPlayers_${teamId}`;
+        
+        const checkStorage = () => {
+            setCustomPlayersKey(prev => prev + 1);
+        };
+
+        checkStorage();
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === storageKey) {
+                checkStorage();
+            }
+        });
+
+        window.addEventListener('customTeamPlayersUpdated', (e) => {
+            if (e.detail && e.detail.teamId === teamId) {
+                checkStorage();
+            }
+        });
+
+        return () => {
+            window.removeEventListener('storage', checkStorage);
+            window.removeEventListener('customTeamPlayersUpdated', checkStorage);
+        };
+    }, [teamId, simulationMode]);
 
     React.useEffect(() => {
         if (!teamId) {
@@ -19,14 +50,32 @@ const TeamBalanceRadar = ({ teamId, period, excludeIr = false, compareTeamId = n
             try {
                 setLoading(true);
                 
-                // Загружаем данные для основной команды
-                const response = await api.get(`/team-balance/${teamId}`, {
-                    params: {
-                        period,
-                        punt_categories: '', // Пустая строка - не используем punt categories
-                        exclude_ir: excludeIr
+                // Формируем параметры запроса
+                const params = {
+                    period,
+                    punt_categories: '', // Пустая строка - не используем punt categories
+                    simulation_mode: simulationMode
+                };
+                
+                // Если режим top_n, добавляем дополнительные параметры
+                if (simulationMode === 'top_n') {
+                    params.top_n_players = 13;
+                    // Загружаем выбранных игроков из localStorage
+                    const saved = localStorage.getItem(`customTeamPlayers_${teamId}`);
+                    if (saved) {
+                        try {
+                            const customPlayers = JSON.parse(saved);
+                            if (customPlayers.length > 0) {
+                                params.custom_team_players = customPlayers.join(',');
+                            }
+                        } catch (e) {
+                            console.error('Error parsing custom players:', e);
+                        }
                     }
-                });
+                }
+                
+                // Загружаем данные для основной команды
+                const response = await api.get(`/team-balance/${teamId}`, { params });
                 const result = response.data;
 
                 if (result.error) {
@@ -42,12 +91,32 @@ const TeamBalanceRadar = ({ teamId, period, excludeIr = false, compareTeamId = n
 
                 // Если нужно сравнение, загружаем данные для второй команды
                 if (compareTeamId) {
-                    const compareResponse = await api.get(`/team-balance/${compareTeamId}`, {
-                        params: {
-                            period,
-                            punt_categories: '', // Пустая строка - не используем punt categories
-                            exclude_ir: excludeIr
+                    // Формируем параметры запроса для команды сравнения
+                    const compareParams = {
+                        period,
+                        punt_categories: '',
+                        simulation_mode: simulationMode
+                    };
+                    
+                    // Если режим top_n, добавляем дополнительные параметры
+                    if (simulationMode === 'top_n') {
+                        compareParams.top_n_players = 13;
+                        // Загружаем выбранных игроков из localStorage для команды сравнения
+                        const saved = localStorage.getItem(`customTeamPlayers_${compareTeamId}`);
+                        if (saved) {
+                            try {
+                                const customPlayers = JSON.parse(saved);
+                                if (customPlayers.length > 0) {
+                                    compareParams.custom_team_players = customPlayers.join(',');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing custom players for compare team:', e);
+                            }
                         }
+                    }
+                    
+                    const compareResponse = await api.get(`/team-balance/${compareTeamId}`, {
+                        params: compareParams
                     });
                     const compareResult = compareResponse.data;
 
@@ -68,7 +137,7 @@ const TeamBalanceRadar = ({ teamId, period, excludeIr = false, compareTeamId = n
         };
 
         fetchBalanceData();
-    }, [teamId, period, excludeIr, compareTeamId]);
+    }, [teamId, period, simulationMode, compareTeamId, customPlayersKey]);
 
     if (loading) {
         return (

@@ -2,7 +2,7 @@
 Pydantic модели для API запросов.
 """
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional, Dict
 
 
 class TradeAnalysisRequest(BaseModel):
@@ -14,7 +14,9 @@ class TradeAnalysisRequest(BaseModel):
     period: str = "2026_total"
     punt_categories: List[str] = []
     scope_mode: str = "team"  # "team" или "trade"
-    exclude_ir: bool = False
+    simulation_mode: str = "all"  # "all", "exclude_ir" или "top_n"
+    top_n_players: int = 13
+    custom_team_players: Optional[Dict[int, List[str]]] = None
 
 
 class TeamTrade(BaseModel):
@@ -29,5 +31,11 @@ class MultiTeamTradeRequest(BaseModel):
     trades: List[TeamTrade]  # Список команд и их трейдов
     period: str = "2026_total"
     punt_categories: List[str] = []
-    exclude_ir: bool = False
+    simulation_mode: str = "all"  # "all", "exclude_ir" или "top_n"
+    top_n_players: int = 13
+    custom_team_players: Optional[Dict[int, List[str]]] = None
+
+
+
+
 

@@ -3,12 +3,48 @@ import api from '../api';
 
 const PERCENTAGE_CATEGORIES = ['FG%', 'FT%', '3PT%', 'A/TO'];
 
-const CategoryRankings = ({ teamId, period, excludeIr, showTopOnly = false }) => {
+const CategoryRankings = ({ teamId, period, simulationMode, showTopOnly = false }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [showFullTable, setShowFullTable] = useState(false);
+    const [customPlayersKey, setCustomPlayersKey] = useState(0); // Для принудительного обновления
+
+    // Отслеживаем изменения в localStorage
+    useEffect(() => {
+        if (!teamId || simulationMode !== 'top_n') return;
+
+        const storageKey = `customTeamPlayers_${teamId}`;
+        
+        // Функция для проверки изменений
+        const checkStorage = () => {
+            const saved = localStorage.getItem(storageKey);
+            setCustomPlayersKey(prev => prev + 1); // Принудительно обновляем
+        };
+
+        // Проверяем при монтировании
+        checkStorage();
+
+        // Слушаем события storage (для обновлений из других вкладок)
+        window.addEventListener('storage', (e) => {
+            if (e.key === storageKey) {
+                checkStorage();
+            }
+        });
+
+        // Слушаем кастомное событие для обновлений в той же вкладке
+        window.addEventListener('customTeamPlayersUpdated', (e) => {
+            if (e.detail && e.detail.teamId === teamId) {
+                checkStorage();
+            }
+        });
+
+        return () => {
+            window.removeEventListener('storage', checkStorage);
+            window.removeEventListener('customTeamPlayersUpdated', checkStorage);
+        };
+    }, [teamId, simulationMode]);
 
     useEffect(() => {
         if (!teamId) {
@@ -17,9 +53,28 @@ const CategoryRankings = ({ teamId, period, excludeIr, showTopOnly = false }) =>
         }
 
         setLoading(true);
-        api.get(`/dashboard/${teamId}/category-rankings`, {
-            params: { period, exclude_ir: excludeIr }
-        })
+        
+        // Формируем параметры запроса
+        const params = { period, simulation_mode: simulationMode };
+        
+        // Если режим top_n, добавляем дополнительные параметры
+        if (simulationMode === 'top_n') {
+            params.top_n_players = 13;
+            // Загружаем выбранных игроков из localStorage
+            const saved = localStorage.getItem(`customTeamPlayers_${teamId}`);
+            if (saved) {
+                try {
+                    const customPlayers = JSON.parse(saved);
+                    if (customPlayers.length > 0) {
+                        params.custom_team_players = customPlayers.join(',');
+                    }
+                } catch (e) {
+                    console.error('Error parsing custom players:', e);
+                }
+            }
+        }
+        
+        api.get(`/dashboard/${teamId}/category-rankings`, { params })
             .then(res => {
                 setData(res.data);
                 setError(null);
@@ -30,7 +85,7 @@ const CategoryRankings = ({ teamId, period, excludeIr, showTopOnly = false }) =>
                 setError('Ошибка загрузки рейтингов');
                 setLoading(false);
             });
-    }, [teamId, period, excludeIr]);
+    }, [teamId, period, simulationMode, customPlayersKey]);
 
     const formatValue = (category, value) => {
         if (PERCENTAGE_CATEGORIES.includes(category)) {

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
+import PlayerFiltersModal from './PlayerFiltersModal';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulations }) => {
+const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) => {
     const savedState = loadState(StorageKeys.ALL_PLAYERS, {});
     const [teams, setTeams] = useState([]);
     const [selectedTeam, setSelectedTeam] = useState(savedState.selectedTeam || '');
@@ -15,6 +16,8 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
     const [loading, setLoading] = useState(false);
     const [sortBy, setSortBy] = useState(savedState.sortBy || 'total_z');
     const [sortDir, setSortDir] = useState(savedState.sortDir || 'desc');
+    const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
+    const [filters, setFilters] = useState(savedState.filters || {});
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -22,7 +25,11 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
 
     useEffect(() => {
         setLoading(true);
-        api.get(`/all-players?period=${period}&exclude_ir=${excludeIrForSimulations}`)
+        
+        // Определяем exclude_ir на основе simulation_mode
+        const exclude_ir = (simulationMode === 'exclude_ir');
+        
+        api.get(`/all-players?period=${period}&exclude_ir=${exclude_ir}`)
             .then(res => {
                 setData(res.data);
                 setLoading(false);
@@ -31,7 +38,7 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
                 console.error(err);
                 setLoading(false);
             });
-    }, [period, excludeIrForSimulations]);
+    }, [period, simulationMode]);
 
     // Сохранение состояния при изменении
     useEffect(() => {
@@ -40,9 +47,10 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
             position,
             searchQuery,
             sortBy,
-            sortDir
+            sortDir,
+            filters
         });
-    }, [selectedTeam, position, searchQuery, sortBy, sortDir]);
+    }, [selectedTeam, position, searchQuery, sortBy, sortDir, filters]);
 
 
     const calculateTotalZ = (player) => {
@@ -83,6 +91,30 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
         );
     }
 
+    // Фильтры по статистике
+    if (Object.keys(filters).length > 0) {
+        filteredPlayers = filteredPlayers.filter(player => {
+            if (!player.stats) return false;
+            
+            return Object.entries(filters).every(([category, minValue]) => {
+                const playerValue = player.stats[category];
+                if (playerValue === undefined || playerValue === null) return false;
+                
+                // Для процентных категорий значения могут быть в формате 0-1 или 0-100
+                // Нормализуем к 0-100 для сравнения
+                let normalizedPlayerValue = playerValue;
+                if (['FG%', 'FT%', '3PT%'].includes(category)) {
+                    // Если значение меньше 1, значит это 0-1 формат, конвертируем в проценты
+                    if (normalizedPlayerValue < 1.0) {
+                        normalizedPlayerValue = normalizedPlayerValue * 100;
+                    }
+                }
+                
+                return normalizedPlayerValue > minValue;
+            });
+        });
+    }
+
     // Сортировка
     filteredPlayers.sort((a, b) => {
         let valA, valB;
@@ -104,6 +136,12 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
         if (sortBy !== column) return <span className="text-gray-400 ml-1">⇅</span>;
         return sortDir === 'asc' ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
     };
+
+    const handleApplyFilters = (newFilters) => {
+        setFilters(newFilters);
+    };
+
+    const hasActiveFilters = Object.keys(filters).length > 0;
 
     return (
         <div className="p-4">
@@ -137,6 +175,17 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                 />
+
+                <button
+                    onClick={() => setIsFiltersModalOpen(true)}
+                    className={`px-4 py-2 border rounded font-medium transition-colors ${
+                        hasActiveFilters
+                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                >
+                    Фильтры {hasActiveFilters && `(${Object.keys(filters).length})`}
+                </button>
             </div>
 
             {loading && <div>Загрузка...</div>}
@@ -196,6 +245,13 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, excludeIrForSimulat
                     </table>
                 </div>
             )}
+
+            <PlayerFiltersModal
+                isOpen={isFiltersModalOpen}
+                onClose={() => setIsFiltersModalOpen(false)}
+                onApply={handleApplyFilters}
+                initialFilters={filters}
+            />
         </div>
     );
 };

@@ -201,7 +201,7 @@ def calculate_team_raw_stats(team_players):
     return raw_stats
 
 
-def calculate_simulation_ranks(all_players_list, mode_type, league_meta, period, exclude_ir, punt_categories):
+def calculate_simulation_ranks(all_players_list, mode_type, league_meta, period, simulation_mode, punt_categories, top_n_players=13, custom_team_players=None):
     """
     Рассчитывает симуляцию для всех команд и возвращает места в рейтинге.
     Использует тот же метод, что и /api/simulation - симуляцию "все против всех".
@@ -211,13 +211,18 @@ def calculate_simulation_ranks(all_players_list, mode_type, league_meta, period,
         mode_type: 'z_scores' или 'team_stats_avg'
         league_meta: Экземпляр LeagueMetadata
         period: Период для расчета
-        exclude_ir: Исключать ли игроков на IR
+        simulation_mode: 'all', 'exclude_ir' или 'top_n'
         punt_categories: Список категорий для исключения (punt)
+        top_n_players: Количество игроков для режима 'top_n' (по умолчанию 13)
+        custom_team_players: Словарь {team_id: [список имен игроков]} для ручного выбора игроков
     
     Returns:
         dict: Словарь {team_id: rank} где rank - место в рейтинге (1 = первое место)
     """
     from core.z_score import calculate_z_scores
+    
+    # Определяем exclude_ir на основе simulation_mode
+    exclude_ir = (simulation_mode == "exclude_ir")
     
     # Получаем все команды
     teams = league_meta.get_teams()
@@ -232,6 +237,31 @@ def calculate_simulation_ranks(all_players_list, mode_type, league_meta, period,
             if team_id not in players_by_team:
                 players_by_team[team_id] = []
             players_by_team[team_id].append(player)
+        
+        # Если режим "top_n", применяем логику выбора топ-N игроков
+        if simulation_mode == "top_n":
+            z_scores_by_name = {p['name']: p['z_scores'] for p in all_players_list if 'z_scores' in p}
+            
+            # Применяем логику выбора топ-N для каждой команды
+            for team in teams:
+                if team.team_id in players_by_team:
+                    team_players = players_by_team[team.team_id]
+                    
+                    # Для custom_team_players используем выбранных игроков или топ-N
+                    if custom_team_players and team.team_id in custom_team_players:
+                        # Фильтруем только выбранных игроков
+                        selected_names = custom_team_players[team.team_id]
+                        team_players = [p for p in team_players if p['name'] in selected_names]
+                    else:
+                        # Выбираем топ-N игроков
+                        team_players = select_top_n_players(
+                            team_players, 
+                            top_n_players, 
+                            punt_categories=punt_categories, 
+                            z_scores_data=z_scores_by_name
+                        )
+                    
+                    players_by_team[team.team_id] = team_players
         
         # Рассчитываем Z-scores для каждой команды
         for team in teams:
@@ -270,6 +300,33 @@ def calculate_simulation_ranks(all_players_list, mode_type, league_meta, period,
                 'name': player['name'],
                 'stats': player_stats
             })
+        
+        # Если режим "top_n", применяем логику выбора топ-N игроков
+        if simulation_mode == "top_n":
+            # Получаем Z-scores для всех игроков (для сортировки)
+            z_data = calculate_z_scores(league_meta, period, exclude_ir=False)
+            z_scores_by_name = {p['name']: p['z_scores'] for p in z_data['players']}
+            
+            # Применяем логику выбора топ-N для каждой команды
+            for team in teams:
+                if team.team_id in players_by_team:
+                    team_players = players_by_team[team.team_id]
+                    
+                    # Для custom_team_players используем выбранных игроков или топ-N
+                    if custom_team_players and team.team_id in custom_team_players:
+                        # Фильтруем только выбранных игроков
+                        selected_names = custom_team_players[team.team_id]
+                        team_players = [p for p in team_players if p['name'] in selected_names]
+                    else:
+                        # Выбираем топ-N игроков
+                        team_players = select_top_n_players(
+                            team_players, 
+                            top_n_players, 
+                            punt_categories=punt_categories, 
+                            z_scores_data=z_scores_by_name
+                        )
+                    
+                    players_by_team[team.team_id] = team_players
         
         # Рассчитываем статистику команды (как в /api/simulation)
         for team in teams:
@@ -370,7 +427,7 @@ def calculate_simulation_ranks(all_players_list, mode_type, league_meta, period,
     return ranks
 
 
-def calculate_category_rankings(all_players_list, team_id, league_meta, period, exclude_ir, punt_categories):
+def calculate_category_rankings(all_players_list, team_id, league_meta, period, simulation_mode, punt_categories, top_n_players=13, custom_team_players=None):
     """
     Рассчитывает позиции команды по категориям в лиге.
     Аналогично логике из /api/dashboard/{team_id}/category-rankings.
@@ -380,12 +437,17 @@ def calculate_category_rankings(all_players_list, team_id, league_meta, period, 
         team_id: ID команды для которой рассчитываем позиции
         league_meta: Экземпляр LeagueMetadata
         period: Период для расчета
-        exclude_ir: Исключать ли игроков на IR
+        simulation_mode: 'all', 'exclude_ir' или 'top_n'
         punt_categories: Список категорий для исключения (punt)
+        top_n_players: Количество игроков для режима 'top_n' (по умолчанию 13)
+        custom_team_players: Словарь {team_id: [список имен игроков]} для ручного выбора игроков
     
     Returns:
         dict: Словарь {category: rank} где rank - позиция в лиге (1 = первое место)
     """
+    # Определяем exclude_ir на основе simulation_mode
+    exclude_ir = (simulation_mode == "exclude_ir")
+    
     # Получаем статистику всех игроков за период
     all_players_week_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
     
@@ -404,6 +466,37 @@ def calculate_category_rankings(all_players_list, team_id, league_meta, period, 
             'name': player['name'],
             'stats': player_stats
         })
+    
+    # Если режим "top_n", применяем логику выбора топ-N игроков
+    if simulation_mode == "top_n":
+        from core.z_score import calculate_z_scores
+        # Получаем Z-scores для всех игроков (для сортировки)
+        z_data = calculate_z_scores(league_meta, period, exclude_ir=False)
+        z_scores_by_name = {p['name']: p['z_scores'] for p in z_data['players']}
+        
+        # Получаем все команды
+        teams = league_meta.get_teams()
+        
+        # Применяем логику выбора топ-N для каждой команды
+        for team_obj in teams:
+            if team_obj.team_id in players_by_team:
+                team_players = players_by_team[team_obj.team_id]
+                
+                # Для custom_team_players используем выбранных игроков или топ-N
+                if custom_team_players and team_obj.team_id in custom_team_players:
+                    # Фильтруем только выбранных игроков
+                    selected_names = custom_team_players[team_obj.team_id]
+                    team_players = [p for p in team_players if p['name'] in selected_names]
+                else:
+                    # Выбираем топ-N игроков
+                    team_players = select_top_n_players(
+                        team_players, 
+                        top_n_players, 
+                        punt_categories=punt_categories, 
+                        z_scores_data=z_scores_by_name
+                    )
+                
+                players_by_team[team_obj.team_id] = team_players
     
     # Получаем все команды
     teams = league_meta.get_teams()
@@ -470,4 +563,57 @@ def calculate_category_rankings(all_players_list, team_id, league_meta, period, 
         category_rankings[cat] = rank
     
     return category_rankings
+
+
+def select_top_n_players(team_players: list, n: int, punt_categories: list = None, z_scores_data: dict = None) -> list:
+    """
+    Выбирает топ-N игроков команды по total Z-score.
+    
+    Args:
+        team_players: Список игроков команды. Каждый игрок должен иметь 'name' и либо 'z_scores', 
+                     либо z_scores должны быть в z_scores_data по имени игрока
+        n: Количество игроков для выбора
+        punt_categories: Список категорий для исключения (punt)
+        z_scores_data: Опциональный словарь {player_name: z_scores_dict} для поиска Z-scores по имени
+    
+    Returns:
+        list: Список топ-N игроков, отсортированных по total Z-score
+    """
+    if punt_categories is None:
+        punt_categories = []
+    
+    # Создаем список игроков с их total Z-scores
+    players_with_totals = []
+    
+    for player in team_players:
+        player_name = player.get('name', '')
+        
+        # Получаем z_scores игрока
+        z_scores = None
+        if 'z_scores' in player:
+            z_scores = player['z_scores']
+        elif z_scores_data and player_name in z_scores_data:
+            z_scores = z_scores_data[player_name]
+        
+        if not z_scores:
+            continue
+        
+        # Рассчитываем total Z-score (с учетом punt-категорий)
+        total_z = 0
+        for cat in CATEGORIES:
+            if cat not in punt_categories:
+                z_val = z_scores.get(cat, 0)
+                if math.isfinite(z_val):
+                    total_z += z_val
+        
+        # Сохраняем игрока с его total Z-score
+        player_copy = player.copy()
+        player_copy['total_z'] = total_z
+        players_with_totals.append(player_copy)
+    
+    # Сортируем по total Z-score (по убыванию)
+    players_with_totals.sort(key=lambda x: x.get('total_z', 0), reverse=True)
+    
+    # Возвращаем топ-N игроков
+    return players_with_totals[:n]
 
