@@ -67,12 +67,13 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
 Z-SCORE:
 - Нормализованная метрика: на сколько стандартных отклонений игрок отличается от среднего лиги
 - Положительный = выше среднего, отрицательный = ниже, 0 = средний
-- Total Z = сумма Z-scores по всем категориям
+- Total Z (tz) = сумма Z-scores по всем категориям (без учета пантов)
+- Total Z Punt (tzp) = сумма Z-scores с учетом пантов (исключая пант-категории)
 
 ДАННЫЕ В JSON:
 - Команды (t): id, название, рекорды, винрейт, позиция, размер ростера (rs), количество здоровых игроков (hp), текущий матчап
-- Игроки (p): stats/z массивы по cats, total_z, тренды (tr) по периодам, games played, injury/IR, ссылки на фэнтези-команду
-- Свободные агенты (fa): тот же формат stats/z + total_z
+- Игроки (p): stats/z массивы по cats, tz (total_z без пантов), tzp (total_z с пантами), тренды (tr) по периодам, games played, injury/IR, ссылки на фэнтези-команду
+- Свободные агенты (fa): тот же формат stats/z + tz (total_z без пантов) + tzp (total_z с пантами)
 - История матчапов основной команды (mh) и будущие матчапы (um)
 - Симуляции (sim): by_avg/by_z_score с позициями и винрейтами
 - Рейтинги по категориям (cr): списки команд с rank, team_id, value
@@ -172,7 +173,12 @@ def generate_prompt(
         for idx, team in enumerate(teams_data):
             team['pos'] = idx + 1  # position
         
-        # 3. Информация об игроках (все)
+        # 3. Парсим пант-категории (нужно для расчета total_z с учетом пантов)
+        punt_cats_list = []
+        if punt_categories:
+            punt_cats_list = [cat.strip() for cat in punt_categories.split(',') if cat.strip()]
+        
+        # 4. Информация об игроках (все)
         exclude_ir = (simulation_mode == "exclude_ir")
         z_data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
         all_players_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
@@ -198,7 +204,16 @@ def generate_prompt(
                 else:
                     cleaned_z_scores[cat] = z_val
             
+            # total_z без учета пантов (сумма всех категорий)
             total_z = sum(z for z in cleaned_z_scores.values() if isinstance(z, (int, float)) and math.isfinite(z))
+            
+            # total_z с учетом пантов (исключая пант-категории)
+            total_z_punt = 0
+            for cat in CATEGORIES:
+                if cat not in punt_cats_list:
+                    z_val = cleaned_z_scores.get(cat, 0)
+                    if isinstance(z_val, (int, float)) and math.isfinite(z_val):
+                        total_z_punt += z_val
             
             # Получаем информацию о травме
             is_injured = False
@@ -292,17 +307,15 @@ def generate_prompt(
                 "t": player['team_name'],  # fantasy_team_name
                 "s": stats_payload,  # stats
                 "z": z_payload,  # z_scores
-                "tz": round(total_z, 2),  # total_z
+                "tz": round(total_z, 2),  # total_z (без учета пантов)
+                "tzp": round(total_z_punt, 2),  # total_z_punt (с учетом пантов)
                 "gp": games_played,  # games_played
                 "tr": player_trends,  # trends
                 "inj": is_injured,  # is_injured
                 "ir": is_ir  # is_ir
             })
         
-        # 4. Текущие настройки
-        punt_cats_list = []
-        if punt_categories:
-            punt_cats_list = [cat.strip() for cat in punt_categories.split(',') if cat.strip()]
+        # 5. Текущие настройки
         
         custom_players_list = None
         custom_team_players_str = custom_team_players  # Сохраняем строку для передачи в функции
@@ -430,7 +443,16 @@ def generate_prompt(
                         else:
                             z_scores[cat] = 0.0
             
+            # total_z без учета пантов (сумма всех категорий)
             total_z = sum(z for z in z_scores.values() if isinstance(z, (int, float)) and math.isfinite(z))
+            
+            # total_z с учетом пантов (исключая пант-категории)
+            total_z_punt = 0
+            for cat in CATEGORIES:
+                if cat not in punt_cats_list:
+                    z_val = z_scores.get(cat, 0)
+                    if isinstance(z_val, (int, float)) and math.isfinite(z_val):
+                        total_z_punt += z_val
             
             # Очищаем stats от inf/nan и фильтруем только нужные категории
             cleaned_fa_stats = {}
@@ -458,7 +480,8 @@ def generate_prompt(
                 "nba": getattr(fa, 'proTeam', 'N/A'),  # nba_team
                 "s": [cleaned_fa_stats[cat] for cat in CATEGORIES] if compact else cleaned_fa_stats,  # stats
                 "z": [z_scores.get(cat, 0.0) for cat in CATEGORIES] if compact else z_scores,  # z_scores
-                "tz": round(total_z, 2),  # total_z
+                "tz": round(total_z, 2),  # total_z (без учета пантов)
+                "tzp": round(total_z_punt, 2),  # total_z_punt (с учетом пантов)
                 "gp": fa_games  # games_played
             })
         
