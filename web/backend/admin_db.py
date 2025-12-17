@@ -171,18 +171,23 @@ def get_trade_logs(
     # Преобразуем Row объекты в словари
     logs = []
     for row in rows:
+        # sqlite3.Row поддерживает доступ по ключу через [], но не имеет метода get()
+        team_names_value = row['team_names'] if 'team_names' in row.keys() else None
+        top_players_value = row['top_players'] if 'top_players' in row.keys() else None
+        full_result_value = row['full_result'] if 'full_result' in row.keys() else None
+        
         log = {
             'id': row['id'],
             'timestamp': row['timestamp'],
             'trade_type': row['trade_type'],
             'teams_involved': json.loads(row['teams_involved']),
-            'team_names': json.loads(row.get('team_names', '[]') or '[]'),
+            'team_names': json.loads(team_names_value) if team_names_value else [],
             'players_involved': json.loads(row['players_involved']),
-            'top_players': json.loads(row.get('top_players', '{}') or '{}'),
+            'top_players': json.loads(top_players_value) if top_players_value else {},
             'scope_mode': row['scope_mode'],
             'period': row['period'],
             'result_delta': row['result_delta'],
-            'full_result': json.loads(row['full_result']) if row.get('full_result') else None,
+            'full_result': json.loads(full_result_value) if full_result_value else None,
             'ip_address': row['ip_address']
         }
         logs.append(log)
@@ -236,6 +241,64 @@ def get_trade_stats() -> Dict:
         'last_24h': last_24h,
         'last_7d': last_7d
     }
+
+
+def create_or_update_admin(username: str, password_hash: str) -> bool:
+    """
+    Создает или обновляет пароль администратора.
+    
+    Args:
+        username: Имя пользователя (обычно 'admin')
+        password_hash: Хеш пароля
+    
+    Returns:
+        True если успешно
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    timestamp = datetime.utcnow().isoformat()
+    
+    # Проверяем, существует ли админ
+    cursor.execute('SELECT id FROM admins WHERE username = ?', (username,))
+    existing = cursor.fetchone()
+    
+    if existing:
+        # Обновляем существующего админа
+        cursor.execute('''
+            UPDATE admins 
+            SET password_hash = ? 
+            WHERE username = ?
+        ''', (password_hash, username))
+    else:
+        # Создаем нового админа
+        cursor.execute('''
+            INSERT INTO admins (username, password_hash, created_at)
+            VALUES (?, ?, ?)
+        ''', (username, password_hash, timestamp))
+    
+    conn.commit()
+    conn.close()
+    
+    return True
+
+
+def has_admin() -> bool:
+    """
+    Проверяет, есть ли хотя бы один администратор в БД.
+    
+    Returns:
+        True если есть админ
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) as count FROM admins')
+    count = cursor.fetchone()['count']
+    
+    conn.close()
+    
+    return count > 0
 
 
 # Инициализация базы при импорте

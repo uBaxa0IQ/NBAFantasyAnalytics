@@ -8,6 +8,9 @@ import TradeAnalyzer from './components/TradeAnalyzer';
 import ComparisonBar from './components/ComparisonBar';
 import PlayerComparisonModal from './components/PlayerComparisonModal';
 import SettingsModal from './components/SettingsModal';
+import AdminPanel from './components/AdminPanel';
+import AdminPasswordModal from './components/AdminPasswordModal';
+import { useArrowSequence } from './hooks/useArrowSequence';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -15,6 +18,8 @@ function App() {
   const [comparisonPlayers, setComparisonPlayers] = useState([]);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
 
   // Общие настройки для всех вкладок с сохранением в localStorage
   const [period, setPeriod] = useState(() => {
@@ -89,6 +94,47 @@ function App() {
   const clearComparison = () => {
     setComparisonPlayers([]);
   };
+
+  // Секретная комбинация стрелочек: ↑ ↑ ↓ ↓ →
+  const arrowSequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowRight'];
+  
+  const handleArrowSequenceComplete = () => {
+    setShowAdminPasswordModal(true);
+  };
+
+  useArrowSequence(arrowSequence, handleArrowSequenceComplete);
+
+  const handleAdminLoginSuccess = () => {
+    setIsAdmin(true);
+    setActiveTab('admin');
+  };
+
+  const handleExitAdmin = () => {
+    setIsAdmin(false);
+    setActiveTab('dashboard');
+  };
+
+  // Если админ вошел, показываем админ панель
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-blue-900 text-white p-4 shadow-md">
+          <div className="container mx-auto max-w-7xl flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Админ-панель</h1>
+            <button
+              onClick={handleExitAdmin}
+              className="px-4 py-2 bg-white text-blue-900 rounded hover:bg-gray-100 font-medium"
+            >
+              Выйти
+            </button>
+          </div>
+        </header>
+        <main className="container mx-auto mt-4 p-4 max-w-7xl">
+          <AdminPanel />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -223,6 +269,12 @@ function App() {
           simulationMode,
           mainTeam
         }}
+      />
+
+      <AdminPasswordModal
+        isOpen={showAdminPasswordModal}
+        onClose={() => setShowAdminPasswordModal(false)}
+        onSuccess={handleAdminLoginSuccess}
       />
     </div>
   );
