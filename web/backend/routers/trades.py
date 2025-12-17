@@ -26,24 +26,6 @@ def analyze_trade(
     league_meta=Depends(get_league_meta)
 ):
     """Анализирует трейд между двумя командами."""
-    # Выводим данные запроса в консоль
-    print("\n" + "="*80)
-    print("АНАЛИЗ ТРЕЙДА (two-team)")
-    print("="*80)
-    print(f"Моя команда ID: {request.my_team_id}")
-    print(f"Их команда ID: {request.their_team_id}")
-    print(f"Отдаю игроков: {request.i_give}")
-    print(f"Получаю игроков: {request.i_receive}")
-    print(f"Период: {request.period}")
-    print(f"Пант-категории: {request.punt_categories}")
-    print(f"Режим области: {request.scope_mode}")
-    print(f"Режим симуляции: {request.simulation_mode}")
-    if request.simulation_mode == "top_n":
-        print(f"Топ-N игроков: {request.top_n_players}")
-        if request.custom_team_players:
-            print(f"Кастомные игроки команд: {json.dumps(request.custom_team_players, indent=2, ensure_ascii=False)}")
-    print("="*80 + "\n")
-    
     # Определяем exclude_ir на основе simulation_mode
     exclude_ir = (request.simulation_mode == "exclude_ir")
     
@@ -392,24 +374,6 @@ def analyze_multi_team_trade(
     Анализ мультикомандного трейда.
     Поддерживает любое количество команд, участвующих в трейде.
     """
-    # Выводим данные запроса в консоль
-    print("\n" + "="*80)
-    print("АНАЛИЗ ТРЕЙДА (multi-team)")
-    print("="*80)
-    print(f"Количество команд: {len(request.trades)}")
-    for i, trade in enumerate(request.trades, 1):
-        print(f"\nКоманда {i} (ID: {trade.team_id}):")
-        print(f"  Отдает: {trade.give}")
-        print(f"  Получает: {trade.receive}")
-    print(f"\nПериод: {request.period}")
-    print(f"Пант-категории: {request.punt_categories}")
-    print(f"Режим симуляции: {request.simulation_mode}")
-    if request.simulation_mode == "top_n":
-        print(f"Топ-N игроков: {request.top_n_players}")
-        if request.custom_team_players:
-            print(f"Кастомные игроки команд: {json.dumps(request.custom_team_players, indent=2, ensure_ascii=False)}")
-    print("="*80 + "\n")
-    
     # Учитываем режим симуляции для исключения игроков из IR
     exclude_ir = (getattr(request, "simulation_mode", "") == "exclude_ir")
     

@@ -65,16 +65,6 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                         
                         // Если были отфильтрованы игроки, обновляем трейд
                         if (filteredGive.length !== trade.give.length || filteredReceive.length !== trade.receive.length) {
-                            const removedGive = trade.give.filter(name => !playerNames.includes(name));
-                            const removedReceive = trade.receive.filter(name => 
-                                !playerNames.includes(name) && !allTradedPlayers.has(name)
-                            );
-                            if (removedGive.length > 0) {
-                                console.log(`Отфильтрованы игроки из give для команды ${trade.teamId}:`, removedGive);
-                            }
-                            if (removedReceive.length > 0) {
-                                console.log(`Отфильтрованы игроки из receive для команды ${trade.teamId}:`, removedReceive);
-                            }
                             newTeamTrades[i] = {
                                 ...trade,
                                 give: filteredGive,
@@ -186,11 +176,6 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                 receive: t.receive
             }));
 
-        // Логируем текущее состояние
-        console.log('=== ОТПРАВКА МУЛЬТИКОМАНДНОГО ТРЕЙДА ===');
-        console.log('teamTrades (состояние):', teamTrades);
-        console.log('trades (после фильтрации):', trades);
-
         // Формируем тело запроса
         const requestBody = {
             trades,
@@ -198,8 +183,6 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
             punt_categories: puntCategories,
             simulation_mode: simulationMode
         };
-        
-        console.log('requestBody:', JSON.stringify(requestBody, null, 2));
         
         // Если режим top_n, добавляем дополнительные параметры
         if (simulationMode === 'top_n') {
