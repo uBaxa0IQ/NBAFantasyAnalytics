@@ -98,9 +98,9 @@ def analyze_trade(
     their_after_cats = calculate_category_z(their_after_players, request.punt_categories)
     their_after_raw = calculate_raw_stats(their_after_players, request.punt_categories)
     
-    # Расчет для режима "Только трейд" (используем тот же состав, что и в симуляции до трейда)
-    trade_players_given = [p for p in my_team_players if p['name'] in request.i_give]
-    trade_players_received = [p for p in their_team_players if p['name'] in request.i_receive]
+    # Расчет для режима "Только трейд" (сравниваем игроков в вакууме, без учета simulation_mode)
+    trade_players_given = [p for p in my_team_players_full if p['name'] in request.i_give]
+    trade_players_received = [p for p in their_team_players_full if p['name'] in request.i_receive]
     
     # Моя команда: до = отдаваемые, после = получаемые
     my_trade_before_z = calculate_total_z(trade_players_given, request.punt_categories)
@@ -487,9 +487,9 @@ def analyze_multi_team_trade(
         after_cats = calculate_category_z(team_players_after, request.punt_categories)
         after_raw = calculate_raw_stats(team_players_after, request.punt_categories)
         
-        # Режим "только трейд": сравниваем только пакет отдаваемых и получаемых игроков (с учетом top_n/custom ДО трейда)
-        trade_players_given = [p for p in team_players_before if p['name'] in trade.give]
-        trade_players_received = [p for p in select_roster(players_received, team_id, allow_custom=True) if p['name'] in trade.receive]
+        # Режим "только трейд": сравниваем игроков в вакууме, без учета simulation_mode
+        trade_players_given = [p for p in team_players_before_full if p['name'] in trade.give]
+        trade_players_received = [p for p in players_received if p['name'] in trade.receive]
         
         trade_before_z = calculate_total_z(trade_players_given, request.punt_categories)
         trade_after_z = calculate_total_z(trade_players_received, request.punt_categories)

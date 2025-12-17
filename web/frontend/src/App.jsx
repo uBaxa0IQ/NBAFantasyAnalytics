@@ -28,7 +28,7 @@ function App() {
 
   const [simulationMode, setSimulationMode] = useState(() => {
     const saved = localStorage.getItem('simulationMode');
-    return saved || 'all';
+    return saved || 'top_n';
   });
 
   const [mainTeam, setMainTeam] = useState(() => {

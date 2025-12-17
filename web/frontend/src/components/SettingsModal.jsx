@@ -8,7 +8,7 @@ const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%'
 const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
     const [period, setPeriod] = useState(initialSettings.period || '2026_total');
     const [puntCategories, setPuntCategories] = useState(initialSettings.puntCategories || []);
-    const [simulationMode, setSimulationMode] = useState(initialSettings.simulationMode || 'all');
+    const simulationMode = 'top_n'; // Фиксированный режим симуляции
     const [mainTeam, setMainTeam] = useState(initialSettings.mainTeam || '');
     const [teams, setTeams] = useState([]);
     const [refreshStatus, setRefreshStatus] = useState(null);
@@ -98,7 +98,6 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
         if (initialSettings) {
             setPeriod(initialSettings.period || '2026_total');
             setPuntCategories(initialSettings.puntCategories || []);
-            setSimulationMode(initialSettings.simulationMode || 'all');
             setMainTeam(initialSettings.mainTeam || '');
         }
     }, [initialSettings]);
@@ -202,45 +201,6 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                             </div>
                         </div>
 
-                        {/* Режим симуляций */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Режим симуляций:
-                            </label>
-                            <div className="space-y-2">
-                                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                                    <input
-                                        type="radio"
-                                        name="simulationMode"
-                                        value="all"
-                                        checked={simulationMode === 'all'}
-                                        onChange={e => setSimulationMode(e.target.value)}
-                                    />
-                                    <span className="font-medium">Все игроки</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                                    <input
-                                        type="radio"
-                                        name="simulationMode"
-                                        value="exclude_ir"
-                                        checked={simulationMode === 'exclude_ir'}
-                                        onChange={e => setSimulationMode(e.target.value)}
-                                    />
-                                    <span className="font-medium">Убрать IR игроков</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded hover:bg-gray-200">
-                                    <input
-                                        type="radio"
-                                        name="simulationMode"
-                                        value="top_n"
-                                        checked={simulationMode === 'top_n'}
-                                        onChange={e => setSimulationMode(e.target.value)}
-                                    />
-                                    <span className="font-medium">Топ-13 игроков команды</span>
-                                </label>
-                            </div>
-                        </div>
-
                         {/* Основная команда */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -261,7 +221,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                         </div>
 
                         {/* Настройка игроков для режима top_n */}
-                        {simulationMode === 'top_n' && mainTeam && (
+                        {mainTeam && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Настройка игроков для симуляции:

@@ -8,21 +8,13 @@ const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
 const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
     const savedState = loadState(StorageKeys.FREE_AGENTS, {});
-    const [teams, setTeams] = useState([]);
-    const [myTeam, setMyTeam] = useState(savedState.myTeam || '');
     const [position, setPosition] = useState(savedState.position || '');
     const [data, setData] = useState(null);
-    const [myTeamData, setMyTeamData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [filterBetterThanMine, setFilterBetterThanMine] = useState(savedState.filterBetterThanMine || false);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
     const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
     const [filters, setFilters] = useState(savedState.filters || {});
-
-    useEffect(() => {
-        api.get('/teams').then(res => setTeams(res.data));
-    }, []);
 
     useEffect(() => {
         setLoading(true);
@@ -38,23 +30,13 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
             });
     }, [period, position]);
 
-    useEffect(() => {
-        if (myTeam && filterBetterThanMine) {
-            api.get(`/analytics/${myTeam}?period=${period}`)
-                .then(res => setMyTeamData(res.data))
-                .catch(err => console.error(err));
-        }
-    }, [myTeam, period, filterBetterThanMine]);
-
     // Сохранение состояния при изменении
     useEffect(() => {
         saveState(StorageKeys.FREE_AGENTS, {
-            myTeam,
             position,
-            filterBetterThanMine,
             filters
         });
-    }, [myTeam, position, filterBetterThanMine, filters]);
+    }, [position, filters]);
 
 
     const calculateTotalZ = (player) => {
@@ -65,12 +47,6 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
             }
         });
         return total;
-    };
-
-    const getMinZFromMyTeam = () => {
-        if (!myTeamData || !myTeamData.players || myTeamData.players.length === 0) return -Infinity;
-        const teamZScores = myTeamData.players.map(p => calculateTotalZ(p));
-        return Math.min(...teamZScores);
     };
 
     const handleSort = (column) => {
@@ -97,11 +73,6 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
 
         return sortDir === 'asc' ? valA - valB : valB - valA;
     }) : [];
-
-    if (filterBetterThanMine && myTeam) {
-        const minZ = getMinZFromMyTeam();
-        sortedPlayers = sortedPlayers.filter(p => calculateTotalZ(p) > minZ);
-    }
 
     // Фильтры по статистике
     if (Object.keys(filters).length > 0) {
@@ -151,32 +122,6 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
                         <option key={pos} value={pos}>{pos}</option>
                     ))}
                 </select>
-
-                <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={filterBetterThanMine}
-                            onChange={(e) => {
-                                setFilterBetterThanMine(e.target.checked);
-                                if (!e.target.checked) setMyTeam('');
-                            }}
-                        />
-                        <span className="font-medium">Только лучше моих</span>
-                    </label>
-                    {filterBetterThanMine && (
-                        <select
-                            className="border p-2 rounded"
-                            value={myTeam}
-                            onChange={e => setMyTeam(e.target.value)}
-                        >
-                            <option value="">Выберите свою команду</option>
-                            {teams.map(t => (
-                                <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
-                            ))}
-                        </select>
-                    )}
-                </div>
 
                 <button
                     onClick={() => setIsFiltersModalOpen(true)}
