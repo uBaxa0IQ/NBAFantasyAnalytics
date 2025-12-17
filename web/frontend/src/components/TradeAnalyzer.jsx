@@ -40,28 +40,62 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => 
         });
     }, [tradeMode, myTeam, theirTeam, selectedGive, selectedReceive, viewMode, scopeMode]);
 
+    // Отслеживаем предыдущие значения команд для очистки выбора при смене
+    const prevMyTeamRef = React.useRef(null);
+    const prevTheirTeamRef = React.useRef(null);
+
     useEffect(() => {
         if (myTeam) {
             // В аналитике команды IR игроки всегда включены
             api.get(`/analytics/${myTeam}?period=${period}&exclude_ir=false`)
-                .then(res => setMyPlayers(res.data.players))
+                .then(res => {
+                    setMyPlayers(res.data.players);
+                    const playerNames = res.data.players.map(p => p.name);
+                    
+                    // Если команда изменилась, очищаем выбор
+                    if (prevMyTeamRef.current !== null && prevMyTeamRef.current !== myTeam) {
+                        setSelectedGive([]);
+                    } else {
+                        // Фильтруем выбранных игроков, оставляя только тех, кто есть в команде
+                        setSelectedGive(prev => prev.filter(name => playerNames.includes(name)));
+                    }
+                    prevMyTeamRef.current = myTeam;
+                })
                 .catch(err => console.error(err));
         } else {
             setMyPlayers([]);
+            if (prevMyTeamRef.current !== null) {
+                setSelectedGive([]);
+            }
+            prevMyTeamRef.current = myTeam;
         }
-        // Не сбрасываем selectedGive, так как состояние сохраняется
     }, [myTeam, period]);
 
     useEffect(() => {
         if (theirTeam) {
             // В аналитике команды IR игроки всегда включены
             api.get(`/analytics/${theirTeam}?period=${period}&exclude_ir=false`)
-                .then(res => setTheirPlayers(res.data.players))
+                .then(res => {
+                    setTheirPlayers(res.data.players);
+                    const playerNames = res.data.players.map(p => p.name);
+                    
+                    // Если команда изменилась, очищаем выбор
+                    if (prevTheirTeamRef.current !== null && prevTheirTeamRef.current !== theirTeam) {
+                        setSelectedReceive([]);
+                    } else {
+                        // Фильтруем выбранных игроков, оставляя только тех, кто есть в команде
+                        setSelectedReceive(prev => prev.filter(name => playerNames.includes(name)));
+                    }
+                    prevTheirTeamRef.current = theirTeam;
+                })
                 .catch(err => console.error(err));
         } else {
             setTheirPlayers([]);
+            if (prevTheirTeamRef.current !== null) {
+                setSelectedReceive([]);
+            }
+            prevTheirTeamRef.current = theirTeam;
         }
-        // Не сбрасываем selectedReceive, так как состояние сохраняется
     }, [theirTeam, period]);
 
     const handleToggleGive = (playerName) => {
@@ -88,12 +122,16 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => 
 
         setLoading(true);
         
+        // Фильтруем выбранных игроков, оставляя только тех, кто есть в соответствующих командах
+        const validGive = selectedGive.filter(name => myPlayers.some(p => p.name === name));
+        const validReceive = selectedReceive.filter(name => theirPlayers.some(p => p.name === name));
+        
         // Формируем тело запроса
         const requestBody = {
             my_team_id: parseInt(myTeam),
             their_team_id: parseInt(theirTeam),
-            i_give: selectedGive,
-            i_receive: selectedReceive,
+            i_give: validGive,
+            i_receive: validReceive,
             period,
             punt_categories: puntCategories,
             scope_mode: scopeMode,

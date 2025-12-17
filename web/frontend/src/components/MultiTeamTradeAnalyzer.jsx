@@ -34,19 +34,65 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
     useEffect(() => {
         const loadPlayers = async () => {
             const newTeamPlayers = {};
-            for (const trade of teamTrades) {
+            const newTeamTrades = [...teamTrades];
+            
+            // Получаем всех трейдуемых игроков (из всех команд в трейде)
+            const allTradedPlayers = new Set();
+            teamTrades.forEach(t => {
+                t.give.forEach(name => allTradedPlayers.add(name));
+                t.receive.forEach(name => allTradedPlayers.add(name));
+            });
+            
+            for (let i = 0; i < teamTrades.length; i++) {
+                const trade = teamTrades[i];
                 if (trade.teamId) {
                     try {
                         // В аналитике команды IR игроки всегда включены
                         const res = await api.get(`/analytics/${trade.teamId}?period=${period}&exclude_ir=false`);
-                        newTeamPlayers[trade.teamId] = res.data.players;
+                        const players = res.data.players;
+                        newTeamPlayers[trade.teamId] = players;
+                        
+                        // Фильтруем игроков в give и receive
+                        const playerNames = players.map(p => p.name);
+                        
+                        // Для give: только игроки текущей команды
+                        const filteredGive = trade.give.filter(name => playerNames.includes(name));
+                        
+                        // Для receive: игроки текущей команды ИЛИ игроки из других команд в трейде
+                        const filteredReceive = trade.receive.filter(name => 
+                            playerNames.includes(name) || allTradedPlayers.has(name)
+                        );
+                        
+                        // Если были отфильтрованы игроки, обновляем трейд
+                        if (filteredGive.length !== trade.give.length || filteredReceive.length !== trade.receive.length) {
+                            const removedGive = trade.give.filter(name => !playerNames.includes(name));
+                            const removedReceive = trade.receive.filter(name => 
+                                !playerNames.includes(name) && !allTradedPlayers.has(name)
+                            );
+                            if (removedGive.length > 0) {
+                                console.log(`Отфильтрованы игроки из give для команды ${trade.teamId}:`, removedGive);
+                            }
+                            if (removedReceive.length > 0) {
+                                console.log(`Отфильтрованы игроки из receive для команды ${trade.teamId}:`, removedReceive);
+                            }
+                            newTeamTrades[i] = {
+                                ...trade,
+                                give: filteredGive,
+                                receive: filteredReceive
+                            };
+                        }
                     } catch (err) {
                         console.error(`Error loading players for team ${trade.teamId}:`, err);
                         newTeamPlayers[trade.teamId] = [];
                     }
                 }
             }
+            
             setTeamPlayers(newTeamPlayers);
+            // Обновляем teamTrades только если были изменения
+            if (JSON.stringify(newTeamTrades) !== JSON.stringify(teamTrades)) {
+                setTeamTrades(newTeamTrades);
+            }
         };
         loadPlayers();
     }, [teamTrades.map(t => t.teamId).join(','), period]);
@@ -140,6 +186,11 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                 receive: t.receive
             }));
 
+        // Логируем текущее состояние
+        console.log('=== ОТПРАВКА МУЛЬТИКОМАНДНОГО ТРЕЙДА ===');
+        console.log('teamTrades (состояние):', teamTrades);
+        console.log('trades (после фильтрации):', trades);
+
         // Формируем тело запроса
         const requestBody = {
             trades,
@@ -147,6 +198,8 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
             punt_categories: puntCategories,
             simulation_mode: simulationMode
         };
+        
+        console.log('requestBody:', JSON.stringify(requestBody, null, 2));
         
         // Если режим top_n, добавляем дополнительные параметры
         if (simulationMode === 'top_n') {
