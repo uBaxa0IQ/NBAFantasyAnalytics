@@ -65,12 +65,15 @@ const AdminPanel = () => {
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
+      // Используем локальное время устройства или московское время
       return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Moscow', // Московское время (UTC+3)
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        second: '2-digit'
       });
     } catch (e) {
       return dateString;
@@ -423,7 +426,9 @@ const TradeDetailModal = ({ trade, onClose }) => {
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
+      // Используем московское время (UTC+3)
       return date.toLocaleString('ru-RU', {
+        timeZone: 'Europe/Moscow',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
