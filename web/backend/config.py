@@ -17,13 +17,17 @@ def get_cors_origins():
     if cors_origins_env:
         allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
     else:
-        # По умолчанию для разработки
+        # По умолчанию для разработки и продакшена
         allowed_origins = [
             "http://localhost:5173",  # Vite dev server
             "http://localhost:3000",  # Docker frontend (old port)
             "http://localhost:3001",  # Docker frontend (new port)
             "http://127.0.0.1:3000",  # Docker frontend alternative
             "http://127.0.0.1:3001",  # Docker frontend alternative
+            "https://dyuden.duckdns.org",  # Production domain (HTTPS)
+            "http://dyuden.duckdns.org",  # Production domain (HTTP)
+            "https://api-dyuden.duckdns.org",  # API domain (HTTPS)
+            "http://api-dyuden.duckdns.org",  # API domain (HTTP)
         ]
     return allowed_origins
 
