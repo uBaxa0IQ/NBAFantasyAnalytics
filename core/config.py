@@ -19,3 +19,11 @@ SWID = os.getenv("SWID")
 # Используются ключи напрямую из ESPN API
 CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO']
 
+# Коэффициенты для взвешенного периода (2026_weighted)
+# Сумма коэффициентов должна быть равна 1.0
+WEIGHTED_PERIOD_COEFFS = {
+    '2026_total': 0.40,
+    '2026_last_30': 0.30,
+    '2026_last_15': 0.20,
+    '2026_last_7': 0.10
+}

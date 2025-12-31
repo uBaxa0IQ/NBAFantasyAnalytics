@@ -68,10 +68,14 @@ const PromptModal = ({ isOpen, onClose, period, simulationMode, topNPlayers, mai
                         um: dataObj.um?.length || 0,
                         fa: dataObj.fa?.length || 0,
                         sim: {
-                            by_avg: !!dataObj.sim?.by_avg,
-                            by_avg_results: dataObj.sim?.by_avg?.r?.length || 0,
-                            by_z_score: !!dataObj.sim?.by_z_score,
-                            by_z_score_results: dataObj.sim?.by_z_score?.r?.length || 0
+                            by_avg_selected: !!dataObj.sim?.by_avg_selected,
+                            by_avg_selected_results: dataObj.sim?.by_avg_selected?.r?.length || 0,
+                            by_avg_total: !!dataObj.sim?.by_avg_total,
+                            by_avg_total_results: dataObj.sim?.by_avg_total?.r?.length || 0,
+                            by_z_score_selected: !!dataObj.sim?.by_z_score_selected,
+                            by_z_score_selected_results: dataObj.sim?.by_z_score_selected?.r?.length || 0,
+                            by_z_score_total: !!dataObj.sim?.by_z_score_total,
+                            by_z_score_total_results: dataObj.sim?.by_z_score_total?.r?.length || 0
                         },
                         cr: Object.keys(dataObj.cr || {}).length,
                         lm: Object.keys(dataObj.lm || {}).length
@@ -197,11 +201,11 @@ const PromptModal = ({ isOpen, onClose, period, simulationMode, topNPlayers, mai
                                             {data.fa && <span className="text-gray-500">({data.fa.length})</span>}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${data.sim && (data.sim.by_avg || data.sim.by_z_score) ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
+                                            <span className={`w-2 h-2 rounded-full ${data.sim && ((data.sim.by_avg_selected?.r?.length || 0) > 0 || (data.sim.by_z_score_selected?.r?.length || 0) > 0) ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
                                             <span>Симуляции</span>
                                             {data.sim && (
                                                 <span className="text-gray-500">
-                                                    ({data.sim.by_avg?.r?.length || 0} avg, {data.sim.by_z_score?.r?.length || 0} z-score)
+                                                    ({data.sim.by_avg_selected?.r?.length || 0} avg, {data.sim.by_z_score_selected?.r?.length || 0} z-score)
                                                 </span>
                                             )}
                                         </div>

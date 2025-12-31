@@ -175,7 +175,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                                 <option value="2026_last_30">Последние 30 дней</option>
                                 <option value="2026_last_15">Последние 15 дней</option>
                                 <option value="2026_last_7">Последние 7 дней</option>
-                                <option value="2026_projected">Прогноз</option>
+                                <option value="2026_weighted">Взвешенный (Универсальный)</option>
                             </select>
                         </div>
 

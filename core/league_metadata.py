@@ -185,12 +185,91 @@ class LeagueMetadata:
                    - '2026_last_15' - за последние 15 дней
                    - '2026_last_7' - за последние 7 дней
                    - '2026_projected' - прогнозируемая
+                   - '2026_weighted' - взвешенная (универсальная)
                    - номер недели (например, '35') - за конкретную неделю
             stats_type: Тип статистики - 'total' (общая) или 'avg' (средняя за игру)
             
         Returns:
             Словарь со всей статистикой из API или None если данные недоступны
         """
+        # Обработка взвешенного периода
+        if period == '2026_weighted':
+            from .config import WEIGHTED_PERIOD_COEFFS
+            
+            # Собираем статистику за все базовые периоды
+            stats_by_period = {}
+            for p, weight in WEIGHTED_PERIOD_COEFFS.items():
+                s = self.get_player_stats(player, p, stats_type)
+                if s:
+                    stats_by_period[p] = s
+            
+            if not stats_by_period:
+                return None
+            
+            # Инициализируем результирующий словарь
+            weighted_stats = {}
+            
+            # Список всех возможных ключей статистики из первого доступного периода
+            all_keys = list(next(iter(stats_by_period.values())).keys())
+            
+            # Для процентных категорий нужны вспомогательные переменные
+            # FG%: FGM/FGA, FT%: FTM/FTA, 3PT%: 3PM/3PA, A/TO: AST/TO
+            percentage_components = {
+                'FG%': ('FGM', 'FGA'),
+                'FT%': ('FTM', 'FTA'),
+                '3PT%': ('3PM', '3PA'),
+                'A/TO': ('AST', 'TO')
+            }
+            
+            # Промежуточные суммы для процентных категорий (числитель и знаменатель)
+            pct_sums = {
+                cat: {'num': 0.0, 'denom': 0.0} 
+                for cat in percentage_components
+            }
+            
+            # Проходим по всем ключам
+            for key in all_keys:
+                if key in percentage_components:
+                    continue # Процентные рассчитываем отдельно в конце
+                
+                weighted_sum = 0.0
+                total_weight = 0.0
+                
+                for p, weight in WEIGHTED_PERIOD_COEFFS.items():
+                    if p in stats_by_period and key in stats_by_period[p]:
+                        val = stats_by_period[p][key]
+                        if isinstance(val, (int, float)):
+                            weighted_sum += val * weight
+                            total_weight += weight
+                
+                # Нормализуем, если есть данные не за все периоды (хотя веса фиксированы)
+                # Но лучше просто брать взвешенную сумму, считая отсутствующие данные за 0
+                weighted_stats[key] = weighted_sum
+                
+                # Собираем данные для процентных категорий
+                for pct_cat, (num_key, denom_key) in percentage_components.items():
+                    if key == num_key:
+                        for p, weight in WEIGHTED_PERIOD_COEFFS.items():
+                            if p in stats_by_period:
+                                val = stats_by_period[p].get(key, 0.0)
+                                if isinstance(val, (int, float)):
+                                    pct_sums[pct_cat]['num'] += val * weight
+                    elif key == denom_key:
+                        for p, weight in WEIGHTED_PERIOD_COEFFS.items():
+                            if p in stats_by_period:
+                                val = stats_by_period[p].get(key, 0.0)
+                                if isinstance(val, (int, float)):
+                                    pct_sums[pct_cat]['denom'] += val * weight
+
+            # Рассчитываем проценты
+            for pct_cat, sums in pct_sums.items():
+                if sums['denom'] > 0:
+                    weighted_stats[pct_cat] = sums['num'] / sums['denom']
+                else:
+                    weighted_stats[pct_cat] = 0.0
+            
+            return weighted_stats
+
         if not hasattr(player, 'stats') or not player.stats:
             return None
         

@@ -22,6 +22,8 @@ def get_dashboard(
     team_id: int,
     period: str = "2026_total",
     simulation_mode: str = "all",
+    top_n_players: int = 13,
+    custom_team_players: Optional[str] = None,
     league_meta=Depends(get_league_meta)
 ):
     """
@@ -43,18 +45,46 @@ def get_dashboard(
     roster = league_meta.get_team_roster(team_id)
     
     # Рассчитываем Z-scores для всей лиги
-    data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
+    if simulation_mode == "top_n":
+        # Для режима top_n берем всех (включая IR), чтобы потом выбрать лучших
+        data = calculate_z_scores(league_meta, period, exclude_ir=False)
+    else:
+        data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
     
     # Фильтруем данные только для выбранной команды
     team_players = [p for p in data['players'] if p['team_id'] == team_id]
     
     # Добавляем полную статистику к игрокам
-    all_players_with_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
+    all_players_with_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=False)
     stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
     
     for player in team_players:
         player['stats'] = stats_by_name.get(player['name'], {})
+        
+    # Логика выбора игроков (Top-N или Custom)
+    active_players_count = len(team_players) # Сколько всего доступно для выбора
     
+    if simulation_mode == "top_n":
+        # Парсим custom_team_players из строки в список
+        custom_players_list = None
+        if custom_team_players:
+            custom_players_list = [name.strip() for name in custom_team_players.split(',') if name.strip()]
+            
+        if custom_players_list:
+             # Если задан кастомный список, берем только их
+            team_players = [p for p in team_players if p['name'] in custom_players_list]
+        else:
+             # Иначе выбираем топ-N лучших
+            # Нам нужны z_scores для select_top_n_players (словарь по именам)
+            z_scores_by_name = {p['name']: p['z_scores'] for p in data['players']}
+            
+            team_players = select_top_n_players(
+                team_players,
+                top_n_players,
+                punt_categories=[],
+                z_scores_data=z_scores_by_name
+            )
+
     # Вычисляем общий Z-score команды
     total_z_score = 0
     for player in team_players:
@@ -91,20 +121,98 @@ def get_dashboard(
             'opponent_id': matchup_box['opponent_id']
         }
     
-    # Получаем список травмированных игроков
+    # Получаем список травмированных игроков и считаем здоровых
     injured_players = []
+    healthy_players_count = 0
     for player in roster:
         injury_status = getattr(player, 'injuryStatus', 'ACTIVE')
         is_injured = getattr(player, 'injured', False)
+        lineup_slot = getattr(player, 'lineupSlot', '')
+        is_ir = (lineup_slot == 'IR')
         
-        if is_injured or injury_status not in ['ACTIVE', None]:
+        if is_injured or injury_status not in ['ACTIVE', None] or is_ir:
             injured_players.append({
                 'name': player.name,
                 'position': getattr(player, 'position', 'N/A'),
                 'injury_status': injury_status,
-                'in_ir': getattr(player, 'lineupSlot', '') == 'IR'
+                'in_ir': is_ir
             })
+        else:
+            healthy_players_count += 1
     
+    # Расчет трендов (Z-score за разные периоды)
+    trends = {}
+    
+    # Определяем префикс года из текущего периода (например, "2026" из "2026_total")
+    try:
+        year_prefix = period.split('_')[0]
+    except:
+        year_prefix = "2026" # Fallback
+        
+    trend_periods = {
+        'Season': f"{year_prefix}_total",
+        'Last 30': f"{year_prefix}_last_30",
+        'Last 15': f"{year_prefix}_last_15",
+        'Last 7': f"{year_prefix}_last_7"
+    }
+    
+    # Парсим custom_team_players для трендов (чтобы использовать везде один список)
+    custom_players_list = None
+    if simulation_mode == "top_n" and custom_team_players:
+        custom_players_list = [name.strip() for name in custom_team_players.split(',') if name.strip()]
+
+    # Для текущего периода используем уже рассчитанные данные (если это один из trend_periods)
+    # Но для чистоты эксперимента и корректной работы Top-N лучше пересчитать или аккуратно использовать
+    
+    for label, p_code in trend_periods.items():
+        if p_code == period and simulation_mode != "top_n": 
+             # Если период совпадает и режим НЕ top_n, можно взять готовые данные
+             # (в режиме top_n мы уже отфильтровали team_players выше, а для трендов нужно снова выбирать из полного списка для корректности, 
+             #  если вдруг состав топ-13 меняется от периода к периоду. А он меняется!)
+             # Поэтому для Top-N лучше всегда считать заново для каждого периода.
+            current_period_z_data = data
+        else:
+            # Для других периодов (или для всех в режиме Top-N) рассчитываем отдельно
+            # В режиме Top-N всегда берем exclude_ir=False, чтобы иметь полный пул для выбора
+            calc_exclude_ir = False if simulation_mode == "top_n" else exclude_ir
+            
+            try:
+                current_period_z_data = calculate_z_scores(league_meta, p_code, exclude_ir=calc_exclude_ir)
+            except Exception as e:
+                print(f"Error calculating z-scores for {p_code}: {e}")
+                current_period_z_data = {'players': []}
+        
+        # Фильтруем игроков команды (полный список)
+        t_players = [p for p in current_period_z_data['players'] if p['team_id'] == team_id]
+        
+        # Применяем логику выбора игроков для этого периода
+        if simulation_mode == "top_n":
+            if custom_players_list:
+                # Если задан фиксированный список, берем его
+                t_players = [p for p in t_players if p['name'] in custom_players_list]
+            else:
+                # Иначе выбираем Топ-N лучших ДЛЯ ЭТОГО ПЕРИОДА
+                # (состав лучших может меняться: за сезон одни, за 7 дней другие)
+                z_scores_for_period = {p['name']: p['z_scores'] for p in current_period_z_data['players']}
+                
+                t_players = select_top_n_players(
+                    t_players,
+                    top_n_players,
+                    punt_categories=[],
+                    z_scores_data=z_scores_for_period
+                )
+        
+        # Вычисляем общий Z-score
+        t_z_total = 0
+        for p in t_players:
+            p_z_total = sum(
+                z for z in p['z_scores'].values() 
+                if math.isfinite(z)
+            )
+            t_z_total += p_z_total
+            
+        trends[label] = round(t_z_total, 2)
+
     # Получаем позицию команды в лиге (из реальных данных ESPN)
     # В ESPN API позиция команды обычно доступна через поле standing или через standings
     league_position = None
@@ -190,7 +298,10 @@ def get_dashboard(
         "team_name": team.team_name,
         "league_position": league_position,
         "roster_size": len(roster),
+        "healthy_players_count": healthy_players_count,  # Количество здоровых игроков (не IR, не травмированных)
+        "active_players_count": active_players_count,  # Количество активных (отобранных) игроков для режима top_n
         "total_z_score": round(total_z_score, 2),
+        "trends": trends,
         "current_matchup": current_matchup,
         "top_players": top_players,
         "injured_players": injured_players,

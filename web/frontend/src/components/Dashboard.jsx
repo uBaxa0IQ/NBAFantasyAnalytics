@@ -4,6 +4,7 @@ import MatchupDetails from './MatchupDetails';
 import MatchupHistory from './MatchupHistory';
 import CategoryRankings from './CategoryRankings';
 import PositionHistoryChart from './PositionHistoryChart';
+import TeamTrendsChart from './TeamTrendsChart';
 import SeasonProjectionModal from './SeasonProjectionModal';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
@@ -185,8 +186,13 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
                             <h3 className="text-lg font-semibold text-gray-700 mb-4">Статистика команды</h3>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-600">Игроков в ростер:</span>
-                                    <span className="font-semibold text-lg">{dashboardData.roster_size}</span>
+                                    <span className="text-gray-600">Здоровых игроков:</span>
+                                    <span className="font-semibold text-lg">
+                                        {dashboardData.healthy_players_count !== undefined 
+                                            ? `${dashboardData.healthy_players_count} / ${dashboardData.roster_size}`
+                                            : dashboardData.roster_size
+                                        }
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600">Total Z-Score:</span>
@@ -282,6 +288,11 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
                             simulationMode={simulationMode}
                             showTopOnly={true}
                         />
+                    )}
+
+                    {/* Trends Chart */}
+                    {dashboardData.trends && (
+                        <TeamTrendsChart trends={dashboardData.trends} />
                     )}
 
                     {/* Position History Chart */}
