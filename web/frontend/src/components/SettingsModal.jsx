@@ -5,7 +5,7 @@ import PromptModal from './PromptModal';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
-const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
+const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSettings }) => {
     const [period, setPeriod] = useState(initialSettings.period || '2026_total');
     const [puntCategories, setPuntCategories] = useState(initialSettings.puntCategories || []);
     const simulationMode = 'top_n'; // Фиксированный режим симуляции
@@ -15,6 +15,17 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
     const [showPlayerSelection, setShowPlayerSelection] = useState(false);
     const [selectedPlayersCount, setSelectedPlayersCount] = useState(0);
     const [showPromptModal, setShowPromptModal] = useState(false);
+
+    // Проверяем, включен ли принудительный взвешенный режим
+    const isWeightedModeForced = leagueSettings?.force_weighted_mode;
+    const forcedPeriod = leagueSettings?.forced_period || '2026_weighted';
+
+    // Если включен принудительный режим, устанавливаем период при открытии
+    useEffect(() => {
+        if (isWeightedModeForced) {
+            setPeriod(forcedPeriod);
+        }
+    }, [isWeightedModeForced, forcedPeriod]);
 
     // Форматирование времени последнего обновления
     const formatLastRefresh = (isoString) => {
@@ -161,23 +172,25 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings }) => {
                     </div>
 
                     <div className="space-y-6">
-                        {/* Период */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Период статистики:
-                            </label>
-                            <select
-                                className="w-full border p-2 rounded"
-                                value={period}
-                                onChange={e => setPeriod(e.target.value)}
-                            >
-                                <option value="2026_total">Весь сезон</option>
-                                <option value="2026_last_30">Последние 30 дней</option>
-                                <option value="2026_last_15">Последние 15 дней</option>
-                                <option value="2026_last_7">Последние 7 дней</option>
-                                <option value="2026_weighted">Взвешенный (Универсальный)</option>
-                            </select>
-                        </div>
+                        {/* Период - показываем только если НЕ включен принудительный режим */}
+                        {!isWeightedModeForced && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Период статистики:
+                                </label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={period}
+                                    onChange={e => setPeriod(e.target.value)}
+                                >
+                                    <option value="2026_total">Весь сезон</option>
+                                    <option value="2026_last_30">Последние 30 дней</option>
+                                    <option value="2026_last_15">Последние 15 дней</option>
+                                    <option value="2026_last_7">Последние 7 дней</option>
+                                    <option value="2026_weighted">Взвешенный (Универсальный)</option>
+                                </select>
+                            </div>
+                        )}
 
                         {/* Punt Categories */}
                         <div>

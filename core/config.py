@@ -27,3 +27,10 @@ WEIGHTED_PERIOD_COEFFS = {
     '2026_last_15': 0.20,
     '2026_last_7': 0.10
 }
+
+WEIGHTED_PERIOD_COEFFS = {
+    '2026_total': 0.80,
+    '2026_last_30': 0.10,
+    '2026_last_15': 0.05,
+    '2026_last_7': 0.05
+}

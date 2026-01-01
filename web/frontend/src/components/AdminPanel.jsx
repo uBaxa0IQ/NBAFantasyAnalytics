@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import CoefficientsManager from './CoefficientsManager';
+import TradeOptimizer from './TradeOptimizer';
 
 const AdminPanel = () => {
-  const [activeTab, setActiveTab] = useState('trades'); // 'trades', 'settings'
+  const [activeTab, setActiveTab] = useState('trades'); // 'trades', 'settings', 'coefficients'
   
   // Состояние для истории трейдов
   const [tradeLogs, setTradeLogs] = useState([]);
@@ -21,14 +23,46 @@ const AdminPanel = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Состояние для настроек лиги
+  const [leagueSettings, setLeagueSettings] = useState({
+    force_weighted_mode: false,
+    forced_period: '2026_weighted'
+  });
 
-  // Загрузка истории трейдов
+  // Загрузка истории трейдов и настроек
   useEffect(() => {
     if (activeTab === 'trades') {
       loadTradeLogs();
       loadTradeStats();
+    } else if (activeTab === 'settings') {
+      loadLeagueSettings();
     }
   }, [filters, activeTab]);
+
+  const loadLeagueSettings = async () => {
+    try {
+      const response = await api.get('/admin/settings');
+      setLeagueSettings(response.data);
+    } catch (err) {
+      console.error('Error loading league settings:', err);
+    }
+  };
+
+  const handleLeagueSettingChange = async (key, value) => {
+    try {
+      const newSettings = { ...leagueSettings, [key]: value };
+      // Оптимистичное обновление
+      setLeagueSettings(newSettings);
+      
+      await api.post('/admin/settings', newSettings);
+    } catch (err) {
+      console.error('Error updating league settings:', err);
+      // Откат при ошибке
+      loadLeagueSettings();
+      alert('Ошибка при сохранении настроек');
+    }
+  };
 
   const loadTradeLogs = async () => {
     setLoadingLogs(true);
@@ -134,6 +168,16 @@ const AdminPanel = () => {
               }`}
             >
               История трейдов
+            </button>
+            <button
+              onClick={() => setActiveTab('coefficients')}
+              className={`px-6 py-4 font-medium transition-colors border-b-2 ${
+                activeTab === 'coefficients'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Коэффициенты
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -323,11 +367,86 @@ const AdminPanel = () => {
           </div>
         )}
 
+        {/* Вкладка: Коэффициенты */}
+        {activeTab === 'coefficients' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-2 text-gray-800">Управление коэффициентами</h2>
+                <p className="text-sm text-gray-600">
+                  Настройте коэффициенты взвешенного периода. Изменения применяются ко всем расчетам в системе.
+                </p>
+              </div>
+              <CoefficientsManager />
+            </div>
+            
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-2 text-gray-800">Оптимизатор трейдов</h2>
+                <p className="text-sm text-gray-600">
+                  Подберите оптимальные коэффициенты для конкретного трейда, при которых обе команды получают выгоду.
+                </p>
+              </div>
+              <TradeOptimizer />
+            </div>
+          </div>
+        )}
+
         {/* Вкладка: Настройки */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl">
             <div className="bg-white rounded-lg shadow-md p-8">
               <h2 className="text-2xl font-bold mb-6 text-gray-800">Настройки</h2>
+              
+              {/* Глобальные настройки лиги */}
+              <div className="border-b pb-6 mb-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Глобальные настройки лиги</h3>
+                
+                <div className="space-y-4">
+                  {/* Переключатель режима */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-medium text-gray-800">Принудительный режим периода</div>
+                      <div className="text-sm text-gray-600">
+                        Если включено, все пользователи будут использовать только выбранный ниже режим периода.
+                        Выбор других периодов в настройках будет скрыт.
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer"
+                        checked={leagueSettings.force_weighted_mode}
+                        onChange={(e) => handleLeagueSettingChange('force_weighted_mode', e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Выбор периода (показывается только если включен режим) */}
+                  {leagueSettings.force_weighted_mode && (
+                    <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-lg transition-all">
+                      <div>
+                        <div className="font-medium text-blue-900">Период для принудительного режима</div>
+                        <div className="text-sm text-blue-700">
+                          Выберите период, который будет установлен у всех пользователей.
+                        </div>
+                      </div>
+                      <select
+                        className="bg-white border border-blue-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 min-w-[200px]"
+                        value={leagueSettings.forced_period || '2026_weighted'}
+                        onChange={(e) => handleLeagueSettingChange('forced_period', e.target.value)}
+                      >
+                        <option value="2026_total">Весь сезон</option>
+                        <option value="2026_last_30">Последние 30 дней</option>
+                        <option value="2026_last_15">Последние 15 дней</option>
+                        <option value="2026_last_7">Последние 7 дней</option>
+                        <option value="2026_weighted">Взвешенный (Универсальный)</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
               
               {/* Смена пароля */}
               <div className="border-b pb-6 mb-6">

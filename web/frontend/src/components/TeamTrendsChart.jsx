@@ -56,3 +56,4 @@ const TeamTrendsChart = ({ trends }) => {
 
 export default TeamTrendsChart;
 
+
