@@ -174,22 +174,22 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                     <div className="space-y-6">
                         {/* Период - показываем только если НЕ включен принудительный режим */}
                         {!isWeightedModeForced && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Период статистики:
-                                </label>
-                                <select
-                                    className="w-full border p-2 rounded"
-                                    value={period}
-                                    onChange={e => setPeriod(e.target.value)}
-                                >
-                                    <option value="2026_total">Весь сезон</option>
-                                    <option value="2026_last_30">Последние 30 дней</option>
-                                    <option value="2026_last_15">Последние 15 дней</option>
-                                    <option value="2026_last_7">Последние 7 дней</option>
-                                    <option value="2026_weighted">Взвешенный (Универсальный)</option>
-                                </select>
-                            </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Период статистики:
+                            </label>
+                            <select
+                                className="w-full border p-2 rounded"
+                                value={period}
+                                onChange={e => setPeriod(e.target.value)}
+                            >
+                                <option value="2026_total">Весь сезон</option>
+                                <option value="2026_last_30">Последние 30 дней</option>
+                                <option value="2026_last_15">Последние 15 дней</option>
+                                <option value="2026_last_7">Последние 7 дней</option>
+                                <option value="2026_weighted">Взвешенный (Универсальный)</option>
+                            </select>
+                        </div>
                         )}
 
                         {/* Punt Categories */}

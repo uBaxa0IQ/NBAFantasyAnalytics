@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import PlayerBalanceRadar from './PlayerBalanceRadar';
+import PlayerTrendsChart from './PlayerTrendsChart';
 
 const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromComparison, isInComparison = false }) => {
     const [trends, setTrends] = useState(null);
@@ -264,62 +265,10 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
                     {/* Trends Tab */}
                     {activeTab === 'trends' && (
                         <div>
-                            <h3 className="text-lg font-semibold mb-4">Тренды по периодам</h3>
                             {loadingTrends ? (
                                 <div className="text-center text-gray-500 py-8">Загрузка трендов...</div>
                             ) : trends && trends.trends && trends.trends.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full text-sm">
-                                        <thead>
-                                            <tr className="bg-gray-100 border-b">
-                                                <th className="px-4 py-3 text-left font-semibold">Период</th>
-                                                <th className="px-4 py-3 text-center font-semibold">Total Z</th>
-                                                {Object.keys(trends.trends[0].z_scores || {}).map(cat => (
-                                                    <th key={cat} className="px-4 py-3 text-center font-semibold">{cat}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {trends.trends.map((point, idx) => {
-                                                // Определяем изменение относительно "Весь сезон" (базовый период)
-                                                let changeIndicator = '';
-                                                // Находим период "Весь сезон" явно
-                                                const basePeriod = trends.trends.find(p => p.period === 'Весь сезон');
-                                                
-                                                if (basePeriod && point.period !== 'Весь сезон') {
-                                                    const change = point.total_z - basePeriod.total_z;
-                                                    if (change > 0) {
-                                                        changeIndicator = `+${change.toFixed(2)}`;
-                                                    } else if (change < 0) {
-                                                        changeIndicator = change.toFixed(2);
-                                                    }
-                                                }
-                                                
-                                                return (
-                                                    <tr key={idx} className="border-b hover:bg-gray-50">
-                                                        <td className="px-4 py-3 font-medium">{point.period}</td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <div className="font-bold">{point.total_z}</div>
-                                                            {changeIndicator && (
-                                                                <div className={`text-xs ${changeIndicator.startsWith('+') ? 'text-green-600' : 'text-red-600'}`} title="Изменение относительно всего сезона">
-                                                                    {changeIndicator}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        {Object.entries(point.z_scores || {}).map(([cat, val]) => {
-                                                            const colorClass = val > 0 ? 'text-green-600' : val < 0 ? 'text-red-600' : 'text-gray-400';
-                                                            return (
-                                                                <td key={cat} className={`px-4 py-3 text-center ${colorClass}`}>
-                                                                    {typeof val === 'number' ? val.toFixed(2) : val}
-                                                                </td>
-                                                            );
-                                                        })}
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <PlayerTrendsChart trendsData={trends} />
                             ) : (
                                 <div className="text-center text-gray-500 py-8">Нет данных о трендах</div>
                             )}

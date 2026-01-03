@@ -23,7 +23,7 @@ const AdminPanel = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   // Состояние для настроек лиги
   const [leagueSettings, setLeagueSettings] = useState({
     force_weighted_mode: false,

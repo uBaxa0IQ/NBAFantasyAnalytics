@@ -1,16 +1,24 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
-const TeamTrendsChart = ({ trends }) => {
-    if (!trends) return null;
+const PlayerTrendsChart = ({ trendsData }) => {
+    if (!trendsData || !trendsData.trends || trendsData.trends.length === 0) return null;
 
-    // Преобразуем объект trends в массив для графика
-    const data = Object.entries(trends).map(([period, value]) => ({
-        period,
-        value
+    // Преобразуем массив trends в формат для графика
+    // Маппинг русских названий периодов на английские для единообразия
+    const periodMapping = {
+        'Последние 7 дней': 'Last 7',
+        'Последние 15 дней': 'Last 15',
+        'Последние 30 дней': 'Last 30',
+        'Весь сезон': 'Season'
+    };
+
+    const data = trendsData.trends.map(trend => ({
+        period: periodMapping[trend.period] || trend.period,
+        value: trend.total_z
     }));
 
-    // Порядок сортировки периодов
+    // Порядок сортировки периодов (как в дэшборде команды)
     const sortOrder = ['Season', 'Last 30', 'Last 15', 'Last 7'];
     data.sort((a, b) => sortOrder.indexOf(a.period) - sortOrder.indexOf(b.period));
 
@@ -48,17 +56,11 @@ const TeamTrendsChart = ({ trends }) => {
                 </ResponsiveContainer>
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center">
-                Суммарный Z-Score всех игроков команды за разные периоды времени
+                Total Z-Score игрока за разные периоды времени
             </p>
         </div>
     );
 };
 
-export default TeamTrendsChart;
-
-
-
-
-
-
+export default PlayerTrendsChart;
 

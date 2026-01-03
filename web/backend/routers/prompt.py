@@ -119,6 +119,28 @@ def generate_markdown_prompt(full_data: dict) -> str:
             ])
         md_lines.append(generate_markdown_table(headers, rows))
         md_lines.append("")
+        
+    # 3.1. Season Projection (Playoff Chances)
+    sp = full_data.get("sp", {})
+    if sp and sp.get("fs"):
+        md_lines.append("## Season Projection (Playoff Top-8)")
+        md_lines.append("Forecast based on schedule and team strength.")
+        
+        headers = ["Pos", "Team Name", "Projected Record", "Win Rate", "Playoff Status"]
+        rows = []
+        for team in sp["fs"]:
+            pos = team.get('position', 0)
+            status = "UPPER BRACKET (Top 8)" if pos <= 8 else "Consolation Bracket"
+            record = f"{team.get('wins', 0)}-{team.get('losses', 0)}-{team.get('ties', 0)}"
+            rows.append([
+                pos,
+                team.get('team_name', 'N/A'),
+                record,
+                f"{team.get('win_rate', 0)}%",
+                status
+            ])
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append("")
     
     # 4. Players
     players = full_data.get("p", [])
@@ -227,7 +249,7 @@ def generate_markdown_prompt(full_data: dict) -> str:
         md_lines.append(generate_markdown_table(headers, rows))
         md_lines.append("")
     
-    # 6. Simulations
+        # 6. Simulations
     sim = full_data.get("sim", {})
     if sim:
         md_lines.append("## Simulations")
@@ -245,9 +267,7 @@ def generate_markdown_prompt(full_data: dict) -> str:
         
         # Симуляции по avg
         sim_avg_selected = sim.get('by_avg_selected', {})
-        sim_avg_total = sim.get('by_avg_total', {})
         sim_z_selected = sim.get('by_z_score_selected', {})
-        sim_z_total = sim.get('by_z_score_total', {})
         
         # Выбранный период (основной)
         if sim_avg_selected and sim_avg_selected.get('r'):
@@ -268,24 +288,6 @@ def generate_markdown_prompt(full_data: dict) -> str:
             md_lines.append(generate_markdown_table(headers, rows))
             md_lines.append("")
         
-        # Total для сравнения
-        if sim_avg_total and sim_avg_total.get('r'):
-            md_lines.append("### Simulation by Average Stats - Total Season (for comparison)")
-            headers = ["Pos", "Team ID", "Team Name", "Wins", "Losses", "Ties", "Win Rate"]
-            rows = []
-            for result in sim_avg_total['r']:
-                rows.append([
-                    result.get('pos', 'N/A'),
-                    result.get('id', 'N/A'),
-                    result.get('n', 'N/A'),
-                    result.get('w', 0),
-                    result.get('l', 0),
-                    result.get('t', 0),
-                    result.get('wr', 0.0)
-                ])
-            md_lines.append(generate_markdown_table(headers, rows))
-            md_lines.append("")
-        
         # Выбранный период по Z-Score
         if sim_z_selected and sim_z_selected.get('r'):
             period_name = get_period_name(sim_z_selected.get('p', ''))
@@ -293,24 +295,6 @@ def generate_markdown_prompt(full_data: dict) -> str:
             headers = ["Pos", "Team ID", "Team Name", "Wins", "Losses", "Ties", "Win Rate"]
             rows = []
             for result in sim_z_selected['r']:
-                rows.append([
-                    result.get('pos', 'N/A'),
-                    result.get('id', 'N/A'),
-                    result.get('n', 'N/A'),
-                    result.get('w', 0),
-                    result.get('l', 0),
-                    result.get('t', 0),
-                    result.get('wr', 0.0)
-                ])
-            md_lines.append(generate_markdown_table(headers, rows))
-            md_lines.append("")
-        
-        # Total по Z-Score для сравнения
-        if sim_z_total and sim_z_total.get('r'):
-            md_lines.append("### Simulation by Z-Score - Total Season (for comparison)")
-            headers = ["Pos", "Team ID", "Team Name", "Wins", "Losses", "Ties", "Win Rate"]
-            rows = []
-            for result in sim_z_total['r']:
                 rows.append([
                     result.get('pos', 'N/A'),
                     result.get('id', 'N/A'),
@@ -412,7 +396,22 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
     punt_line = ""
     if settings.get("pc"):
         punt_line = f"\n- Пант категории: {', '.join(settings['pc'])}"
-    period_line = f"\n- Период данных: {settings.get('p')}"
+    
+    period_key = settings.get('p')
+    period_desc = ""
+    if period_key == '2026_weighted':
+        period_desc = " (Взвешенный: статистика с весами Total=40%, Last30=30%, Last15=20%, Last7=10%)"
+    elif period_key == '2026_total':
+        period_desc = " (Весь сезон)"
+    elif period_key == '2026_last_30':
+        period_desc = " (Последние 30 дней)"
+    elif period_key == '2026_last_15':
+        period_desc = " (Последние 15 дней)"
+    elif period_key == '2026_last_7':
+        period_desc = " (Последние 7 дней)"
+        
+    period_line = f"\n- Период данных: {period_key}{period_desc}"
+    
     sim_mode_line = f"\n- Режим симуляции: {settings.get('sm')}"
     top_n_line = f"\n- Top-N игроков в расчётах: {settings.get('tn')}"
     refresh_line = ""
@@ -434,6 +433,12 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
 - Если в составе команды больше 13 здоровых игроков, это временная ситуация - главные игроки команды находятся на травме (IR)
 {punt_line}{main_team_line}{custom_players_line}{refresh_line}
 
+ПЛЕЙ-ОФФ:
+- В плей-офф выходят ВСЕ команды, но важен посев (Seed).
+- Топ-8 команд попадают в верхнюю сетку (Upper Bracket) и борются за чемпионство.
+- Остальные команды попадают в нижнюю сетку (Consolation Bracket).
+- Цель - попасть в Топ-8 по итогам регулярного сезона.
+
 Z-SCORE:
 - Нормализованная метрика: на сколько стандартных отклонений игрок отличается от среднего лиги
 - Положительный = выше среднего, отрицательный = ниже, 0 = средний
@@ -443,9 +448,10 @@ Z-SCORE:
 ДАННЫЕ В MARKDOWN:
 Данные представлены в формате Markdown с таблицами для удобного анализа:
 - Команды: таблица с id, названием, рекордами, винрейтом, позицией, размером ростера, количеством здоровых игроков, текущим матчапом
+- Прогноз сезона (Season Projection): прогноз итогового места в регулярном сезоне на основе расписания и силы команд. Показывает, кто попадает в Топ-8.
 - Игроки: таблица со статистикой (stats) и z-scores по всем категориям, total_z, total_z_punt, games played, статусом травмы/IR, фэнтези-командой
 - Свободные агенты: таблица топ-50 с той же структурой данных
-- Симуляции: отдельные таблицы для by_avg и by_z_score, каждая для периода "total" (весь сезон) и "last_30" (последние 30 дней)
+- Симуляции: таблицы by_avg и by_z_score для выбранного периода
 - Рейтинги по категориям: таблицы команд с rank, team_id, team_name, value для каждой категории
 - Метрики лиги: таблица средних значений и стандартных отклонений по категориям
 - История матчапов: таблица прошлых матчапов основной команды
@@ -458,7 +464,7 @@ Z-SCORE:
 4. Используй рейтинги cr для оценки силы команд по категориям
 5. НЕ упоминай информацию, которой нет в JSON
 6. Все выводы должны быть подкреплены конкретными цифрами из данных
-7. Если задана основная команда, делай выводы с акцентом на неё и её матчапы
+7. Если задана основная команда, делай выводы с акцентом на неё, её шансы на плей-офф (Топ-8) и матчапы
 """
 
 
@@ -861,18 +867,15 @@ def generate_prompt(
         fa_data.sort(key=lambda x: x['tz'], reverse=True)  # tz = total_z
         
         # 8. Симуляции (по avg и z-score)
-        # Используем выбранный период и также total для сравнения
+        # Используем ТОЛЬКО выбранный период
         simulations_data = {
             "by_avg_selected": None,
-            "by_avg_total": None,
-            "by_z_score_selected": None,
-            "by_z_score_total": None
+            "by_z_score_selected": None
         }
         
-        # Периоды для симуляций: выбранный период + total для сравнения
+        # Периоды для симуляций: только выбранный период
         sim_periods = {
-            "selected": period,  # Используем выбранный период (может быть weighted)
-            "total": "2026_total"  # Всегда добавляем total для контекста
+            "selected": period  # Используем выбранный период (может быть weighted)
         }
         
         def process_simulation_result(sim_result, teams_data):
@@ -938,35 +941,6 @@ def generate_prompt(
                 "r": []
             }
         
-        # Симуляция по avg для total (для сравнения)
-        try:
-            sim_avg_total = get_simulation(
-                week=current_week,
-                mode="team_stats_avg",
-                period=sim_periods["total"],
-                simulation_mode=simulation_mode,
-                top_n_players=top_n_players,
-                custom_team_players=custom_team_players_str,
-                custom_team_id=main_team_id,
-                league_meta=league_meta
-            )
-            simulations_data["by_avg_total"] = {
-                "m": "avg",
-                "p": sim_periods["total"],
-                "sm": simulation_mode,
-                "r": process_simulation_result(sim_avg_total, teams_data)
-            }
-        except Exception as e:
-            print(f"Error in simulation by_avg_total: {e}")
-            import traceback
-            traceback.print_exc()
-            simulations_data["by_avg_total"] = {
-                "m": "avg",
-                "p": sim_periods["total"],
-                "sm": simulation_mode,
-                "r": []
-            }
-        
         # Симуляция по z-score для выбранного периода
         try:
             sim_z_selected = get_simulation(
@@ -996,34 +970,32 @@ def generate_prompt(
                 "r": []
             }
         
-        # Симуляция по z-score для total (для сравнения)
+        # 8.1. Прогноз сезона (Season Projection) - место в плей-офф
+        season_projection_data = {}
         try:
-            sim_z_total = get_simulation(
-                week=current_week,
-                mode="z_scores",
-                period=sim_periods["total"],
-                simulation_mode=simulation_mode,
-                top_n_players=top_n_players,
-                custom_team_players=custom_team_players_str,
-                custom_team_id=main_team_id,
-                league_meta=league_meta
-            )
-            simulations_data["by_z_score_total"] = {
-                "m": "z_score",
-                "p": sim_periods["total"],
-                "sm": simulation_mode,
-                "r": process_simulation_result(sim_z_total, teams_data)
-            }
+            from routers.dashboard import get_season_projection
+            
+            # Используем первую команду для вызова (возвращает всех) или main_team
+            target_team_id = main_team_id if main_team_id else (teams_data[0]['id'] if teams_data else None)
+            
+            if target_team_id:
+                sp_result = get_season_projection(
+                    team_id=target_team_id,
+                    period=period,
+                    simulation_mode=simulation_mode,
+                    top_n_players=top_n_players,
+                    custom_team_players=custom_team_players_str,
+                    league_meta=league_meta
+                )
+                
+                if sp_result and 'full_standings' in sp_result:
+                    season_projection_data = {
+                        "fs": sp_result['full_standings']
+                    }
         except Exception as e:
-            print(f"Error in simulation by_z_score_total: {e}")
+            print(f"Error in season projection: {e}")
             import traceback
             traceback.print_exc()
-            simulations_data["by_z_score_total"] = {
-                "m": "z_score",
-                "p": sim_periods["total"],
-                "sm": simulation_mode,
-                "r": []
-            }
         
         # 9. Рейтинг команд по категориям (для всех команд)
         category_rankings = {}
@@ -1109,6 +1081,7 @@ def generate_prompt(
         full_data = {
             "li": league_info,  # league_info
             "t": teams_data,  # teams
+            "sp": season_projection_data, # season_projection
             "p": players_data,  # players
             "s": settings_data,  # settings
             "mh": matchup_history,  # main_team_matchup_history
