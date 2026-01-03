@@ -60,6 +60,7 @@ class TradeAutoSearchRequest(BaseModel):
     simulation_mode: str = "all"
     top_n_players: int = 13
     step: float = 0.1  # Шаг для перебора (например, 0.1 = 10%)
+    search_mode: str = "avg"  # 'avg' или 'z_score' - режим поиска
 
 
 def hash_password(password: str) -> str:
@@ -835,6 +836,12 @@ def auto_search_optimal_coefficients(
                             sim_avg['their_team']['delta'] <= 0
                         )
                     
+                    # Проверяем, выгоден ли трейд обеим командам по Z-score
+                    both_positive_z = (
+                        result['my_team']['delta'] > 0 and
+                        result['their_team']['delta'] > 0
+                    )
+                    
                     # Добавляем все результаты (будем сортировать по улучшению первой команды)
                     results.append({
                         'coefficients': {
@@ -847,19 +854,27 @@ def auto_search_optimal_coefficients(
                         'their_delta': result['their_team']['delta'],
                         'total_delta': result['my_team']['delta'] + result['their_team']['delta'],
                         'simulation_avg': result.get('simulation_avg'),
-                        'both_positive_avg': both_positive_avg
+                        'both_positive_avg': both_positive_avg,
+                        'both_positive_z': both_positive_z
                     })
                 except Exception as e:
                     # Пропускаем ошибки при анализе
                     print(f"Error analyzing with coeffs {custom_coeffs}: {e}")
                     continue
     
-    # Сортируем результаты по улучшению первой команды (my_team) в симуляции avg
-    # Чем меньше delta (или больше отрицательное значение), тем лучше (меньше место = лучше)
-    results.sort(key=lambda x: (
-        x.get('simulation_avg', {}).get('my_team', {}).get('delta') is None,  # Сначала те, где есть данные
-        x.get('simulation_avg', {}).get('my_team', {}).get('delta', 999)  # Потом по delta (меньше = лучше)
-    ))
+    # Сортируем результаты в зависимости от режима поиска
+    if request.search_mode == 'z_score':
+        # Сортируем по Z-score: сначала те, где моя команда улучшилась (my_delta > 0), потом по величине улучшения
+        results.sort(key=lambda x: (
+            x.get('my_delta', 0) <= 0,  # Сначала те, где моя команда улучшилась (my_delta > 0)
+            -x.get('my_delta', 0)  # Потом по величине улучшения (больше = лучше)
+        ), reverse=False)
+    else:
+        # Сортируем по симуляции avg: чем меньше delta (или больше отрицательное значение), тем лучше (меньше место = лучше)
+        results.sort(key=lambda x: (
+            x.get('simulation_avg', {}).get('my_team', {}).get('delta') is None,  # Сначала те, где есть данные
+            x.get('simulation_avg', {}).get('my_team', {}).get('delta', 999)  # Потом по delta (меньше = лучше)
+        ))
     
     return {
         "found": len(results),

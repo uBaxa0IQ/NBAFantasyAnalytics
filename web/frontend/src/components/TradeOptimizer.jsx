@@ -23,6 +23,7 @@ const TradeOptimizer = () => {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [autoSearchMode, setAutoSearchMode] = useState('avg'); // 'avg' или 'z_score'
 
   useEffect(() => {
     api.get('/teams').then(res => setTeams(res.data));
@@ -130,7 +131,8 @@ const TradeOptimizer = () => {
         period: '2026_weighted',
         simulation_mode: 'top_n',
         top_n_players: 13,
-        step: 0.1
+        step: 0.1,
+        search_mode: autoSearchMode // 'avg' или 'z_score'
       });
       
       setAutoSearchResults(response.data);
@@ -244,82 +246,145 @@ const TradeOptimizer = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Season: {coefficients.total.toFixed(2)}
+                Season (Весь сезон)
               </label>
               <input
-                type="range"
+                type="number"
                 min="0"
                 max="1"
                 step="0.01"
                 value={coefficients.total}
                 onChange={(e) => handleCoefficientChange('total', e.target.value)}
-                className="w-full"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.40"
               />
+              <div className="text-xs text-gray-500 mt-1">
+                {(() => {
+                  const sum = coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7;
+                  return sum > 0 ? `${((coefficients.total / sum) * 100).toFixed(1)}%` : '0%';
+                })()}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Last 30: {coefficients.last_30.toFixed(2)}
+                Last 30 (Последние 30 дней)
               </label>
               <input
-                type="range"
+                type="number"
                 min="0"
                 max="1"
                 step="0.01"
                 value={coefficients.last_30}
                 onChange={(e) => handleCoefficientChange('last_30', e.target.value)}
-                className="w-full"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.30"
               />
+              <div className="text-xs text-gray-500 mt-1">
+                {(() => {
+                  const sum = coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7;
+                  return sum > 0 ? `${((coefficients.last_30 / sum) * 100).toFixed(1)}%` : '0%';
+                })()}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Last 15: {coefficients.last_15.toFixed(2)}
+                Last 15 (Последние 15 дней)
               </label>
               <input
-                type="range"
+                type="number"
                 min="0"
                 max="1"
                 step="0.01"
                 value={coefficients.last_15}
                 onChange={(e) => handleCoefficientChange('last_15', e.target.value)}
-                className="w-full"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.20"
               />
+              <div className="text-xs text-gray-500 mt-1">
+                {(() => {
+                  const sum = coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7;
+                  return sum > 0 ? `${((coefficients.last_15 / sum) * 100).toFixed(1)}%` : '0%';
+                })()}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Last 7: {coefficients.last_7.toFixed(2)}
+                Last 7 (Последние 7 дней)
               </label>
               <input
-                type="range"
+                type="number"
                 min="0"
                 max="1"
                 step="0.01"
                 value={coefficients.last_7}
                 onChange={(e) => handleCoefficientChange('last_7', e.target.value)}
-                className="w-full"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.10"
               />
+              <div className="text-xs text-gray-500 mt-1">
+                {(() => {
+                  const sum = coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7;
+                  return sum > 0 ? `${((coefficients.last_7 / sum) * 100).toFixed(1)}%` : '0%';
+                })()}
+              </div>
             </div>
           </div>
-          <div className="mt-4 text-sm text-gray-600">
-            Сумма: {(coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7).toFixed(3)}
+          <div className={`mt-4 p-4 rounded-lg ${Math.abs((coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7) - 1.0) < 0.001 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}`}>
+            <div className="flex justify-between items-center">
+              <span className="font-medium text-gray-700">Сумма коэффициентов:</span>
+              <span className={`font-bold ${Math.abs((coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7) - 1.0) < 0.001 ? 'text-green-600' : 'text-yellow-600'}`}>
+                {(coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7).toFixed(3)} {Math.abs((coefficients.total + coefficients.last_30 + coefficients.last_15 + coefficients.last_7) - 1.0) < 0.001 ? '✓' : '(должна быть 1.000)'}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Кнопки действий */}
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={handleAnalyze}
-            disabled={loading || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
-            className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? 'Анализ...' : 'Анализировать с текущими коэффициентами'}
-          </button>
-          <button
-            onClick={handleAutoSearch}
-            disabled={searching || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
-            className="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {searching ? 'Поиск...' : 'Автопоиск оптимальных коэффициентов'}
-          </button>
+        <div className="mb-6">
+          <div className="flex gap-4 mb-4">
+            <button
+              onClick={handleAnalyze}
+              disabled={loading || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
+              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {loading ? 'Анализ...' : 'Анализировать с текущими коэффициентами'}
+            </button>
+            <button
+              onClick={handleAutoSearch}
+              disabled={searching || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
+              className="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {searching ? 'Поиск...' : 'Автопоиск оптимальных коэффициентов'}
+            </button>
+          </div>
+          {/* Выбор режима для автопоиска */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Режим автопоиска:
+            </label>
+            <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+              <button
+                onClick={() => setAutoSearchMode('avg')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  autoSearchMode === 'avg'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                По симуляции (avg)
+              </button>
+              <button
+                onClick={() => setAutoSearchMode('z_score')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  autoSearchMode === 'z_score'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                По Z-Score
+              </button>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -416,7 +481,7 @@ const TradeOptimizer = () => {
         {autoSearchResults && (
           <div className="bg-white border rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-4 text-gray-800">
-              Результаты автопоиска: найдено {autoSearchResults.found} комбинаций
+              Результаты автопоиска ({autoSearchMode === 'avg' ? 'по симуляции avg' : 'по Z-Score'}): найдено {autoSearchResults.found} комбинаций
             </h3>
             {autoSearchResults.best && (
               <div className="mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
@@ -440,6 +505,9 @@ const TradeOptimizer = () => {
                   <div className="mt-2 font-semibold">
                     Z-Score: Моя Δ: {autoSearchResults.best.my_delta >= 0 ? '+' : ''}{autoSearchResults.best.my_delta.toFixed(2)} | 
                     Их Δ: {autoSearchResults.best.their_delta >= 0 ? '+' : ''}{autoSearchResults.best.their_delta.toFixed(2)}
+                    {autoSearchResults.best.both_positive_z && (
+                      <span className="ml-2 text-green-600">✓ Обе улучшились</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -459,7 +527,11 @@ const TradeOptimizer = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {autoSearchResults.results.map((result, idx) => (
-                      <tr key={idx} className={`hover:bg-gray-50 ${result.both_positive_avg ? 'bg-green-50' : ''}`}>
+                      <tr key={idx} className={`hover:bg-gray-50 ${
+                        autoSearchMode === 'avg' 
+                          ? (result.both_positive_avg ? 'bg-green-50' : '') 
+                          : (result.both_positive_z ? 'bg-green-50' : '')
+                      }`}>
                         <td className="px-4 py-2 text-sm">{result.coefficients.total.toFixed(2)}</td>
                         <td className="px-4 py-2 text-sm">{result.coefficients.last_30.toFixed(2)}</td>
                         <td className="px-4 py-2 text-sm">{result.coefficients.last_15.toFixed(2)}</td>
@@ -493,6 +565,9 @@ const TradeOptimizer = () => {
                             <div>Их: <span className={result.their_delta >= 0 ? 'text-green-600' : 'text-red-600'}>
                               {result.their_delta >= 0 ? '+' : ''}{result.their_delta.toFixed(2)}
                             </span></div>
+                            {result.both_positive_z && (
+                              <div className="text-green-600 font-semibold mt-1">✓ Обе улучшились</div>
+                            )}
                           </div>
                         </td>
                       </tr>
