@@ -342,20 +342,20 @@ const TradeOptimizer = () => {
         {/* Кнопки действий */}
         <div className="mb-6">
           <div className="flex gap-4 mb-4">
-            <button
-              onClick={handleAnalyze}
-              disabled={loading || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
-              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {loading ? 'Анализ...' : 'Анализировать с текущими коэффициентами'}
-            </button>
-            <button
-              onClick={handleAutoSearch}
-              disabled={searching || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
-              className="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {searching ? 'Поиск...' : 'Автопоиск оптимальных коэффициентов'}
-            </button>
+          <button
+            onClick={handleAnalyze}
+            disabled={loading || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
+            className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+          >
+            {loading ? 'Анализ...' : 'Анализировать с текущими коэффициентами'}
+          </button>
+          <button
+            onClick={handleAutoSearch}
+            disabled={searching || !myTeam || !theirTeam || selectedGive.length === 0 || selectedReceive.length === 0}
+            className="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+          >
+            {searching ? 'Поиск...' : 'Автопоиск оптимальных коэффициентов'}
+          </button>
           </div>
           {/* Выбор режима для автопоиска */}
           <div className="bg-gray-50 rounded-lg p-4">

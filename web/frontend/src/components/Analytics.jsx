@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
+import { getTrendColor } from '../utils/trendColors';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 
-const Analytics = ({ onPlayerClick, period, puntCategories }) => {
+const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false }) => {
     const [teams, setTeams] = useState([]);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -14,6 +15,7 @@ const Analytics = ({ onPlayerClick, period, puntCategories }) => {
         const saved = loadState(StorageKeys.ANALYTICS, {});
         return saved.selectedTeam || '';
     });
+    const [playerTrends, setPlayerTrends] = useState({});
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -39,6 +41,23 @@ const Analytics = ({ onPlayerClick, period, puntCategories }) => {
                 });
         }
     }, [selectedTeam, period]);
+
+    // Загружаем тренды, если включена окраска по тренду
+    useEffect(() => {
+        if (colorByTrend) {
+            const puntCatsParam = puntCategories.length > 0 ? `&punt_categories=${puntCategories.join(',')}` : '';
+            api.get(`/all-players-trends?${puntCatsParam}`)
+                .then(res => {
+                    setPlayerTrends(res.data || {});
+                })
+                .catch(err => {
+                    console.error('Error fetching player trends:', err);
+                    setPlayerTrends({});
+                });
+        } else {
+            setPlayerTrends({});
+        }
+    }, [colorByTrend, puntCategories]);
 
 
     const calculateTotalZ = (player) => {
@@ -137,7 +156,13 @@ const Analytics = ({ onPlayerClick, period, puntCategories }) => {
                                         {player.name} <span className="text-xs text-gray-500">({player.position})</span>
                                     </td>
                                     <td className="p-2 border font-bold text-center">
-                                        {calculateTotalZ(player).toFixed(2)}
+                                        {colorByTrend && playerTrends[player.name] !== undefined ? (
+                                            <span style={{ color: getTrendColor(playerTrends[player.name]) }}>
+                                                {calculateTotalZ(player).toFixed(2)}
+                                            </span>
+                                        ) : (
+                                            calculateTotalZ(player).toFixed(2)
+                                        )}
                                     </td>
                                     {CATEGORIES.map(cat => {
                                         const val = player.z_scores[cat] || 0;

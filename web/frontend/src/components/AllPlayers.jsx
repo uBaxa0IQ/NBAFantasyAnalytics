@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import PlayerFiltersModal from './PlayerFiltersModal';
+import TopPlayersDistributionChart from './TopPlayersDistributionChart';
+import { getTrendColor } from '../utils/trendColors';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) => {
+const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode, colorByTrend = false }) => {
     const savedState = loadState(StorageKeys.ALL_PLAYERS, {});
     const [teams, setTeams] = useState([]);
     const [selectedTeam, setSelectedTeam] = useState(savedState.selectedTeam || '');
@@ -18,6 +20,9 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) =
     const [sortDir, setSortDir] = useState(savedState.sortDir || 'desc');
     const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
     const [filters, setFilters] = useState(savedState.filters || {});
+    const [showDistributionChart, setShowDistributionChart] = useState(savedState.showDistributionChart !== undefined ? savedState.showDistributionChart : false);
+    const [topN, setTopN] = useState(savedState.topN || 20);
+    const [playerTrends, setPlayerTrends] = useState({});
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -40,6 +45,23 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) =
             });
     }, [period, simulationMode]);
 
+    // Загружаем тренды, если включена окраска по тренду
+    useEffect(() => {
+        if (colorByTrend) {
+            const puntCatsParam = puntCategories.length > 0 ? `&punt_categories=${puntCategories.join(',')}` : '';
+            api.get(`/all-players-trends?${puntCatsParam}`)
+                .then(res => {
+                    setPlayerTrends(res.data || {});
+                })
+                .catch(err => {
+                    console.error('Error fetching player trends:', err);
+                    setPlayerTrends({});
+                });
+        } else {
+            setPlayerTrends({});
+        }
+    }, [colorByTrend, puntCategories]);
+
     // Сохранение состояния при изменении
     useEffect(() => {
         saveState(StorageKeys.ALL_PLAYERS, {
@@ -48,9 +70,11 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) =
             searchQuery,
             sortBy,
             sortDir,
-            filters
+            filters,
+            showDistributionChart,
+            topN
         });
-    }, [selectedTeam, position, searchQuery, sortBy, sortDir, filters]);
+    }, [selectedTeam, position, searchQuery, sortBy, sortDir, filters, showDistributionChart, topN]);
 
 
     const calculateTotalZ = (player) => {
@@ -190,6 +214,54 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) =
 
             {loading && <div>Загрузка...</div>}
 
+            {/* Круговая диаграмма распределения топ игроков */}
+            {data && data.players && (
+                <div className="mb-6 bg-white border rounded-lg shadow-sm">
+                    <div className="p-4 border-b">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-gray-700">
+                                Распределение топ игроков лиги по командам
+                            </h3>
+                            <button
+                                onClick={() => setShowDistributionChart(!showDistributionChart)}
+                                className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                            >
+                                {showDistributionChart ? 'Скрыть' : 'Показать'} диаграмму
+                            </button>
+                        </div>
+                    </div>
+                    {showDistributionChart && (
+                        <div className="p-4">
+                            <div className="mb-4 flex items-center gap-4">
+                                <label className="text-sm font-medium text-gray-700">
+                                    Топ игроков:
+                                </label>
+                                <select
+                                    value={topN}
+                                    onChange={(e) => setTopN(parseInt(e.target.value))}
+                                    className="border p-2 rounded text-sm"
+                                >
+                                    <option value={10}>Топ-10</option>
+                                    <option value={20}>Топ-20</option>
+                                    <option value={30}>Топ-30</option>
+                                    <option value={50}>Топ-50</option>
+                                </select>
+                                {puntCategories.length > 0 && (
+                                    <span className="text-xs text-gray-500">
+                                        (с учетом пант-категорий: {puntCategories.join(', ')})
+                                    </span>
+                                )}
+                            </div>
+                            <TopPlayersDistributionChart
+                                players={data.players}
+                                topN={topN}
+                                puntCategories={puntCategories}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+
             {data && (
                 <div className="overflow-x-auto">
                     <table className="min-w-full bg-white border">
@@ -225,7 +297,13 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode }) =
                                     <td className="p-2 border text-center text-sm">{player.nba_team}</td>
                                     <td className="p-2 border text-sm">{player.fantasy_team}</td>
                                     <td className="p-2 border font-bold text-center">
-                                        {calculateTotalZ(player).toFixed(2)}
+                                        {colorByTrend && playerTrends[player.name] !== undefined ? (
+                                            <span style={{ color: getTrendColor(playerTrends[player.name]) }}>
+                                                {calculateTotalZ(player).toFixed(2)}
+                                            </span>
+                                        ) : (
+                                            calculateTotalZ(player).toFixed(2)
+                                        )}
                                     </td>
                                     {CATEGORIES.map(cat => {
                                         const val = player.z_scores[cat] || 0;

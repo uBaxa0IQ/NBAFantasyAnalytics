@@ -75,6 +75,11 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [colorByTrend, setColorByTrend] = useState(() => {
+    const saved = localStorage.getItem('colorByTrend');
+    return saved === 'true';
+  });
+
   const [simulationMode, setSimulationMode] = useState(() => {
     const saved = localStorage.getItem('simulationMode');
     return saved || 'top_n';
@@ -105,11 +110,18 @@ function App() {
     localStorage.setItem('mainTeam', mainTeam);
   }, [mainTeam]);
 
+  useEffect(() => {
+    localStorage.setItem('colorByTrend', colorByTrend.toString());
+  }, [colorByTrend]);
+
   const handleSaveSettings = (settings) => {
     setPeriod(settings.period);
     setPuntCategories(settings.puntCategories);
     setSimulationMode(settings.simulationMode);
     setMainTeam(settings.mainTeam);
+    if (settings.colorByTrend !== undefined) {
+      setColorByTrend(settings.colorByTrend);
+    }
   };
 
   const handlePlayerClick = (player) => {
@@ -254,6 +266,7 @@ function App() {
               onPlayerClick={handlePlayerClick}
               period={period}
               puntCategories={puntCategories}
+              colorByTrend={colorByTrend}
             />
           )}
           {activeTab === 'simulation' && (
@@ -269,6 +282,7 @@ function App() {
               period={period}
               puntCategories={puntCategories}
               simulationMode={simulationMode}
+              colorByTrend={colorByTrend}
             />
           )}
           {activeTab === 'trade' && (
@@ -315,7 +329,8 @@ function App() {
           period,
           puntCategories,
           simulationMode,
-          mainTeam
+          mainTeam,
+          colorByTrend
         }}
         leagueSettings={leagueSettings}
       />

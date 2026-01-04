@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import PlayerFiltersModal from './PlayerFiltersModal';
+import { getTrendColor } from '../utils/trendColors';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
+const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = false }) => {
     const savedState = loadState(StorageKeys.FREE_AGENTS, {});
     const [position, setPosition] = useState(savedState.position || '');
     const [data, setData] = useState(null);
@@ -15,6 +16,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
     const [sortDir, setSortDir] = useState('desc');
     const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
     const [filters, setFilters] = useState(savedState.filters || {});
+    const [playerTrends, setPlayerTrends] = useState({});
 
     useEffect(() => {
         setLoading(true);
@@ -29,6 +31,23 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
                 setLoading(false);
             });
     }, [period, position]);
+
+    // Загружаем тренды, если включена окраска по тренду
+    useEffect(() => {
+        if (colorByTrend) {
+            const puntCatsParam = puntCategories.length > 0 ? `&punt_categories=${puntCategories.join(',')}` : '';
+            api.get(`/all-players-trends?${puntCatsParam}`)
+                .then(res => {
+                    setPlayerTrends(res.data || {});
+                })
+                .catch(err => {
+                    console.error('Error fetching player trends:', err);
+                    setPlayerTrends({});
+                });
+        } else {
+            setPlayerTrends({});
+        }
+    }, [colorByTrend, puntCategories]);
 
     // Сохранение состояния при изменении
     useEffect(() => {
@@ -170,7 +189,13 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
                                     <td className="p-2 border text-center text-sm">{player.position}</td>
                                     <td className="p-2 border text-center text-sm">{player.nba_team}</td>
                                     <td className="p-2 border font-bold text-center">
-                                        {calculateTotalZ(player).toFixed(2)}
+                                        {colorByTrend && playerTrends[player.name] !== undefined ? (
+                                            <span style={{ color: getTrendColor(playerTrends[player.name]) }}>
+                                                {calculateTotalZ(player).toFixed(2)}
+                                            </span>
+                                        ) : (
+                                            calculateTotalZ(player).toFixed(2)
+                                        )}
                                     </td>
                                     {CATEGORIES.map(cat => {
                                         const val = player.z_scores[cat] || 0;

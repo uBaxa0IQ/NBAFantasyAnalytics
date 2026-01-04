@@ -10,6 +10,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
     const [puntCategories, setPuntCategories] = useState(initialSettings.puntCategories || []);
     const simulationMode = 'top_n'; // Фиксированный режим симуляции
     const [mainTeam, setMainTeam] = useState(initialSettings.mainTeam || '');
+    const [colorByTrend, setColorByTrend] = useState(initialSettings.colorByTrend !== undefined ? initialSettings.colorByTrend : false);
     const [teams, setTeams] = useState([]);
     const [refreshStatus, setRefreshStatus] = useState(null);
     const [showPlayerSelection, setShowPlayerSelection] = useState(false);
@@ -110,6 +111,9 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
             setPeriod(initialSettings.period || '2026_total');
             setPuntCategories(initialSettings.puntCategories || []);
             setMainTeam(initialSettings.mainTeam || '');
+            if (initialSettings.colorByTrend !== undefined) {
+                setColorByTrend(initialSettings.colorByTrend);
+            }
         }
     }, [initialSettings]);
 
@@ -141,7 +145,8 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
             period,
             puntCategories,
             simulationMode,
-            mainTeam
+            mainTeam,
+            colorByTrend
         };
         onSave(settings);
         onClose();
@@ -231,6 +236,29 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Окраска Total Z-Score по тренду */}
+                        <div className="border-t pt-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Окраска Total Z-Score по тренду
+                                    </label>
+                                    <p className="text-xs text-gray-500">
+                                        Окрашивает Total Z-Score от ярко-зеленого (улучшение) до ярко-красного (ухудшение) на основе сравнения 15 дней с сезоном
+                                    </p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer"
+                                        checked={colorByTrend}
+                                        onChange={(e) => setColorByTrend(e.target.checked)}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
                         </div>
 
                         {/* Настройка игроков для режима top_n */}
