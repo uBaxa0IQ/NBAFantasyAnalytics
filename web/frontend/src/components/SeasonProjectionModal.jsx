@@ -1,7 +1,10 @@
 import React from 'react';
 
-const SeasonProjectionModal = ({ projection, onClose }) => {
+const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
     if (!projection || !projection.full_standings) return null;
+
+    const title = isPlayoff ? 'Итоги регулярного сезона' : 'Прогноз итоговых мест';
+    const subtitle = isPlayoff ? 'Таблица по результатам недель 1–16' : 'Прогнозируемая таблица лиги на конец сезона';
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" onClick={onClose}>
@@ -10,9 +13,9 @@ const SeasonProjectionModal = ({ projection, onClose }) => {
                     {/* Header */}
                     <div className="flex justify-between items-start mb-6">
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-700">Прогноз итоговых мест</h2>
+                            <h2 className="text-2xl font-bold text-gray-700">{title}</h2>
                             <div className="mt-2 text-sm text-gray-600">
-                                Прогнозируемая таблица лиги на конец сезона
+                                {subtitle}
                             </div>
                         </div>
                         <button

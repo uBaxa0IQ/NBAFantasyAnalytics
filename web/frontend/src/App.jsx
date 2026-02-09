@@ -6,6 +6,7 @@ import Simulation from './components/Simulation';
 import PlayersTab from './components/PlayersTab';
 import PlayerModal from './components/PlayerModal';
 import TradeAnalyzer from './components/TradeAnalyzer';
+import PlayoffAnalysis from './components/PlayoffAnalysis';
 import ComparisonBar from './components/ComparisonBar';
 import PlayerComparisonModal from './components/PlayerComparisonModal';
 import SettingsModal from './components/SettingsModal';
@@ -21,6 +22,7 @@ function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [isPlayoff, setIsPlayoff] = useState(false);
   
   // Глобальные настройки лиги
   const [leagueSettings, setLeagueSettings] = useState({
@@ -113,6 +115,25 @@ function App() {
   useEffect(() => {
     localStorage.setItem('colorByTrend', colorByTrend.toString());
   }, [colorByTrend]);
+
+  // Отслеживаем переход в плей-офф по данным с бэкенда
+  useEffect(() => {
+    const fetchPlayoffState = async () => {
+      try {
+        const response = await api.get('/playoff/state');
+        if (response.data) {
+          setIsPlayoff(!!response.data.is_playoff);
+        }
+      } catch (error) {
+        console.error('Error fetching playoff state:', error);
+      }
+    };
+
+    fetchPlayoffState();
+    const intervalId = setInterval(fetchPlayoffState, 60000);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleSaveSettings = (settings) => {
     setPeriod(settings.period);
@@ -234,7 +255,7 @@ function App() {
                 className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'trade' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 onClick={() => setActiveTab('trade')}
               >
-                Анализ трейдов
+                {isPlayoff ? 'Плей-офф' : 'Анализ трейдов'}
               </button>
             </div>
             <button
@@ -259,6 +280,7 @@ function App() {
               puntCategories={puntCategories}
               mainTeam={mainTeam}
               simulationMode={simulationMode}
+              isPlayoff={isPlayoff}
             />
           )}
           {activeTab === 'analytics' && (
@@ -286,11 +308,20 @@ function App() {
             />
           )}
           {activeTab === 'trade' && (
-            <TradeAnalyzer
-              period={period}
-              puntCategories={puntCategories}
-              simulationMode={simulationMode}
-            />
+            isPlayoff ? (
+              <PlayoffAnalysis
+                period={period}
+                mainTeam={mainTeam}
+                simulationMode={simulationMode}
+              />
+            ) : (
+              <TradeAnalyzer
+                period={period}
+                puntCategories={puntCategories}
+                simulationMode={simulationMode}
+                mainTeam={mainTeam}
+              />
+            )
           )}
         </div>
       </main>
