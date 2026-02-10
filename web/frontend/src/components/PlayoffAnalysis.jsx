@@ -19,6 +19,7 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
     const [opponentDashboard, setOpponentDashboard] = useState(null);
     const [mainCategoryRankings, setMainCategoryRankings] = useState(null);
     const [opponentCategoryRankings, setOpponentCategoryRankings] = useState(null);
+    const [showMatchupAnalysisDetails, setShowMatchupAnalysisDetails] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -111,6 +112,33 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
             .finally(() => setMatchupAnalysisLoading(false));
     }, [subTab, mainTeam, opponentInfo, period, simulationMode]);
 
+    // Вспомогательные функции и данные для таблицы прогноза по средним
+    const formatTableVal = (cat, value) => {
+        if (value == null) return '—';
+        const v = Number(value);
+        if (cat === 'FG%' || cat === 'FT%' || cat === '3PT%') return v.toFixed(2);
+        if (cat === 'A/TO') return v.toFixed(2);
+        return v.toFixed(1);
+    };
+
+    const betterForCategory = (cat, mainVal, oppVal) => {
+        if (mainVal == null || oppVal == null) return null;
+        if (cat === 'TO') return mainVal < oppVal ? 'main' : oppVal < mainVal ? 'opp' : null;
+        return mainVal > oppVal ? 'main' : oppVal > mainVal ? 'opp' : null;
+    };
+
+    const catRows = useMemo(() => {
+        if (!mainCategoryRankings || !opponentCategoryRankings) return [];
+        return CATEGORIES_ORDER.map(cat => {
+            const mainR = mainCategoryRankings.all_rankings?.find(x => x.category === cat);
+            const oppR = opponentCategoryRankings.all_rankings?.find(x => x.category === cat);
+            const mainVal = mainR != null ? Number(mainR.value) : null;
+            const oppVal = oppR != null ? Number(oppR.value) : null;
+            const better = betterForCategory(cat, mainVal, oppVal);
+            return { category: cat, mainVal, oppVal, better };
+        });
+    }, [mainCategoryRankings, opponentCategoryRankings]);
+
     if (loading) {
         return <div className="text-center p-8 text-gray-600">Загрузка данных плей-офф...</div>;
     }
@@ -190,145 +218,132 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
                             )}
 
                             {!matchupAnalysisLoading && mainDashboard && opponentDashboard && mainCategoryRankings && opponentCategoryRankings && (
-                                <>
-                                    {(() => {
-                                        const mainId = parseInt(mainTeam, 10);
-                                        const oppId = opponentInfo?.id;
-                                        // Проценты 0–100 — два знака; A/TO — два знака; остальное — один
-                                        const formatTableVal = (cat, value) => {
-                                            if (value == null) return '—';
-                                            const v = Number(value);
-                                            if (cat === 'FG%' || cat === 'FT%' || cat === '3PT%') return v.toFixed(2);
-                                            if (cat === 'A/TO') return v.toFixed(2);
-                                            return v.toFixed(1);
-                                        };
-                                        const betterForCategory = (cat, mainVal, oppVal) => {
-                                            if (mainVal == null || oppVal == null) return null;
-                                            if (cat === 'TO') return mainVal < oppVal ? 'main' : oppVal < mainVal ? 'opp' : null;
-                                            return mainVal > oppVal ? 'main' : oppVal > mainVal ? 'opp' : null;
-                                        };
-                                        const catRows = CATEGORIES_ORDER.map(cat => {
-                                            const mainR = mainCategoryRankings.all_rankings?.find(x => x.category === cat);
-                                            const oppR = opponentCategoryRankings.all_rankings?.find(x => x.category === cat);
-                                            const mainVal = mainR != null ? Number(mainR.value) : null;
-                                            const oppVal = oppR != null ? Number(oppR.value) : null;
-                                            const better = betterForCategory(cat, mainVal, oppVal);
-                                            return { category: cat, mainVal, oppVal, better };
-                                        });
-                                        return (
-                                            <div className="space-y-8">
-                                                {/* Таблица: категории и avg по двум командам */}
-                                                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm overflow-x-auto">
-                                                    <table className="min-w-full border border-gray-200 text-base">
-                                                        <thead>
-                                                            <tr className="bg-gray-100 border-b border-gray-200">
-                                                                <th className="px-4 py-3 text-left font-semibold text-gray-800 border-r border-gray-200">Категория</th>
-                                                                <th className="px-4 py-3 text-center font-semibold text-gray-800 border-r border-gray-200">{mainDashboard.team_name}</th>
-                                                                <th className="px-4 py-3 text-center font-semibold text-gray-800">{opponentDashboard.team_name}</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {catRows.map(({ category, mainVal, oppVal, better }) => (
-                                                                <tr key={category} className="border-b border-gray-100 hover:bg-gray-50">
-                                                                    <td className="px-4 py-2.5 font-medium text-gray-800 border-r border-gray-100">{category}</td>
-                                                                    <td className={`px-4 py-2.5 text-center border-r border-gray-100 ${better === 'main' ? 'bg-green-100 font-semibold text-green-900' : ''}`}>
-                                                                        {formatTableVal(category, mainVal)}
-                                                                    </td>
-                                                                    <td className={`px-4 py-2.5 text-center ${better === 'opp' ? 'bg-green-100 font-semibold text-green-900' : ''}`}>
-                                                                        {formatTableVal(category, oppVal)}
-                                                                    </td>
+                                <div className="space-y-8">
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="text-lg font-semibold text-gray-800">Анализ по средним (прогноз)</h3>
+                                                    <button
+                                                        onClick={() => setShowMatchupAnalysisDetails(prev => !prev)}
+                                                        className="text-sm font-medium text-gray-600 hover:text-gray-800 flex items-center gap-2"
+                                                    >
+                                                        {showMatchupAnalysisDetails ? 'Скрыть анализ' : 'Показать анализ'}
+                                                        <span className={`transform transition-transform ${showMatchupAnalysisDetails ? 'rotate-180' : ''}`}>
+                                                            ▼
+                                                        </span>
+                                                    </button>
+                                                </div>
+
+                                                {showMatchupAnalysisDetails && (
+                                                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm overflow-x-auto">
+                                                        <table className="min-w-full border border-gray-200 text-base">
+                                                            <thead>
+                                                                <tr className="bg-gray-100 border-b border-gray-200">
+                                                                    <th className="px-4 py-3 text-left font-semibold text-gray-800 border-r border-gray-200">Категория</th>
+                                                                    <th className="px-4 py-3 text-center font-semibold text-gray-800 border-r border-gray-200">{mainDashboard.team_name}</th>
+                                                                    <th className="px-4 py-3 text-center font-semibold text-gray-800">{opponentDashboard.team_name}</th>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-
-                                                {/* Травмированные — две крупные карточки */}
-                                                <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
-                                                    <h3 className="text-xl font-bold text-gray-800 mb-2">Травмированные</h3>
-                                                    <p className="text-base text-gray-600 mb-6">
-                                                        Игроки с ограничениями или в IR у каждой команды.
-                                                    </p>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                        <div className="rounded-xl border-2 border-blue-100 bg-blue-50/30 p-6">
-                                                            <div className="text-base font-bold text-blue-800 mb-4">{mainDashboard.team_name}</div>
-                                                            {mainDashboard.injured_players?.length > 0 ? (
-                                                                <ul className="space-y-3">
-                                                                    {mainDashboard.injured_players.map((p, idx) => (
-                                                                        <li key={idx} className="flex justify-between items-center text-base">
-                                                                            <span className="font-medium text-gray-800">{p.name}</span>
-                                                                            <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${p.injury_status === 'OUT' ? 'bg-red-200 text-red-900' : p.injury_status === 'DAY_TO_DAY' ? 'bg-yellow-200 text-yellow-900' : 'bg-gray-200 text-gray-800'}`}>
-                                                                                {p.injury_status || (p.in_ir ? 'IR' : '—')}
-                                                                            </span>
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            ) : (
-                                                                <p className="text-base text-gray-600">Нет травмированных</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="rounded-xl border-2 border-gray-200 bg-gray-50/50 p-6">
-                                                            <div className="text-base font-bold text-gray-800 mb-4">{opponentDashboard.team_name}</div>
-                                                            {opponentDashboard.injured_players?.length > 0 ? (
-                                                                <ul className="space-y-3">
-                                                                    {opponentDashboard.injured_players.map((p, idx) => (
-                                                                        <li key={idx} className="flex justify-between items-center text-base">
-                                                                            <span className="font-medium text-gray-800">{p.name}</span>
-                                                                            <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${p.injury_status === 'OUT' ? 'bg-red-200 text-red-900' : p.injury_status === 'DAY_TO_DAY' ? 'bg-yellow-200 text-yellow-900' : 'bg-gray-200 text-gray-800'}`}>
-                                                                                {p.injury_status || (p.in_ir ? 'IR' : '—')}
-                                                                            </span>
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            ) : (
-                                                                <p className="text-base text-gray-600">Нет травмированных</p>
-                                                            )}
-                                                        </div>
+                                                            </thead>
+                                                            <tbody>
+                                                                {catRows.map(({ category, mainVal, oppVal, better }) => (
+                                                                    <tr key={category} className="border-b border-gray-100 hover:bg-gray-50">
+                                                                        <td className="px-4 py-2.5 font-medium text-gray-800 border-r border-gray-100">{category}</td>
+                                                                        <td className={`px-4 py-2.5 text-center border-r border-gray-100 ${better === 'main' ? 'bg-green-100 font-semibold text-green-900' : ''}`}>
+                                                                            {formatTableVal(category, mainVal)}
+                                                                        </td>
+                                                                        <td className={`px-4 py-2.5 text-center ${better === 'opp' ? 'bg-green-100 font-semibold text-green-900' : ''}`}>
+                                                                            {formatTableVal(category, oppVal)}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
                                                     </div>
-                                                </div>
+                                                )}
+                                            </div>
 
-                                                {/* Динамика формы (Z-Score) — две команды, как на дашборде, два столбца рядом */}
-                                                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                                                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Динамика формы (Z-Score)</h3>
-                                                    <div className="h-64 w-full">
-                                                        {(() => {
-                                                            const chartData = TREND_PERIODS_ORDER.map(periodKey => {
-                                                                const myZ = mainDashboard.trends?.[periodKey];
-                                                                const oppZ = opponentDashboard.trends?.[periodKey];
-                                                                return {
-                                                                    period: periodKey,
-                                                                    [mainDashboard.team_name]: typeof myZ === 'number' ? myZ : null,
-                                                                    [opponentDashboard.team_name]: typeof oppZ === 'number' ? oppZ : null,
-                                                                };
-                                                            }).filter(d => d[mainDashboard.team_name] != null || d[opponentDashboard.team_name] != null);
-                                                            const allVals = chartData.flatMap(d => [d[mainDashboard.team_name], d[opponentDashboard.team_name]].filter(Number.isFinite));
-                                                            const minV = allVals.length ? Math.min(...allVals) : 0;
-                                                            const maxV = allVals.length ? Math.max(...allVals) : 10;
-                                                            const domainMin = Math.floor(minV - Math.abs(minV) * 0.1);
-                                                            const domainMax = Math.ceil(maxV + Math.abs(maxV) * 0.1);
-                                                            return (
-                                                                <ResponsiveContainer width="100%" height="100%">
-                                                                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                                        <XAxis dataKey="period" />
-                                                                        <YAxis domain={[domainMin, domainMax]} />
-                                                                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} cursor={{ fill: 'transparent' }} />
-                                                                        <Legend />
-                                                                        <Bar dataKey={mainDashboard.team_name} fill="#3b82f6" radius={[4, 4, 0, 0]} name={mainDashboard.team_name} />
-                                                                        <Bar dataKey={opponentDashboard.team_name} fill="#6b7280" radius={[4, 4, 0, 0]} name={opponentDashboard.team_name} />
-                                                                    </BarChart>
-                                                                </ResponsiveContainer>
-                                                            );
-                                                        })()}
+                                            {/* Травмированные — две крупные карточки (всегда видны) */}
+                                            <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-2">Травмированные</h3>
+                                                <p className="text-base text-gray-600 mb-6">
+                                                    Игроки с ограничениями или в IR у каждой команды.
+                                                </p>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                    <div className="rounded-xl border-2 border-blue-100 bg-blue-50/30 p-6">
+                                                        <div className="text-base font-bold text-blue-800 mb-4">{mainDashboard.team_name}</div>
+                                                        {mainDashboard.injured_players?.length > 0 ? (
+                                                            <ul className="space-y-3">
+                                                                {mainDashboard.injured_players.map((p, idx) => (
+                                                                    <li key={idx} className="flex justify-between items-center text-base">
+                                                                        <span className="font-medium text-gray-800">{p.name}</span>
+                                                                        <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${p.injury_status === 'OUT' ? 'bg-red-200 text-red-900' : p.injury_status === 'DAY_TO_DAY' ? 'bg-yellow-200 text-yellow-900' : 'bg-gray-200 text-gray-800'}`}>
+                                                                            {p.injury_status || (p.in_ir ? 'IR' : '—')}
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        ) : (
+                                                            <p className="text-base text-gray-600">Нет травмированных</p>
+                                                        )}
                                                     </div>
-                                                    <p className="text-xs text-gray-500 mt-2 text-center">
-                                                        Суммарный Z-Score по периодам — две команды для сравнения
-                                                    </p>
+                                                    <div className="rounded-xl border-2 border-gray-200 bg-gray-50/50 p-6">
+                                                        <div className="text-base font-bold text-gray-800 mb-4">{opponentDashboard.team_name}</div>
+                                                        {opponentDashboard.injured_players?.length > 0 ? (
+                                                            <ul className="space-y-3">
+                                                                {opponentDashboard.injured_players.map((p, idx) => (
+                                                                    <li key={idx} className="flex justify-between items-center text-base">
+                                                                        <span className="font-medium text-gray-800">{p.name}</span>
+                                                                        <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${p.injury_status === 'OUT' ? 'bg-red-200 text-red-900' : p.injury_status === 'DAY_TO_DAY' ? 'bg-yellow-200 text-yellow-900' : 'bg-gray-200 text-gray-800'}`}>
+                                                                            {p.injury_status || (p.in_ir ? 'IR' : '—')}
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        ) : (
+                                                            <p className="text-base text-gray-600">Нет травмированных</p>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        );
-                                    })()}
-                                </>
+
+                                            {/* Динамика формы (Z-Score) — две команды, как на дашборде, два столбца рядом (всегда видна) */}
+                                            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                                                <h3 className="text-lg font-semibold text-gray-700 mb-4">Динамика формы (Z-Score)</h3>
+                                                <div className="h-64 w-full">
+                                                    {(() => {
+                                                        const chartData = TREND_PERIODS_ORDER.map(periodKey => {
+                                                            const myZ = mainDashboard.trends?.[periodKey];
+                                                            const oppZ = opponentDashboard.trends?.[periodKey];
+                                                            return {
+                                                                period: periodKey,
+                                                                [mainDashboard.team_name]: typeof myZ === 'number' ? myZ : null,
+                                                                [opponentDashboard.team_name]: typeof oppZ === 'number' ? oppZ : null,
+                                                            };
+                                                        }).filter(d => d[mainDashboard.team_name] != null || d[opponentDashboard.team_name] != null);
+                                                        const allVals = chartData.flatMap(d => [d[mainDashboard.team_name], d[opponentDashboard.team_name]].filter(Number.isFinite));
+                                                        const minV = allVals.length ? Math.min(...allVals) : 0;
+                                                        const maxV = allVals.length ? Math.max(...allVals) : 10;
+                                                        const domainMin = Math.floor(minV - Math.abs(minV) * 0.1);
+                                                        const domainMax = Math.ceil(maxV + Math.abs(maxV) * 0.1);
+                                                        return (
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                    <XAxis dataKey="period" />
+                                                                    <YAxis domain={[domainMin, domainMax]} />
+                                                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} cursor={{ fill: 'transparent' }} />
+                                                                    <Legend />
+                                                                    <Bar dataKey={mainDashboard.team_name} fill="#3b82f6" radius={[4, 4, 0, 0]} name={mainDashboard.team_name} />
+                                                                    <Bar dataKey={opponentDashboard.team_name} fill="#6b7280" radius={[4, 4, 0, 0]} name={opponentDashboard.team_name} />
+                                                                </BarChart>
+                                                            </ResponsiveContainer>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-2 text-center">
+                                                    Суммарный Z-Score по периодам — две команды для сравнения
+                                                </p>
+                                            </div>
+                                        </div>
                             )}
                         </>
                     )}
