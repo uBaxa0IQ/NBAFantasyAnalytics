@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import api from './api';
 import Dashboard from './components/Dashboard';
 import Analytics from './components/Analytics';
 import Simulation from './components/Simulation';
 import PlayersTab from './components/PlayersTab';
 import PlayerModal from './components/PlayerModal';
 import TradeAnalyzer from './components/TradeAnalyzer';
+import PlayoffAnalysis from './components/PlayoffAnalysis';
 import ComparisonBar from './components/ComparisonBar';
 import PlayerComparisonModal from './components/PlayerComparisonModal';
 import SettingsModal from './components/SettingsModal';
+import AdminPanel from './components/AdminPanel';
+import AdminPasswordModal from './components/AdminPasswordModal';
+import { useArrowSequence } from './hooks/useArrowSequence';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -15,9 +20,55 @@ function App() {
   const [comparisonPlayers, setComparisonPlayers] = useState([]);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [isPlayoff, setIsPlayoff] = useState(false);
+  
+  // Глобальные настройки лиги
+  const [leagueSettings, setLeagueSettings] = useState({
+    force_weighted_mode: false,
+    forced_period: '2026_weighted'
+  });
+
+  // Загрузка глобальных настроек с периодическим обновлением
+  useEffect(() => {
+    const fetchLeagueSettings = async () => {
+      try {
+        const response = await api.get('/settings');
+        if (response.data) {
+          setLeagueSettings(prevSettings => {
+            // Обновляем только если данные изменились, чтобы избежать лишних ререндеров
+            if (JSON.stringify(prevSettings) !== JSON.stringify(response.data)) {
+              return response.data;
+            }
+            return prevSettings;
+          });
+          
+          // Если включен принудительный режим, устанавливаем выбранный период
+          // Делаем это при каждом обновлении настроек, чтобы перехватить изменение "на лету"
+          if (response.data.force_weighted_mode) {
+            const forcedPeriod = response.data.forced_period || '2026_weighted';
+            setPeriod(current => current !== forcedPeriod ? forcedPeriod : current);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching league settings:', error);
+      }
+    };
+    
+    // Первичная загрузка
+    fetchLeagueSettings();
+
+    // Периодическое обновление каждые 30 секунд
+    const intervalId = setInterval(fetchLeagueSettings, 30000);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Общие настройки для всех вкладок с сохранением в localStorage
   const [period, setPeriod] = useState(() => {
+    // Если режим принудительный (мы пока не знаем при инициализации, поэтому проверим в useEffect)
+    // но пока берем из localStorage
     return localStorage.getItem('period') || '2026_total';
   });
 
@@ -26,9 +77,14 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [colorByTrend, setColorByTrend] = useState(() => {
+    const saved = localStorage.getItem('colorByTrend');
+    return saved === 'true';
+  });
+
   const [simulationMode, setSimulationMode] = useState(() => {
     const saved = localStorage.getItem('simulationMode');
-    return saved || 'all';
+    return saved || 'top_n';
   });
 
   const [mainTeam, setMainTeam] = useState(() => {
@@ -37,6 +93,10 @@ function App() {
 
   // Сохранение в localStorage при изменении
   useEffect(() => {
+    // Не сохраняем в localStorage если включен принудительный режим и период взвешенный
+    // Или сохраняем, но при загрузке он все равно перезапишется
+    // Но лучше сохранять, чтобы при отключении режима вернулся последний выбранный?
+    // Нет, лучше сохранять всегда.
     localStorage.setItem('period', period);
   }, [period]);
 
@@ -52,11 +112,37 @@ function App() {
     localStorage.setItem('mainTeam', mainTeam);
   }, [mainTeam]);
 
+  useEffect(() => {
+    localStorage.setItem('colorByTrend', colorByTrend.toString());
+  }, [colorByTrend]);
+
+  // Отслеживаем переход в плей-офф по данным с бэкенда
+  useEffect(() => {
+    const fetchPlayoffState = async () => {
+      try {
+        const response = await api.get('/playoff/state');
+        if (response.data) {
+          setIsPlayoff(!!response.data.is_playoff);
+        }
+      } catch (error) {
+        console.error('Error fetching playoff state:', error);
+      }
+    };
+
+    fetchPlayoffState();
+    const intervalId = setInterval(fetchPlayoffState, 60000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   const handleSaveSettings = (settings) => {
     setPeriod(settings.period);
     setPuntCategories(settings.puntCategories);
     setSimulationMode(settings.simulationMode);
     setMainTeam(settings.mainTeam);
+    if (settings.colorByTrend !== undefined) {
+      setColorByTrend(settings.colorByTrend);
+    }
   };
 
   const handlePlayerClick = (player) => {
@@ -89,6 +175,47 @@ function App() {
   const clearComparison = () => {
     setComparisonPlayers([]);
   };
+
+  // Секретная комбинация стрелочек: ↑ ↑ ↓ ↓ →
+  const arrowSequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowRight'];
+  
+  const handleArrowSequenceComplete = () => {
+    setShowAdminPasswordModal(true);
+  };
+
+  useArrowSequence(arrowSequence, handleArrowSequenceComplete);
+
+  const handleAdminLoginSuccess = () => {
+    setIsAdmin(true);
+    setActiveTab('admin');
+  };
+
+  const handleExitAdmin = () => {
+    setIsAdmin(false);
+    setActiveTab('dashboard');
+  };
+
+  // Если админ вошел, показываем админ панель
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-blue-900 text-white p-4 shadow-md">
+          <div className="container mx-auto max-w-7xl flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Админ-панель</h1>
+            <button
+              onClick={handleExitAdmin}
+              className="px-4 py-2 bg-white text-blue-900 rounded hover:bg-gray-100 font-medium"
+            >
+              Выйти
+            </button>
+          </div>
+        </header>
+        <main className="container mx-auto mt-4 p-4 max-w-7xl">
+          <AdminPanel />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -128,7 +255,7 @@ function App() {
                 className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === 'trade' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 onClick={() => setActiveTab('trade')}
               >
-                Анализ трейдов
+                {isPlayoff ? 'Плей-офф' : 'Анализ трейдов'}
               </button>
             </div>
             <button
@@ -153,6 +280,7 @@ function App() {
               puntCategories={puntCategories}
               mainTeam={mainTeam}
               simulationMode={simulationMode}
+              isPlayoff={isPlayoff}
             />
           )}
           {activeTab === 'analytics' && (
@@ -160,6 +288,7 @@ function App() {
               onPlayerClick={handlePlayerClick}
               period={period}
               puntCategories={puntCategories}
+              colorByTrend={colorByTrend}
             />
           )}
           {activeTab === 'simulation' && (
@@ -175,14 +304,24 @@ function App() {
               period={period}
               puntCategories={puntCategories}
               simulationMode={simulationMode}
+              colorByTrend={colorByTrend}
             />
           )}
           {activeTab === 'trade' && (
-            <TradeAnalyzer
-              period={period}
-              puntCategories={puntCategories}
-              simulationMode={simulationMode}
-            />
+            isPlayoff ? (
+              <PlayoffAnalysis
+                period={period}
+                mainTeam={mainTeam}
+                simulationMode={simulationMode}
+              />
+            ) : (
+              <TradeAnalyzer
+                period={period}
+                puntCategories={puntCategories}
+                simulationMode={simulationMode}
+                mainTeam={mainTeam}
+              />
+            )
           )}
         </div>
       </main>
@@ -221,8 +360,16 @@ function App() {
           period,
           puntCategories,
           simulationMode,
-          mainTeam
+          mainTeam,
+          colorByTrend
         }}
+        leagueSettings={leagueSettings}
+      />
+
+      <AdminPasswordModal
+        isOpen={showAdminPasswordModal}
+        onClose={() => setShowAdminPasswordModal(false)}
+        onSuccess={handleAdminLoginSuccess}
       />
     </div>
   );

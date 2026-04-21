@@ -30,7 +30,11 @@ def get_team_balance(
     exclude_ir = (simulation_mode == "exclude_ir")
     
     # Рассчитываем Z-scores для всей лиги
-    data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
+    # В режиме top_n берем всех (включая IR), чтобы потом выбрать лучших
+    if simulation_mode == "top_n":
+        data = calculate_z_scores(league_meta, period, exclude_ir=False)
+    else:
+        data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
     
     if not data['players']:
         return {"error": "No data found"}

@@ -2,27 +2,21 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import PlayerFiltersModal from './PlayerFiltersModal';
+import { getTrendColor } from '../utils/trendColors';
 
 const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
+const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = false }) => {
     const savedState = loadState(StorageKeys.FREE_AGENTS, {});
-    const [teams, setTeams] = useState([]);
-    const [myTeam, setMyTeam] = useState(savedState.myTeam || '');
     const [position, setPosition] = useState(savedState.position || '');
     const [data, setData] = useState(null);
-    const [myTeamData, setMyTeamData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [filterBetterThanMine, setFilterBetterThanMine] = useState(savedState.filterBetterThanMine || false);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
     const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
     const [filters, setFilters] = useState(savedState.filters || {});
-
-    useEffect(() => {
-        api.get('/teams').then(res => setTeams(res.data));
-    }, []);
+    const [playerTrends, setPlayerTrends] = useState({});
 
     useEffect(() => {
         setLoading(true);
@@ -38,23 +32,30 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
             });
     }, [period, position]);
 
+    // Загружаем тренды, если включена окраска по тренду
     useEffect(() => {
-        if (myTeam && filterBetterThanMine) {
-            api.get(`/analytics/${myTeam}?period=${period}`)
-                .then(res => setMyTeamData(res.data))
-                .catch(err => console.error(err));
+        if (colorByTrend) {
+            const puntCatsParam = puntCategories.length > 0 ? `&punt_categories=${puntCategories.join(',')}` : '';
+            api.get(`/all-players-trends?${puntCatsParam}`)
+                .then(res => {
+                    setPlayerTrends(res.data || {});
+                })
+                .catch(err => {
+                    console.error('Error fetching player trends:', err);
+                    setPlayerTrends({});
+                });
+        } else {
+            setPlayerTrends({});
         }
-    }, [myTeam, period, filterBetterThanMine]);
+    }, [colorByTrend, puntCategories]);
 
     // Сохранение состояния при изменении
     useEffect(() => {
         saveState(StorageKeys.FREE_AGENTS, {
-            myTeam,
             position,
-            filterBetterThanMine,
             filters
         });
-    }, [myTeam, position, filterBetterThanMine, filters]);
+    }, [position, filters]);
 
 
     const calculateTotalZ = (player) => {
@@ -65,12 +66,6 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
             }
         });
         return total;
-    };
-
-    const getMinZFromMyTeam = () => {
-        if (!myTeamData || !myTeamData.players || myTeamData.players.length === 0) return -Infinity;
-        const teamZScores = myTeamData.players.map(p => calculateTotalZ(p));
-        return Math.min(...teamZScores);
     };
 
     const handleSort = (column) => {
@@ -97,11 +92,6 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
 
         return sortDir === 'asc' ? valA - valB : valB - valA;
     }) : [];
-
-    if (filterBetterThanMine && myTeam) {
-        const minZ = getMinZFromMyTeam();
-        sortedPlayers = sortedPlayers.filter(p => calculateTotalZ(p) > minZ);
-    }
 
     // Фильтры по статистике
     if (Object.keys(filters).length > 0) {
@@ -152,32 +142,6 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
                     ))}
                 </select>
 
-                <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={filterBetterThanMine}
-                            onChange={(e) => {
-                                setFilterBetterThanMine(e.target.checked);
-                                if (!e.target.checked) setMyTeam('');
-                            }}
-                        />
-                        <span className="font-medium">Только лучше моих</span>
-                    </label>
-                    {filterBetterThanMine && (
-                        <select
-                            className="border p-2 rounded"
-                            value={myTeam}
-                            onChange={e => setMyTeam(e.target.value)}
-                        >
-                            <option value="">Выберите свою команду</option>
-                            {teams.map(t => (
-                                <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
-                            ))}
-                        </select>
-                    )}
-                </div>
-
                 <button
                     onClick={() => setIsFiltersModalOpen(true)}
                     className={`px-4 py-2 border rounded font-medium transition-colors ${
@@ -225,7 +189,13 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories }) => {
                                     <td className="p-2 border text-center text-sm">{player.position}</td>
                                     <td className="p-2 border text-center text-sm">{player.nba_team}</td>
                                     <td className="p-2 border font-bold text-center">
-                                        {calculateTotalZ(player).toFixed(2)}
+                                        {colorByTrend && playerTrends[player.name] !== undefined ? (
+                                            <span style={{ color: getTrendColor(playerTrends[player.name]) }}>
+                                                {calculateTotalZ(player).toFixed(2)}
+                                            </span>
+                                        ) : (
+                                            calculateTotalZ(player).toFixed(2)
+                                        )}
                                     </td>
                                     {CATEGORIES.map(cat => {
                                         const val = player.z_scores[cat] || 0;

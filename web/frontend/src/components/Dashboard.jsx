@@ -4,11 +4,12 @@ import MatchupDetails from './MatchupDetails';
 import MatchupHistory from './MatchupHistory';
 import CategoryRankings from './CategoryRankings';
 import PositionHistoryChart from './PositionHistoryChart';
+import TeamTrendsChart from './TeamTrendsChart';
 import SeasonProjectionModal from './SeasonProjectionModal';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
+const Dashboard = ({ period, puntCategories, mainTeam, simulationMode, isPlayoff }) => {
     const [teams, setTeams] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -108,7 +109,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
         saveState(StorageKeys.DASHBOARD, { compareTeamId });
     }, [compareTeamId]);
 
-    // Загрузка прогноза сезона (не блокирует основной дашборд)
+    // Загрузка прогноза сезона (не блокирует основной дашборд). В плей-офф данные показываем как «итоги регулярки».
     useEffect(() => {
         if (!mainTeam) {
             setSeasonProjection(null);
@@ -147,7 +148,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
                 setSeasonProjection(null);
                 setProjectionLoading(false);
             });
-    }, [mainTeam, period, simulationMode]);
+    }, [mainTeam, period, simulationMode, isPlayoff]);
 
     if (!mainTeam) {
         return (
@@ -185,8 +186,13 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
                             <h3 className="text-lg font-semibold text-gray-700 mb-4">Статистика команды</h3>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-600">Игроков в ростер:</span>
-                                    <span className="font-semibold text-lg">{dashboardData.roster_size}</span>
+                                    <span className="text-gray-600">Здоровых игроков:</span>
+                                    <span className="font-semibold text-lg">
+                                        {dashboardData.healthy_players_count !== undefined 
+                                            ? `${dashboardData.healthy_players_count} / ${dashboardData.roster_size}`
+                                            : dashboardData.roster_size
+                                        }
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600">Total Z-Score:</span>
@@ -194,17 +200,21 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
                                 </div>
                                 {projectionLoading ? (
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Прогноз места:</span>
+                                        <span className="text-gray-600">{isPlayoff ? 'Место по итогам регулярки:' : 'Прогноз места:'}</span>
                                         <span className="text-sm text-gray-500">Загрузка...</span>
                                     </div>
-                                ) : seasonProjection && !seasonProjection.error ? (
+                                ) : (seasonProjection && !seasonProjection.error) || (isPlayoff && dashboardData?.league_position) ? (
                                     <div 
                                         className="flex justify-between items-center cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors"
-                                        onClick={() => setShowProjectionModal(true)}
+                                        onClick={() => (seasonProjection && !seasonProjection.error) && setShowProjectionModal(true)}
                                     >
-                                        <span className="text-gray-600">Прогноз места:</span>
+                                        <span className="text-gray-600">{isPlayoff ? 'Место по итогам регулярки:' : 'Прогноз места:'}</span>
                                         <span className="font-semibold text-lg text-blue-600">
-                                            {seasonProjection.projected_position} / {seasonProjection.total_teams}
+                                            {isPlayoff && dashboardData?.league_position != null
+                                                ? `${dashboardData.league_position} / ${teams.length || 14}`
+                                                : seasonProjection
+                                                    ? `${seasonProjection.projected_position} / ${seasonProjection.total_teams}`
+                                                    : '—'}
                                         </span>
                                     </div>
                                 ) : null}
@@ -284,10 +294,18 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
                         />
                     )}
 
+                    {/* Trends Chart */}
+                    {dashboardData.trends && (
+                        <TeamTrendsChart trends={dashboardData.trends} />
+                    )}
+
                     {/* Position History Chart */}
                     {mainTeam && (
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-4">Изменение позиции в лиге</h3>
+                            <h3 className={`text-lg font-semibold text-gray-700 ${isPlayoff ? 'mb-1' : 'mb-4'}`}>Изменение позиции в лиге</h3>
+                            {isPlayoff && (
+                                <p className="text-sm text-gray-500 mb-4">За регулярный сезон (недели 1–16)</p>
+                            )}
                             <PositionHistoryChart
                                 teamId={mainTeam}
                                 period={period}
@@ -304,6 +322,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode }) => {
                 <SeasonProjectionModal
                     projection={seasonProjection}
                     onClose={() => setShowProjectionModal(false)}
+                    isPlayoff={isPlayoff}
                 />
             )}
         </div>

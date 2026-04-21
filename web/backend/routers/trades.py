@@ -1,7 +1,7 @@
 """
 Роутер для анализа трейдов.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from dependencies import get_league_meta
 from models import TradeAnalysisRequest, MultiTeamTradeRequest
 from core.z_score import calculate_z_scores
@@ -14,7 +14,9 @@ from utils.calculations import (
     calculate_category_rankings,
     select_top_n_players
 )
+from admin_db import log_trade
 import math
+import json
 
 router = APIRouter(prefix="/api", tags=["trades"])
 
@@ -22,6 +24,7 @@ router = APIRouter(prefix="/api", tags=["trades"])
 @router.post("/trade-analysis")
 def analyze_trade(
     request: TradeAnalysisRequest,
+    http_request: Request,
     league_meta=Depends(get_league_meta)
 ):
     """Анализирует трейд между двумя командами."""
@@ -98,9 +101,9 @@ def analyze_trade(
     their_after_cats = calculate_category_z(their_after_players, request.punt_categories)
     their_after_raw = calculate_raw_stats(their_after_players, request.punt_categories)
     
-    # Расчет для режима "Только трейд" (используем тот же состав, что и в симуляции до трейда)
-    trade_players_given = [p for p in my_team_players if p['name'] in request.i_give]
-    trade_players_received = [p for p in their_team_players if p['name'] in request.i_receive]
+    # Расчет для режима "Только трейд" (сравниваем игроков в вакууме, без учета simulation_mode)
+    trade_players_given = [p for p in my_team_players_full if p['name'] in request.i_give]
+    trade_players_received = [p for p in their_team_players_full if p['name'] in request.i_receive]
     
     # Моя команда: до = отдаваемые, после = получаемые
     my_trade_before_z = calculate_total_z(trade_players_given, request.punt_categories)
@@ -323,6 +326,60 @@ def analyze_trade(
                     'delta': after_rank - before_rank
                 }
     
+    # Получаем IP адрес клиента
+    ip_address = None
+    if http_request:
+        # Пробуем получить IP из заголовков (для прокси/nginx)
+        ip_address = http_request.headers.get("X-Forwarded-For", http_request.headers.get("X-Real-IP"))
+        if not ip_address:
+            ip_address = http_request.client.host if http_request.client else None
+    
+    # Определяем лучших игроков трейда для каждой команды
+    top_players = {}
+    
+    # Для моей команды - лучшие из отдаваемых и получаемых
+    my_trade_players = trade_players_given + trade_players_received
+    if my_trade_players:
+        my_trade_players_sorted = sorted(my_trade_players, key=lambda p: calculate_total_z([p], request.punt_categories), reverse=True)
+        top_players[request.my_team_id] = [p['name'] for p in my_trade_players_sorted[:5]]
+    
+    # Для их команды - те же игроки, но с другой точки зрения
+    if my_trade_players:
+        their_trade_players_sorted = sorted(my_trade_players, key=lambda p: calculate_total_z([p], request.punt_categories), reverse=True)
+        top_players[request.their_team_id] = [p['name'] for p in their_trade_players_sorted[:5]]
+    
+    # Логируем трейд
+    try:
+        log_trade(
+            trade_type='two-team',
+            teams_involved=[request.my_team_id, request.their_team_id],
+            team_names=[my_team_name, their_team_name],
+            players_involved={
+                'give': request.i_give,
+                'receive': request.i_receive
+            },
+            top_players=top_players,
+            scope_mode=request.scope_mode,
+            period=request.period,
+            result_delta=round(my_after_z - my_before_z, 2),
+            full_result={
+                'my_team': {
+                    'before_z': round(my_before_z, 2),
+                    'after_z': round(my_after_z, 2),
+                    'delta': round(my_after_z - my_before_z, 2)
+                },
+                'their_team': {
+                    'before_z': round(their_before_z, 2),
+                    'after_z': round(their_after_z, 2),
+                    'delta': round(their_after_z - their_before_z, 2)
+                }
+            },
+            ip_address=ip_address
+        )
+    except Exception as e:
+        # Не прерываем выполнение, если логирование не удалось
+        print(f"Error logging trade: {e}")
+    
     return {
         "my_team": {
             "name": my_team_name,
@@ -367,6 +424,7 @@ def analyze_trade(
 @router.post("/multi-team-trade-analysis")
 def analyze_multi_team_trade(
     request: MultiTeamTradeRequest,
+    http_request: Request,
     league_meta=Depends(get_league_meta)
 ):
     """
@@ -487,9 +545,9 @@ def analyze_multi_team_trade(
         after_cats = calculate_category_z(team_players_after, request.punt_categories)
         after_raw = calculate_raw_stats(team_players_after, request.punt_categories)
         
-        # Режим "только трейд": сравниваем только пакет отдаваемых и получаемых игроков (с учетом top_n/custom ДО трейда)
-        trade_players_given = [p for p in team_players_before if p['name'] in trade.give]
-        trade_players_received = [p for p in select_roster(players_received, team_id, allow_custom=True) if p['name'] in trade.receive]
+        # Режим "только трейд": сравниваем игроков в вакууме, без учета simulation_mode
+        trade_players_given = [p for p in team_players_before_full if p['name'] in trade.give]
+        trade_players_received = [p for p in players_received if p['name'] in trade.receive]
         
         trade_before_z = calculate_total_z(trade_players_given, request.punt_categories)
         trade_after_z = calculate_total_z(trade_players_received, request.punt_categories)
@@ -643,6 +701,52 @@ def analyze_multi_team_trade(
         
         category_rankings[team_id] = team_category_rankings
     
+    # Получаем IP адрес клиента
+    ip_address = None
+    if http_request:
+        ip_address = http_request.headers.get("X-Forwarded-For", http_request.headers.get("X-Real-IP"))
+        if not ip_address:
+            ip_address = http_request.client.host if http_request.client else None
+    
+    # Определяем лучших игроков трейда для каждой команды
+    top_players = {}
+    for trade in request.trades:
+        team_id = trade.team_id
+        all_trade_players = []
+        # Собираем всех игроков из трейда для этой команды
+        for p in data['players']:
+            if p['name'] in trade.give or p['name'] in trade.receive:
+                all_trade_players.append(p)
+        if all_trade_players:
+            sorted_players = sorted(all_trade_players, key=lambda p: calculate_total_z([p], request.punt_categories), reverse=True)
+            top_players[team_id] = [p['name'] for p in sorted_players[:5]]
+    
+    # Формируем данные для логирования
+    teams_involved = [t.team_id for t in request.trades]
+    team_names_list = [team_names.get(tid, f"Team {tid}") for tid in teams_involved]
+    players_involved_list = [{'team_id': t.team_id, 'give': t.give, 'receive': t.receive} for t in request.trades]
+    
+    # Логируем трейд
+    try:
+        log_trade(
+            trade_type='multi-team',
+            teams_involved=teams_involved,
+            team_names=team_names_list,
+            players_involved=players_involved_list,
+            top_players=top_players,
+            scope_mode=None,  # Для multi-team scope_mode не используется
+            period=request.period,
+            result_delta=None,  # Для multi-team нет единого delta
+            full_result={
+                'teams_count': len(teams_results),
+                'teams': [{'team_id': t['team_id'], 'delta': t.get('delta', 0)} for t in teams_results]
+            },
+            ip_address=ip_address
+        )
+    except Exception as e:
+        # Не прерываем выполнение, если логирование не удалось
+        print(f"Error logging trade: {e}")
+    
     return {
         "teams": teams_results,
         "simulation_ranks": simulation_ranks,
@@ -652,4 +756,3 @@ def analyze_multi_team_trade(
             "errors": []
         }
     }
-

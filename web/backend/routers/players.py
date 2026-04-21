@@ -1,7 +1,8 @@
 """
 Роутер для работы с игроками.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from typing import Optional
 from dependencies import get_league_meta
 from core.z_score import calculate_z_scores, COUNTING_CATEGORIES, PERCENTAGE_CATEGORIES
 from core.config import CATEGORIES
@@ -342,6 +343,67 @@ def get_player_trends(
         'player_name': player_name,
         'trends': trends
     }
+
+
+@router.get("/all-players-trends")
+def get_all_players_trends(
+    punt_categories: Optional[str] = Query(None, description="Категории для исключения через запятую"),
+    league_meta=Depends(get_league_meta)
+):
+    """
+    Получает тренды всех игроков (15 дней vs сезон) для окраски Total Z-Score.
+    Возвращает словарь {player_name: trend_value}, где trend_value = total_z_15_days - total_z_season
+    """
+    from core.config import CATEGORIES
+    from core.z_score import calculate_z_scores
+    
+    # Парсим пант-категории
+    punt_cats = []
+    if punt_categories:
+        punt_cats = [cat.strip() for cat in punt_categories.split(',') if cat.strip()]
+    
+    # Получаем Z-scores за 15 дней и за сезон
+    z_data_15 = calculate_z_scores(league_meta, '2026_last_15', exclude_ir=False)
+    z_data_season = calculate_z_scores(league_meta, '2026_total', exclude_ir=False)
+    
+    # Создаем словари для быстрого поиска
+    players_15 = {p['name']: p for p in z_data_15.get('players', [])}
+    players_season = {p['name']: p for p in z_data_season.get('players', [])}
+    
+    # Рассчитываем тренды для всех игроков
+    trends = {}
+    
+    # Получаем всех уникальных игроков
+    all_player_names = set(players_15.keys()) | set(players_season.keys())
+    
+    for player_name in all_player_names:
+        player_15 = players_15.get(player_name)
+        player_season = players_season.get(player_name)
+        
+        # Рассчитываем total Z-score за 15 дней (с учетом пант-категорий)
+        total_z_15 = 0
+        if player_15 and player_15.get('z_scores'):
+            for cat in CATEGORIES:
+                if cat not in punt_cats:
+                    z_val = player_15['z_scores'].get(cat, 0)
+                    if isinstance(z_val, (int, float)) and math.isfinite(z_val):
+                        total_z_15 += z_val
+        
+        # Рассчитываем total Z-score за сезон (с учетом пант-категорий)
+        total_z_season = 0
+        if player_season and player_season.get('z_scores'):
+            for cat in CATEGORIES:
+                if cat not in punt_cats:
+                    z_val = player_season['z_scores'].get(cat, 0)
+                    if isinstance(z_val, (int, float)) and math.isfinite(z_val):
+                        total_z_season += z_val
+        
+        # Тренд = разница (15 дней - сезон)
+        # Положительное значение = улучшение, отрицательное = ухудшение
+        trend = total_z_15 - total_z_season
+        trends[player_name] = round(trend, 2)
+    
+    return trends
 
 
 @router.get("/player/{player_name}/balance")

@@ -5,6 +5,7 @@ import sys
 import os
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 # Добавляем путь к текущей директории для импорта локальных модулей
 backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +17,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, 'core'))
 
 from config import get_cors_origins
-from routers import teams, analytics, simulation, players, trades, dashboard, balance, lineup, prompt
+from routers import teams, analytics, simulation, players, trades, dashboard, balance, lineup, prompt, admin, settings, playoff
 from dependencies import get_league_meta
 
 # Настройка логирования
@@ -41,20 +42,17 @@ async def background_refresh_task():
             if not is_refreshing:
                 is_refreshing = True
                 logger.info("Начало автоматического обновления данных лиги...")
-                
-                # Получаем экземпляр LeagueMetadata
-                league_meta = get_league_meta()
-                
-                # Обновляем данные
-                success = league_meta.refresh_league()
-                
-                if success:
-                    last_refresh = league_meta.get_last_refresh_time()
-                    logger.info(f"Данные лиги успешно обновлены. Время: {last_refresh}")
-                else:
-                    logger.warning("Ошибка при автоматическом обновлении данных лиги")
-                
-                is_refreshing = False
+                try:
+                    # Сбрасываем кэш и создаём новый экземпляр — так current_week и плей-офф
+                    # всегда берутся из свежих данных ESPN, а не из устаревшего кэша.
+                    get_league_meta.cache_clear()
+                    league_meta = get_league_meta()
+                    league_meta.last_refresh_time = datetime.now(timezone.utc)
+                    logger.info(f"Данные лиги успешно обновлены. Время: {league_meta.last_refresh_time}")
+                except Exception as e:
+                    logger.warning(f"Ошибка при обновлении данных лиги: {e}")
+                finally:
+                    is_refreshing = False
             else:
                 logger.warning("Пропуск обновления: предыдущее обновление еще выполняется")
         except Exception as e:
@@ -104,6 +102,9 @@ app.include_router(dashboard.router)
 app.include_router(balance.router)
 app.include_router(lineup.router)
 app.include_router(prompt.router)
+app.include_router(admin.router)
+app.include_router(settings.router)
+app.include_router(playoff.router)
 
 
 @app.get("/")

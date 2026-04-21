@@ -138,3 +138,9 @@ public
 tmp/
 temp/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+web/backend/admin.db
+

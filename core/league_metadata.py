@@ -173,7 +173,7 @@ class LeagueMetadata:
         
         return team.roster if hasattr(team, 'roster') else []
     
-    def get_player_stats(self, player, period: str, stats_type: str = 'total') -> Optional[Dict[str, Any]]:
+    def get_player_stats(self, player, period: str, stats_type: str = 'total', custom_weighted_coeffs: Optional[Dict[str, float]] = None) -> Optional[Dict[str, Any]]:
         """
         Получает всю статистику игрока за указанный период из API (без фильтрации).
         
@@ -185,12 +185,120 @@ class LeagueMetadata:
                    - '2026_last_15' - за последние 15 дней
                    - '2026_last_7' - за последние 7 дней
                    - '2026_projected' - прогнозируемая
+                   - '2026_weighted' - взвешенная (универсальная)
                    - номер недели (например, '35') - за конкретную неделю
             stats_type: Тип статистики - 'total' (общая) или 'avg' (средняя за игру)
+            custom_weighted_coeffs: Кастомные коэффициенты для взвешенного периода (опционально)
             
         Returns:
             Словарь со всей статистикой из API или None если данные недоступны
         """
+        # Обработка взвешенного периода
+        if period == '2026_weighted':
+            # Используем кастомные коэффициенты, если переданы, иначе загружаем из файла или config
+            if custom_weighted_coeffs:
+                weighted_coeffs = custom_weighted_coeffs
+            else:
+                # Пытаемся загрузить из JSON файла (если есть обновления через админ-панель)
+                try:
+                    from pathlib import Path
+                    import json
+                    # Путь к файлу: e:\NBAFantasyAnalytics\web\core\weighted_coefficients.json
+                    # __file__ = e:\NBAFantasyAnalytics\core\league_metadata.py
+                    # .parent = core
+                    # .parent.parent = root
+                    coeffs_file = Path(__file__).parent.parent / "web" / "core" / "weighted_coefficients.json"
+                    if coeffs_file.exists():
+                        with open(coeffs_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            weighted_coeffs = {
+                                '2026_total': float(data.get('total', 0.40)),
+                                '2026_last_30': float(data.get('last_30', 0.30)),
+                                '2026_last_15': float(data.get('last_15', 0.20)),
+                                '2026_last_7': float(data.get('last_7', 0.10))
+                            }
+                    else:
+                        from .config import WEIGHTED_PERIOD_COEFFS
+                        weighted_coeffs = WEIGHTED_PERIOD_COEFFS
+                except:
+                    # Fallback на config
+                    from .config import WEIGHTED_PERIOD_COEFFS
+                    weighted_coeffs = WEIGHTED_PERIOD_COEFFS
+            
+            # Собираем статистику за все базовые периоды
+            stats_by_period = {}
+            for p, weight in weighted_coeffs.items():
+                s = self.get_player_stats(player, p, stats_type)
+                if s:
+                    stats_by_period[p] = s
+            
+            if not stats_by_period:
+                return None
+            
+            # Инициализируем результирующий словарь
+            weighted_stats = {}
+            
+            # Список всех возможных ключей статистики из первого доступного периода
+            all_keys = list(next(iter(stats_by_period.values())).keys())
+            
+            # Для процентных категорий нужны вспомогательные переменные
+            # FG%: FGM/FGA, FT%: FTM/FTA, 3PT%: 3PM/3PA, A/TO: AST/TO
+            percentage_components = {
+                'FG%': ('FGM', 'FGA'),
+                'FT%': ('FTM', 'FTA'),
+                '3PT%': ('3PM', '3PA'),
+                'A/TO': ('AST', 'TO')
+            }
+            
+            # Промежуточные суммы для процентных категорий (числитель и знаменатель)
+            pct_sums = {
+                cat: {'num': 0.0, 'denom': 0.0} 
+                for cat in percentage_components
+            }
+            
+            # Проходим по всем ключам
+            for key in all_keys:
+                if key in percentage_components:
+                    continue # Процентные рассчитываем отдельно в конце
+                
+                weighted_sum = 0.0
+                total_weight = 0.0
+                
+                for p, weight in weighted_coeffs.items():
+                    if p in stats_by_period and key in stats_by_period[p]:
+                        val = stats_by_period[p][key]
+                        if isinstance(val, (int, float)):
+                            weighted_sum += val * weight
+                            total_weight += weight
+                
+                # Нормализуем, если есть данные не за все периоды (хотя веса фиксированы)
+                # Но лучше просто брать взвешенную сумму, считая отсутствующие данные за 0
+                weighted_stats[key] = weighted_sum
+                
+                # Собираем данные для процентных категорий
+                for pct_cat, (num_key, denom_key) in percentage_components.items():
+                    if key == num_key:
+                        for p, weight in weighted_coeffs.items():
+                            if p in stats_by_period:
+                                val = stats_by_period[p].get(key, 0.0)
+                                if isinstance(val, (int, float)):
+                                    pct_sums[pct_cat]['num'] += val * weight
+                    elif key == denom_key:
+                        for p, weight in weighted_coeffs.items():
+                            if p in stats_by_period:
+                                val = stats_by_period[p].get(key, 0.0)
+                                if isinstance(val, (int, float)):
+                                    pct_sums[pct_cat]['denom'] += val * weight
+
+            # Рассчитываем проценты
+            for pct_cat, sums in pct_sums.items():
+                if sums['denom'] > 0:
+                    weighted_stats[pct_cat] = sums['num'] / sums['denom']
+                else:
+                    weighted_stats[pct_cat] = 0.0
+            
+            return weighted_stats
+
         if not hasattr(player, 'stats') or not player.stats:
             return None
         
@@ -246,7 +354,7 @@ class LeagueMetadata:
         
         return filtered
     
-    def get_all_players_stats(self, period: str, stats_type: str = 'total', exclude_ir: bool = False) -> List[Dict[str, Any]]:
+    def get_all_players_stats(self, period: str, stats_type: str = 'total', exclude_ir: bool = False, custom_weighted_coeffs: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
         """
         Получает статистику всех игроков всех команд за указанный период.
         
@@ -257,9 +365,11 @@ class LeagueMetadata:
                    - '2026_last_15' - за последние 15 дней
                    - '2026_last_7' - за последние 7 дней
                    - '2026_projected' - прогнозируемая
+                   - '2026_weighted' - взвешенная (универсальная)
                    - номер недели (например, '35') - за конкретную неделю
             stats_type: Тип статистики - 'total' (общая) или 'avg' (средняя за игру)
             exclude_ir: Если True, исключает игроков в IR слоте из результатов
+            custom_weighted_coeffs: Кастомные коэффициенты для взвешенного периода (опционально)
             
         Returns:
             Список словарей с информацией об игроках:
@@ -287,7 +397,7 @@ class LeagueMetadata:
                     if lineup_slot == 'IR' or slot_position == 'IR':
                         continue
                 
-                stats = self.get_player_stats(player, period, stats_type)
+                stats = self.get_player_stats(player, period, stats_type, custom_weighted_coeffs=custom_weighted_coeffs)
                 
                 if stats:
                     player_data = {

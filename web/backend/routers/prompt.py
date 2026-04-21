@@ -31,6 +31,360 @@ def clean_for_json(obj):
         return obj
 
 
+def format_value(value):
+    """Форматирует значение для Markdown таблицы."""
+    if isinstance(value, float):
+        if math.isinf(value) or math.isnan(value):
+            return "0.0"
+        formatted = f"{value:.2f}".rstrip('0').rstrip('.')
+        return formatted if formatted else "0.0"
+    elif isinstance(value, int):
+        return str(value)
+    elif value is None:
+        return "N/A"
+    elif isinstance(value, str):
+        return value
+    else:
+        return str(value)
+
+
+def generate_markdown_table(headers, rows):
+    """Генерирует Markdown таблицу."""
+    if not rows:
+        return ""
+    
+    # Формируем заголовки
+    header_row = "| " + " | ".join(headers) + " |"
+    separator = "| " + " | ".join(["---"] * len(headers)) + " |"
+    
+    # Формируем строки данных
+    data_rows = []
+    for row in rows:
+        formatted_row = [format_value(cell) for cell in row]
+        data_rows.append("| " + " | ".join(formatted_row) + " |")
+    
+    return "\n".join([header_row, separator] + data_rows)
+
+
+def generate_markdown_prompt(full_data: dict) -> str:
+    """Генерирует промпт в формате Markdown с таблицами."""
+    md_lines = []
+    
+    # 1. League Info
+    li = full_data.get("li", {})
+    md_lines.append("## League Information")
+    md_lines.append(f"- **League ID**: {li.get('lid', 'N/A')}")
+    md_lines.append(f"- **Season**: {li.get('y', 'N/A')}")
+    md_lines.append(f"- **Current Week**: {li.get('cw', 'N/A')}")
+    md_lines.append(f"- **Total Teams**: {li.get('tt', 'N/A')}")
+    md_lines.append(f"- **Categories**: {', '.join(li.get('cats', []))}")
+    if li.get('lrt'):
+        md_lines.append(f"- **Last Refresh**: {li.get('lrt')}")
+    md_lines.append("")
+    
+    # 2. Settings
+    s = full_data.get("s", {})
+    md_lines.append("## Settings")
+    md_lines.append(f"- **Period**: {s.get('p', 'N/A')}")
+    md_lines.append(f"- **Simulation Mode**: {s.get('sm', 'N/A')}")
+    md_lines.append(f"- **Top N Players**: {s.get('tn', 'N/A')}")
+    if s.get('mt'):
+        md_lines.append(f"- **Main Team**: {s.get('mtn', 'N/A')} (ID: {s.get('mt')})")
+    if s.get('pc'):
+        md_lines.append(f"- **Punt Categories**: {', '.join(s.get('pc', []))}")
+    if s.get('ctp'):
+        md_lines.append(f"- **Custom Team Players**: {', '.join(s.get('ctp', []))}")
+    md_lines.append("")
+    
+    # 3. Teams
+    teams = full_data.get("t", [])
+    if teams:
+        md_lines.append("## Teams")
+        headers = ["ID", "Name", "Wins", "Losses", "Ties", "Win Rate", "Position", "Roster Size", "Healthy Players", "Current Matchup"]
+        rows = []
+        for team in teams:
+            matchup = team.get('m', {})
+            matchup_str = f"{matchup.get('on', 'N/A')}" if matchup else "N/A"
+            rows.append([
+                team.get('id', 'N/A'),
+                team.get('n', 'N/A'),
+                team.get('w', 0),
+                team.get('l', 0),
+                team.get('t', 0),
+                team.get('wr', 0.0),
+                team.get('pos', 'N/A'),
+                team.get('rs', 0),
+                team.get('hp', 0),
+                matchup_str
+            ])
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append("")
+        
+    # 3.1. Season Projection (Playoff Chances)
+    sp = full_data.get("sp", {})
+    if sp and sp.get("fs"):
+        md_lines.append("## Season Projection (Playoff Top-8)")
+        md_lines.append("Forecast based on schedule and team strength.")
+        
+        headers = ["Pos", "Team Name", "Projected Record", "Win Rate", "Playoff Status"]
+        rows = []
+        for team in sp["fs"]:
+            pos = team.get('position', 0)
+            status = "UPPER BRACKET (Top 8)" if pos <= 8 else "Consolation Bracket"
+            record = f"{team.get('wins', 0)}-{team.get('losses', 0)}-{team.get('ties', 0)}"
+            rows.append([
+                pos,
+                team.get('team_name', 'N/A'),
+                record,
+                f"{team.get('win_rate', 0)}%",
+                status
+            ])
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append("")
+    
+    # 4. Players
+    players = full_data.get("p", [])
+    if players:
+        md_lines.append("## Players")
+        cats = li.get('cats', CATEGORIES)
+        headers = ["Name", "Pos", "NBA Team", "Fantasy Team", "Team ID"] + cats + ["Total Z", "Total Z Punt", "GP", "Injured", "IR"]
+        rows = []
+        for player in players[:200]:  # Ограничиваем для читаемости
+            stats = player.get('s', [])
+            z_scores = player.get('z', [])
+            
+            # Если compact формат - это массивы, иначе словари
+            if isinstance(stats, list):
+                stats_row = stats[:len(cats)]
+            else:
+                stats_row = [stats.get(cat, 0.0) for cat in cats]
+            
+            if isinstance(z_scores, list):
+                z_row = z_scores[:len(cats)]
+            else:
+                z_row = [z_scores.get(cat, 0.0) for cat in cats]
+            
+            # Объединяем stats и z_scores в одну строку для компактности
+            combined_stats = []
+            for i, cat in enumerate(cats):
+                stat_val = stats_row[i] if i < len(stats_row) else 0.0
+                z_val = z_row[i] if i < len(z_row) else 0.0
+                # Обрабатываем случаи, когда значения могут быть не числами
+                try:
+                    stat_val = float(stat_val) if stat_val is not None else 0.0
+                    z_val = float(z_val) if z_val is not None else 0.0
+                    if math.isinf(stat_val) or math.isnan(stat_val):
+                        stat_val = 0.0
+                    if math.isinf(z_val) or math.isnan(z_val):
+                        z_val = 0.0
+                    combined_stats.append(f"{stat_val:.2f} (z:{z_val:.2f})")
+                except (ValueError, TypeError):
+                    combined_stats.append("0.0 (z:0.0)")
+            
+            rows.append([
+                player.get('n', 'N/A'),
+                player.get('pos', 'N/A'),
+                player.get('nba', 'N/A'),
+                player.get('t', 'N/A'),
+                player.get('tid', 'N/A'),
+            ] + combined_stats + [
+                player.get('tz', 0.0),
+                player.get('tzp', 0.0),
+                player.get('gp', 0),
+                "Yes" if player.get('inj', False) else "No",
+                "Yes" if player.get('ir', False) else "No"
+            ])
+        
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append(f"\n*Showing {min(len(players), 200)} of {len(players)} players*")
+        md_lines.append("")
+    
+    # 5. Free Agents
+    fa = full_data.get("fa", [])
+    if fa:
+        md_lines.append("## Free Agents (Top 50)")
+        cats = li.get('cats', CATEGORIES)
+        headers = ["Name", "Pos", "NBA Team"] + cats + ["Total Z", "Total Z Punt", "GP"]
+        rows = []
+        for agent in fa[:50]:
+            stats = agent.get('s', [])
+            z_scores = agent.get('z', [])
+            
+            if isinstance(stats, list):
+                stats_row = stats[:len(cats)]
+            else:
+                stats_row = [stats.get(cat, 0.0) for cat in cats]
+            
+            if isinstance(z_scores, list):
+                z_row = z_scores[:len(cats)]
+            else:
+                z_row = [z_scores.get(cat, 0.0) for cat in cats]
+            
+            combined_stats = []
+            for i, cat in enumerate(cats):
+                stat_val = stats_row[i] if i < len(stats_row) else 0.0
+                z_val = z_row[i] if i < len(z_row) else 0.0
+                # Обрабатываем случаи, когда значения могут быть не числами
+                try:
+                    stat_val = float(stat_val) if stat_val is not None else 0.0
+                    z_val = float(z_val) if z_val is not None else 0.0
+                    if math.isinf(stat_val) or math.isnan(stat_val):
+                        stat_val = 0.0
+                    if math.isinf(z_val) or math.isnan(z_val):
+                        z_val = 0.0
+                    combined_stats.append(f"{stat_val:.2f} (z:{z_val:.2f})")
+                except (ValueError, TypeError):
+                    combined_stats.append("0.0 (z:0.0)")
+            
+            rows.append([
+                agent.get('n', 'N/A'),
+                agent.get('pos', 'N/A'),
+                agent.get('nba', 'N/A'),
+            ] + combined_stats + [
+                agent.get('tz', 0.0),
+                agent.get('tzp', 0.0),
+                agent.get('gp', 0)
+            ])
+        
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append("")
+    
+        # 6. Simulations
+    sim = full_data.get("sim", {})
+    if sim:
+        md_lines.append("## Simulations")
+        
+        # Функция для получения названия периода
+        def get_period_name(period_key):
+            period_names = {
+                '2026_total': 'Total Season',
+                '2026_last_30': 'Last 30 Days',
+                '2026_last_15': 'Last 15 Days',
+                '2026_last_7': 'Last 7 Days',
+                '2026_weighted': 'Weighted (Universal)'
+            }
+            return period_names.get(period_key, period_key)
+        
+        # Симуляции по avg
+        sim_avg_selected = sim.get('by_avg_selected', {})
+        sim_z_selected = sim.get('by_z_score_selected', {})
+        
+        # Выбранный период (основной)
+        if sim_avg_selected and sim_avg_selected.get('r'):
+            period_name = get_period_name(sim_avg_selected.get('p', ''))
+            md_lines.append(f"### Simulation by Average Stats - {period_name}")
+            headers = ["Pos", "Team ID", "Team Name", "Wins", "Losses", "Ties", "Win Rate"]
+            rows = []
+            for result in sim_avg_selected['r']:
+                rows.append([
+                    result.get('pos', 'N/A'),
+                    result.get('id', 'N/A'),
+                    result.get('n', 'N/A'),
+                    result.get('w', 0),
+                    result.get('l', 0),
+                    result.get('t', 0),
+                    result.get('wr', 0.0)
+                ])
+            md_lines.append(generate_markdown_table(headers, rows))
+            md_lines.append("")
+        
+        # Выбранный период по Z-Score
+        if sim_z_selected and sim_z_selected.get('r'):
+            period_name = get_period_name(sim_z_selected.get('p', ''))
+            md_lines.append(f"### Simulation by Z-Score - {period_name}")
+            headers = ["Pos", "Team ID", "Team Name", "Wins", "Losses", "Ties", "Win Rate"]
+            rows = []
+            for result in sim_z_selected['r']:
+                rows.append([
+                    result.get('pos', 'N/A'),
+                    result.get('id', 'N/A'),
+                    result.get('n', 'N/A'),
+                    result.get('w', 0),
+                    result.get('l', 0),
+                    result.get('t', 0),
+                    result.get('wr', 0.0)
+                ])
+            md_lines.append(generate_markdown_table(headers, rows))
+            md_lines.append("")
+    
+    # 7. Category Rankings
+    cr = full_data.get("cr", {})
+    if cr:
+        md_lines.append("## Category Rankings")
+        for cat, teams_list in cr.items():
+            if teams_list:
+                md_lines.append(f"### {cat}")
+                headers = ["Rank", "Team ID", "Team Name", "Value"]
+                rows = []
+                for team_data in teams_list:
+                    if isinstance(team_data, list):
+                        rows.append(team_data)
+                    else:
+                        rows.append([
+                            team_data.get('rank', 0),
+                            team_data.get('team_id', 0),
+                            team_data.get('team_name', 'N/A'),
+                            team_data.get('value', 0.0)
+                        ])
+                md_lines.append(generate_markdown_table(headers, rows))
+                md_lines.append("")
+    
+    # 8. League Metrics
+    lm = full_data.get("lm", {})
+    if lm:
+        md_lines.append("## League Metrics")
+        headers = ["Category", "Mean/Avg", "Std"]
+        rows = []
+        for cat, metrics in lm.items():
+            if isinstance(metrics, list):
+                if len(metrics) >= 2:
+                    rows.append([cat, metrics[0], metrics[1]])
+                elif len(metrics) == 3:
+                    rows.append([cat, f"{metrics[0]} (impact: {metrics[1]})", metrics[2]])
+            else:
+                rows.append([cat, metrics.get('mean', 'N/A'), metrics.get('std', 'N/A')])
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append("")
+    
+    # 9. Matchup History
+    mh = full_data.get("mh", [])
+    if mh:
+        md_lines.append("## Main Team Matchup History")
+        headers = ["Week", "Opponent ID", "Opponent Name", "My Wins", "Opponent Wins", "Ties", "Result"]
+        rows = []
+        for matchup in mh:
+            rows.append([
+                matchup.get('w', 'N/A'),
+                matchup.get('oid', 'N/A'),
+                matchup.get('on', 'N/A'),
+                matchup.get('mw', 0),
+                matchup.get('ow', 0),
+                matchup.get('t', 0),
+                matchup.get('r', 'N/A')
+            ])
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append("")
+    
+    # 10. Upcoming Matchups
+    um = full_data.get("um", [])
+    if um:
+        md_lines.append("## Upcoming Matchups")
+        headers = ["Week", "Team 1 ID", "Team 1 Name", "Team 2 ID", "Team 2 Name"]
+        rows = []
+        for matchup in um:
+            rows.append([
+                matchup.get('w', 'N/A'),
+                matchup.get('t1', 'N/A'),
+                matchup.get('t1n', 'N/A'),
+                matchup.get('t2', 'N/A'),
+                matchup.get('t2n', 'N/A')
+            ])
+        md_lines.append(generate_markdown_table(headers, rows))
+        md_lines.append("")
+    
+    return "\n".join(md_lines)
+
+
 def generate_system_prompt(league_info: dict, settings: dict) -> str:
     """Генерирует системный промпт с подстановкой значений."""
     main_team_line = ""
@@ -42,7 +396,22 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
     punt_line = ""
     if settings.get("pc"):
         punt_line = f"\n- Пант категории: {', '.join(settings['pc'])}"
-    period_line = f"\n- Период данных: {settings.get('p')}"
+    
+    period_key = settings.get('p')
+    period_desc = ""
+    if period_key == '2026_weighted':
+        period_desc = " (Взвешенный: статистика с весами Total=40%, Last30=30%, Last15=20%, Last7=10%)"
+    elif period_key == '2026_total':
+        period_desc = " (Весь сезон)"
+    elif period_key == '2026_last_30':
+        period_desc = " (Последние 30 дней)"
+    elif period_key == '2026_last_15':
+        period_desc = " (Последние 15 дней)"
+    elif period_key == '2026_last_7':
+        period_desc = " (Последние 7 дней)"
+        
+    period_line = f"\n- Период данных: {period_key}{period_desc}"
+    
     sim_mode_line = f"\n- Режим симуляции: {settings.get('sm')}"
     top_n_line = f"\n- Top-N игроков в расчётах: {settings.get('tn')}"
     refresh_line = ""
@@ -51,7 +420,7 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
     
     return f"""Ты анализируешь NBA Fantasy Basketball лигу ИСКЛЮЧИТЕЛЬНО на основе предоставленной статистики.
 
-ВАЖНО: Используй ТОЛЬКО данные из JSON. НЕ используй свои знания об игроках, командах или лиге. Все выводы должны основываться исключительно на предоставленных цифрах.
+ВАЖНО: Используй ТОЛЬКО данные из предоставленных таблиц Markdown. НЕ используй свои знания об игроках, командах или лиге. Все выводы должны основываться исключительно на предоставленных цифрах из таблиц.
 
 ЛИГА:
 - Лига #{league_info['lid']}, сезон {league_info['y']}, неделя {league_info['cw']}, {league_info['tt']} команд
@@ -64,19 +433,29 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
 - Если в составе команды больше 13 здоровых игроков, это временная ситуация - главные игроки команды находятся на травме (IR)
 {punt_line}{main_team_line}{custom_players_line}{refresh_line}
 
+ПЛЕЙ-ОФФ:
+- В плей-офф выходят ВСЕ команды, но важен посев (Seed).
+- Топ-8 команд попадают в верхнюю сетку (Upper Bracket) и борются за чемпионство.
+- Остальные команды попадают в нижнюю сетку (Consolation Bracket).
+- Цель - попасть в Топ-8 по итогам регулярного сезона.
+
 Z-SCORE:
 - Нормализованная метрика: на сколько стандартных отклонений игрок отличается от среднего лиги
 - Положительный = выше среднего, отрицательный = ниже, 0 = средний
-- Total Z = сумма Z-scores по всем категориям
+- Total Z (tz) = сумма Z-scores по всем категориям (без учета пантов)
+- Total Z Punt (tzp) = сумма Z-scores с учетом пантов (исключая пант-категории)
 
-ДАННЫЕ В JSON:
-- Команды (t): id, название, рекорды, винрейт, позиция, размер ростера (rs), количество здоровых игроков (hp), текущий матчап
-- Игроки (p): stats/z массивы по cats, total_z, тренды (tr) по периодам, games played, injury/IR, ссылки на фэнтези-команду
-- Свободные агенты (fa): тот же формат stats/z + total_z
-- История матчапов основной команды (mh) и будущие матчапы (um)
-- Симуляции (sim): by_avg/by_z_score с позициями и винрейтами
-- Рейтинги по категориям (cr): списки команд с rank, team_id, value
-- Метрики лиги (lm): средние/стандартные отклонения (или weighted_avg/impact_std) по категориям
+ДАННЫЕ В MARKDOWN:
+Данные представлены в формате Markdown с таблицами для удобного анализа:
+- Команды: таблица с id, названием, рекордами, винрейтом, позицией, размером ростера, количеством здоровых игроков, текущим матчапом
+- Прогноз сезона (Season Projection): прогноз итогового места в регулярном сезоне на основе расписания и силы команд. Показывает, кто попадает в Топ-8.
+- Игроки: таблица со статистикой (stats) и z-scores по всем категориям, total_z, total_z_punt, games played, статусом травмы/IR, фэнтези-командой
+- Свободные агенты: таблица топ-50 с той же структурой данных
+- Симуляции: таблицы by_avg и by_z_score для выбранного периода
+- Рейтинги по категориям: таблицы команд с rank, team_id, team_name, value для каждой категории
+- Метрики лиги: таблица средних значений и стандартных отклонений по категориям
+- История матчапов: таблица прошлых матчапов основной команды
+- Будущие матчапы: таблица запланированных матчапов
 
 ПРАВИЛА:
 1. Анализируй ТОЛЬКО предоставленные цифры
@@ -85,7 +464,7 @@ Z-SCORE:
 4. Используй рейтинги cr для оценки силы команд по категориям
 5. НЕ упоминай информацию, которой нет в JSON
 6. Все выводы должны быть подкреплены конкретными цифрами из данных
-7. Если задана основная команда, делай выводы с акцентом на неё и её матчапы
+7. Если задана основная команда, делай выводы с акцентом на неё, её шансы на плей-офф (Топ-8) и матчапы
 """
 
 
@@ -172,7 +551,12 @@ def generate_prompt(
         for idx, team in enumerate(teams_data):
             team['pos'] = idx + 1  # position
         
-        # 3. Информация об игроках (все)
+        # 3. Парсим пант-категории (нужно для расчета total_z с учетом пантов)
+        punt_cats_list = []
+        if punt_categories:
+            punt_cats_list = [cat.strip() for cat in punt_categories.split(',') if cat.strip()]
+        
+        # 4. Информация об игроках (все)
         exclude_ir = (simulation_mode == "exclude_ir")
         z_data = calculate_z_scores(league_meta, period, exclude_ir=exclude_ir)
         all_players_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
@@ -198,7 +582,16 @@ def generate_prompt(
                 else:
                     cleaned_z_scores[cat] = z_val
             
+            # total_z без учета пантов (сумма всех категорий)
             total_z = sum(z for z in cleaned_z_scores.values() if isinstance(z, (int, float)) and math.isfinite(z))
+            
+            # total_z с учетом пантов (исключая пант-категории)
+            total_z_punt = 0
+            for cat in CATEGORIES:
+                if cat not in punt_cats_list:
+                    z_val = cleaned_z_scores.get(cat, 0)
+                    if isinstance(z_val, (int, float)) and math.isfinite(z_val):
+                        total_z_punt += z_val
             
             # Получаем информацию о травме
             is_injured = False
@@ -292,17 +685,15 @@ def generate_prompt(
                 "t": player['team_name'],  # fantasy_team_name
                 "s": stats_payload,  # stats
                 "z": z_payload,  # z_scores
-                "tz": round(total_z, 2),  # total_z
+                "tz": round(total_z, 2),  # total_z (без учета пантов)
+                "tzp": round(total_z_punt, 2),  # total_z_punt (с учетом пантов)
                 "gp": games_played,  # games_played
                 "tr": player_trends,  # trends
                 "inj": is_injured,  # is_injured
                 "ir": is_ir  # is_ir
             })
         
-        # 4. Текущие настройки
-        punt_cats_list = []
-        if punt_categories:
-            punt_cats_list = [cat.strip() for cat in punt_categories.split(',') if cat.strip()]
+        # 5. Текущие настройки
         
         custom_players_list = None
         custom_team_players_str = custom_team_players  # Сохраняем строку для передачи в функции
@@ -430,7 +821,16 @@ def generate_prompt(
                         else:
                             z_scores[cat] = 0.0
             
+            # total_z без учета пантов (сумма всех категорий)
             total_z = sum(z for z in z_scores.values() if isinstance(z, (int, float)) and math.isfinite(z))
+            
+            # total_z с учетом пантов (исключая пант-категории)
+            total_z_punt = 0
+            for cat in CATEGORIES:
+                if cat not in punt_cats_list:
+                    z_val = z_scores.get(cat, 0)
+                    if isinstance(z_val, (int, float)) and math.isfinite(z_val):
+                        total_z_punt += z_val
             
             # Очищаем stats от inf/nan и фильтруем только нужные категории
             cleaned_fa_stats = {}
@@ -458,7 +858,8 @@ def generate_prompt(
                 "nba": getattr(fa, 'proTeam', 'N/A'),  # nba_team
                 "s": [cleaned_fa_stats[cat] for cat in CATEGORIES] if compact else cleaned_fa_stats,  # stats
                 "z": [z_scores.get(cat, 0.0) for cat in CATEGORIES] if compact else z_scores,  # z_scores
-                "tz": round(total_z, 2),  # total_z
+                "tz": round(total_z, 2),  # total_z (без учета пантов)
+                "tzp": round(total_z_punt, 2),  # total_z_punt (с учетом пантов)
                 "gp": fa_games  # games_played
             })
         
@@ -466,141 +867,135 @@ def generate_prompt(
         fa_data.sort(key=lambda x: x['tz'], reverse=True)  # tz = total_z
         
         # 8. Симуляции (по avg и z-score)
+        # Используем ТОЛЬКО выбранный период
         simulations_data = {
-            "by_avg": None,
-            "by_z_score": None
+            "by_avg_selected": None,
+            "by_z_score_selected": None
         }
         
-        # Симуляция по avg
+        # Периоды для симуляций: только выбранный период
+        sim_periods = {
+            "selected": period  # Используем выбранный период (может быть weighted)
+        }
+        
+        def process_simulation_result(sim_result, teams_data):
+            """Обрабатывает результат симуляции и преобразует в нужный формат."""
+            if not isinstance(sim_result, list):
+                return []
+            
+            results = []
+            for idx, result in enumerate(sim_result):
+                team_id = None
+                for team in teams_data:
+                    if team['n'] == result['name']:
+                        team_id = team['id']
+                        break
+                
+                if team_id:
+                    win_rate_val = result.get('win_rate', 0)
+                    if isinstance(win_rate_val, (int, float)):
+                        if win_rate_val > 1:
+                            win_rate_val = win_rate_val / 100
+                        if not math.isfinite(win_rate_val):
+                            win_rate_val = 0.0
+                    
+                    results.append({
+                        "id": team_id,
+                        "n": result['name'],
+                        "w": result.get('wins', 0),
+                        "l": result.get('losses', 0),
+                        "t": result.get('ties', 0),
+                        "wr": round(win_rate_val, 3),
+                        "pos": idx + 1
+                    })
+            return results
+        
+        from routers.simulation import get_simulation
+        
+        # Симуляция по avg для выбранного периода
         try:
-            from routers.simulation import get_simulation
-            sim_avg = get_simulation(
+            sim_avg_selected = get_simulation(
                 week=current_week,
                 mode="team_stats_avg",
-                period=period,
+                period=sim_periods["selected"],
                 simulation_mode=simulation_mode,
                 top_n_players=top_n_players,
                 custom_team_players=custom_team_players_str,
                 custom_team_id=main_team_id,
                 league_meta=league_meta
             )
-            
-            if isinstance(sim_avg, list):
-                # Преобразуем в формат с team_id
-                sim_results_avg = []
-                for idx, result in enumerate(sim_avg):
-                    # Находим team_id по имени
-                    team_id = None
-                    for team in teams_data:
-                        if team['n'] == result['name']:  # n = team_name
-                            team_id = team['id']  # id = team_id
-                            break
-                    
-                    if team_id:
-                        win_rate_val = result.get('win_rate', 0)
-                        if isinstance(win_rate_val, (int, float)):
-                            if win_rate_val > 1:
-                                win_rate_val = win_rate_val / 100
-                            if not math.isfinite(win_rate_val):
-                                win_rate_val = 0.0
-                        
-                        sim_results_avg.append({
-                            "id": team_id,  # team_id
-                            "n": result['name'],  # team_name
-                            "w": result.get('wins', 0),  # wins
-                            "l": result.get('losses', 0),  # losses
-                            "t": result.get('ties', 0),  # ties
-                            "wr": round(win_rate_val, 3),  # win_rate
-                            "pos": idx + 1  # position
-                        })
-                
-                simulations_data["by_avg"] = {
-                    "m": "avg",  # mode
-                    "p": period,  # period
-                    "sm": simulation_mode,  # simulation_mode
-                    "r": sim_results_avg  # results
-                }
-            else:
-                # Если симуляция не вернула список, создаем пустой результат
-                simulations_data["by_avg"] = {
-                    "m": "avg",
-                    "p": period,
-                    "sm": simulation_mode,
-                    "r": []
-                }
-        except Exception as e:
-            pass  # Игнорируем ошибки симуляции
-            # В случае ошибки создаем пустой результат вместо None
-            simulations_data["by_avg"] = {
+            simulations_data["by_avg_selected"] = {
                 "m": "avg",
-                "p": period,
+                "p": sim_periods["selected"],
+                "sm": simulation_mode,
+                "r": process_simulation_result(sim_avg_selected, teams_data)
+            }
+        except Exception as e:
+            print(f"Error in simulation by_avg_selected ({sim_periods['selected']}): {e}")
+            import traceback
+            traceback.print_exc()
+            simulations_data["by_avg_selected"] = {
+                "m": "avg",
+                "p": sim_periods["selected"],
                 "sm": simulation_mode,
                 "r": []
             }
         
-        # Симуляция по z-score
+        # Симуляция по z-score для выбранного периода
         try:
-            sim_z = get_simulation(
+            sim_z_selected = get_simulation(
                 week=current_week,
                 mode="z_scores",
-                period=period,
+                period=sim_periods["selected"],
                 simulation_mode=simulation_mode,
                 top_n_players=top_n_players,
                 custom_team_players=custom_team_players_str,
                 custom_team_id=main_team_id,
                 league_meta=league_meta
             )
-            
-            if isinstance(sim_z, list):
-                sim_results_z = []
-                for idx, result in enumerate(sim_z):
-                    team_id = None
-                    for team in teams_data:
-                        if team['n'] == result['name']:  # n = team_name
-                            team_id = team['id']  # id = team_id
-                            break
-                    
-                    if team_id:
-                        win_rate_val = result.get('win_rate', 0)
-                        if isinstance(win_rate_val, (int, float)):
-                            if win_rate_val > 1:
-                                win_rate_val = win_rate_val / 100
-                            if not math.isfinite(win_rate_val):
-                                win_rate_val = 0.0
-                        
-                        sim_results_z.append({
-                            "id": team_id,  # team_id
-                            "n": result['name'],  # team_name
-                            "w": result.get('wins', 0),  # wins
-                            "l": result.get('losses', 0),  # losses
-                            "t": result.get('ties', 0),  # ties
-                            "wr": round(win_rate_val, 3),  # win_rate
-                            "pos": idx + 1  # position
-                        })
-                
-                simulations_data["by_z_score"] = {
-                    "m": "z_score",  # mode
-                    "p": period,  # period
-                    "sm": simulation_mode,  # simulation_mode
-                    "r": sim_results_z  # results
-                }
-            else:
-                # Если симуляция не вернула список, создаем пустой результат
-                simulations_data["by_z_score"] = {
-                    "m": "z_score",
-                    "p": period,
-                    "sm": simulation_mode,
-                    "r": []
-                }
-        except Exception as e:
-            pass  # Игнорируем ошибки симуляции
-            # В случае ошибки создаем пустой результат вместо None
-            simulations_data["by_z_score"] = {
+            simulations_data["by_z_score_selected"] = {
                 "m": "z_score",
-                "p": period,
+                "p": sim_periods["selected"],
+                "sm": simulation_mode,
+                "r": process_simulation_result(sim_z_selected, teams_data)
+            }
+        except Exception as e:
+            print(f"Error in simulation by_z_score_selected ({sim_periods['selected']}): {e}")
+            import traceback
+            traceback.print_exc()
+            simulations_data["by_z_score_selected"] = {
+                "m": "z_score",
+                "p": sim_periods["selected"],
                 "sm": simulation_mode,
                 "r": []
             }
+        
+        # 8.1. Прогноз сезона (Season Projection) - место в плей-офф
+        season_projection_data = {}
+        try:
+            from routers.dashboard import get_season_projection
+            
+            # Используем первую команду для вызова (возвращает всех) или main_team
+            target_team_id = main_team_id if main_team_id else (teams_data[0]['id'] if teams_data else None)
+            
+            if target_team_id:
+                sp_result = get_season_projection(
+                    team_id=target_team_id,
+                    period=period,
+                    simulation_mode=simulation_mode,
+                    top_n_players=top_n_players,
+                    custom_team_players=custom_team_players_str,
+                    league_meta=league_meta
+                )
+                
+                if sp_result and 'full_standings' in sp_result:
+                    season_projection_data = {
+                        "fs": sp_result['full_standings']
+                    }
+        except Exception as e:
+            print(f"Error in season projection: {e}")
+            import traceback
+            traceback.print_exc()
         
         # 9. Рейтинг команд по категориям (для всех команд)
         category_rankings = {}
@@ -686,6 +1081,7 @@ def generate_prompt(
         full_data = {
             "li": league_info,  # league_info
             "t": teams_data,  # teams
+            "sp": season_projection_data, # season_projection
             "p": players_data,  # players
             "s": settings_data,  # settings
             "mh": matchup_history,  # main_team_matchup_history
@@ -702,15 +1098,9 @@ def generate_prompt(
         # Очищаем данные от inf/nan перед сериализацией
         cleaned_data = clean_for_json(full_data)
         
-        # Формируем итоговый промпт
-        dump_kwargs = {"ensure_ascii": False}
-        if compact:
-            dump_kwargs["separators"] = (",", ":")
-        else:
-            dump_kwargs["indent"] = 2
-        
-        json_payload = json.dumps(cleaned_data, **dump_kwargs)
-        final_prompt = f"{system_prompt}\n\nДАННЫЕ:\n{json_payload}"
+        # Генерируем Markdown формат
+        markdown_data = generate_markdown_prompt(cleaned_data)
+        final_prompt = f"{system_prompt}\n\n{markdown_data}"
         
         return {
             "prompt": final_prompt,
