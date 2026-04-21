@@ -1,124 +1,173 @@
 # NBA Fantasy Analytics
 
-Веб-приложение для глубокого анализа фэнтези баскетбольной лиги ESPN. Помогает принимать обоснованные решения через расширенную аналитику, симуляции и сравнения.
+NBA Fantasy Analytics is a full-stack web application for ESPN Fantasy Basketball managers who want to make data-driven roster, trade, and matchup decisions.
 
-## 🎯 Основные возможности
+It combines league data, player-level metrics, and custom scoring logic to provide practical tools for weekly lineup management and season strategy.
 
-### 📊 Дашборд команды
-Централизованный обзор вашей команды:
-- Общая статистика и топ-3 игрока
-- Детальный анализ текущего матчапа с победителями по категориям
-- Радар-график баланса команды (сравнение с другими командами)
-- История позиций игроков
-- Список травмированных игроков
+## Overview
 
-### 📈 Аналитика команд
-Детальная статистика игроков с Z-scores:
-- Анализ по различным периодам (весь сезон, последние 30/15/7 дней, проекции)
-- Исключение категорий (Punt Categories)
-- Исключение IR игроков для справедливого сравнения
-- Оптимизатор состава команды
+The application helps answer questions such as:
 
-### 🔄 Анализ трейдов
-Оценка обменов игроками:
-- Сравнение команд до и после трейда
-- Анализ всей команды или только участников обмена
-- Прогноз изменения позиции в лиге
-- Многокомандные трейды (3+ команды)
+- How strong is my team across all 11 categories?
+- Which free agents fit my current category strategy?
+- Is a proposed trade improving or weakening my competitive position?
+- What are my expected results against every team in the league?
 
-### 🎲 Симуляция матчапов
-Симуляция "все против всех" в трех режимах:
-- **По матчапам** — использует реальные результаты
-- **По статистике** — средние значения игроков
-- **По Z-score** — нормализованные показатели
+## Key Features
 
-### 👥 Игроки
-- Полный список всех игроков лиги с Z-scores
-- Свободные агенты с фильтрацией по позициям
-- Сравнение до 5 игроков одновременно
-- Детальные карточки игроков
+### Team Dashboard
 
-## 🚀 Быстрый старт
+- Team snapshot with key indicators and top contributors
+- Current matchup breakdown by category winners
+- Team balance radar chart
+- Player position history and injured players list
 
-### Через Docker (рекомендуется)
+### Team Analytics
 
-1. **Создайте файл `.env`** в корне проекта:
+- Player and team Z-score analysis
+- Time-window filters (season, last 30/15/7 days, projections)
+- Punt-category support for strategy modeling
+- Optional exclusion of IR players for fairer comparisons
+- Lineup optimization tools
+
+### Trade Analysis
+
+- Before/after comparison for multi-player trades
+- Team-level and trade-participant-only modes
+- Estimated impact on league standing
+- Multi-team trade support
+
+### Matchup Simulation
+
+- League-wide simulation in three modes:
+  - Matchup results-based
+  - Raw stat averages-based
+  - Z-score-based
+
+### Player Tools
+
+- Full player pool with advanced metrics
+- Free-agent filtering by position
+- Side-by-side comparison (up to five players)
+- Detailed player cards
+
+## Tech Stack
+
+- Backend: Python, FastAPI, Uvicorn
+- Frontend: React (Vite), Axios, Recharts, Tailwind CSS
+- Infrastructure: Docker, Docker Compose, Nginx
+- Data source: ESPN Fantasy Basketball API (via authenticated cookies)
+
+## Architecture
+
+- `web/backend`: API endpoints, business logic orchestration, league data processing
+- `core`: scoring logic, league configuration, ranking and Z-score calculations
+- `web/frontend`: single-page application and data visualizations
+- `nginx`: reverse-proxy configuration for containerized deployment
+
+Data flow:
+
+1. Frontend requests analytics via REST API.
+2. Backend fetches league data from ESPN and applies calculations.
+3. Processed metrics are returned to the frontend for interactive exploration.
+
+## Getting Started
+
+### Prerequisites
+
+- Docker 20.10+ and Docker Compose 2.0+ (recommended)
+- or Python 3.10+ and Node.js 18+ for local development
+- Access to an ESPN Fantasy Basketball league
+
+### Environment Variables
+
+Create `.env` in the repository root:
+
 ```env
 ESPN_S2=your_espn_s2_token_here
 SWID={your-swid-guid-here}
 ```
 
-2. **Запустите приложение:**
-   - Windows: `docker-start.bat`
-   - Linux/Mac: `./docker-start.sh`
-   - Или: `docker-compose up -d`
+How to obtain `ESPN_S2` and `SWID`:
 
-3. **Откройте в браузере:**
-   - Frontend: `http://localhost:3001`
-   - Backend API: `http://localhost:8000`
+1. Sign in to ESPN Fantasy Basketball.
+2. Open browser developer tools.
+3. Go to Application/Storage -> Cookies.
+4. Copy `espn_s2` and `SWID` values.
 
-**Как получить ESPN_S2 и SWID:**
-1. Войдите в ESPN Fantasy Basketball
-2. Откройте Developer Tools (F12)
-3. Application/Storage → Cookies
-4. Скопируйте значения `espn_s2` и `SWID`
+### Run with Docker
 
-### Локальный запуск
+- Windows: `docker-start.bat`
+- Linux/macOS: `./docker-start.sh`
+- Direct command: `docker-compose up -d`
 
-**Windows:**
+App URLs:
+
+- Frontend: `http://localhost:3001`
+- Backend API: `http://localhost:8000`
+
+### Run Locally
+
+Backend:
+
 ```bash
-start_app.bat
+pip install -r requirements.txt
+uvicorn web.backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Вручную:**
-```bash
-# Backend
-uvicorn web.backend.main:app --reload --host 0.0.0.0 --port 8000
+Frontend:
 
-# Frontend
+```bash
 cd web/frontend
 npm install
 npm run dev
 ```
 
-## 📋 Требования
+## Configuration
 
-- Docker 20.10+ и Docker Compose 2.0+ (для Docker)
-- Python 3.8+ и Node.js 16+ (для локального запуска)
-- Доступ к ESPN Fantasy Basketball лиге
+- League ID and season year are configured in `core/config.py`.
+- Frontend preferences are stored in browser `localStorage`.
+- Backend runtime and service-related settings are in `web/backend/config.py`.
 
-## 💡 Ключевые концепции
+## API Overview
 
-### Z-Score
-Нормализованный показатель, показывающий насколько игрок лучше или хуже среднего по лиге:
-- Положительный = выше среднего
-- Отрицательный = ниже среднего
-- 0 = средний игрок
+Main endpoint groups are located in `web/backend/routers`:
 
-### Исключение IR игроков
-Опция для более справедливого сравнения команд — исключает игроков в IR слоте из статистики.
+- `dashboard`
+- `analytics`
+- `players`
+- `trades`
+- `simulation`
+- `playoff`
+- `lineup`
+- `settings`
+- `admin`
 
-### Punt Categories
-Возможность исключить категории из анализа для оценки игроков в стратегии "punt" (игнорирование слабых категорий).
+## Project Structure
 
-## 📊 Категории статистики
+```text
+.
+├─ core/
+├─ nginx/
+├─ web/
+│  ├─ backend/
+│  ├─ core/
+│  └─ frontend/
+├─ docker-compose.yml
+├─ Dockerfile.backend
+└─ README.md
+```
 
-11 категорий: PTS, REB, AST, STL, BLK, 3PM, DD, FG%, FT%, 3PT%, A/TO
+## Limitations and Future Improvements
 
-## 🔧 Настройка
+- ESPN private leagues require valid session cookies.
+- Data freshness depends on ESPN API availability and league updates.
+- Planned improvements include broader historical analysis and expanded scenario tooling.
 
-ID лиги и год сезона настраиваются в `core/config.py`. Все настройки приложения сохраняются в браузере (localStorage).
+## Contributing
 
-## 📝 Примечания
+Contributions, issue reports, and improvement ideas are welcome.
 
-- Требуется активное подключение к интернету для работы с ESPN API
-- Данные обновляются в реальном времени при каждом запросе
-- Необходим доступ к лиге ESPN Fantasy Basketball
+## License
 
-## 🤝 Вклад
-
-Приветствуются любые улучшения и предложения!
-
-## 📄 Лицензия
-
-Проект создан для личного использования.
+This project is licensed under the MIT License. See `LICENSE` for details.
