@@ -1,12 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
-
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 import MultiTeamTradeAnalyzer from './MultiTeamTradeAnalyzer';
 
-const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => {
+const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calculationEngine = 'calendar' }) => {
     const savedState = loadState(StorageKeys.TRADE, {});
     const [tradeMode, setTradeMode] = useState(savedState.tradeMode || 'two-team'); // 'two-team' или 'multi-team'
     const [teams, setTeams] = useState([]);
@@ -135,7 +134,8 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => 
             period,
             punt_categories: puntCategories,
             scope_mode: scopeMode,
-            simulation_mode: simulationMode
+            simulation_mode: simulationMode,
+            calculation_engine: calculationEngine
         };
         
         // Если режим top_n, добавляем дополнительные параметры
@@ -221,6 +221,7 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => 
                     puntCategories={puntCategories}
                     simulationMode={simulationMode}
                     mainTeam={mainTeam}
+                    calculationEngine={calculationEngine}
                 />
             </div>
         );
@@ -390,6 +391,34 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => 
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+                    {result.calendar_impact && (
+                        <div className="border rounded-lg p-6 bg-blue-50 mb-6">
+                            <h3 className="text-lg font-bold mb-1">Влияние на реальный календарь</h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Оставшиеся игровые дни, доступные позиции и конкуренция за lineup-слоты.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {[
+                                    [myTeam, result.my_team.name],
+                                    [theirTeam, result.their_team.name],
+                                ].map(([teamId, name]) => {
+                                    const impact = result.calendar_impact.teams[teamId];
+                                    if (!impact) return null;
+                                    return (
+                                        <div key={teamId} className="bg-white rounded p-4 border">
+                                            <div className="font-semibold">{name}</div>
+                                            <div className={`text-2xl font-bold mt-1 ${impact.delta > 0 ? 'text-green-600' : impact.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                {impact.delta > 0 ? '+' : ''}{impact.delta}
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                Полезных player-games: {impact.selected_games_before} → {impact.selected_games_after}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

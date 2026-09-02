@@ -1,13 +1,20 @@
 import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 import api from '../api';
+import { getSeasonConfig } from '../utils/periods';
 
-const PlayerBalanceRadar = ({ playerName, period = "2026_total" }) => {
+const PlayerBalanceRadar = ({ playerName, period = getSeasonConfig().periods.total, fallbackZScores = null }) => {
     const [data, setData] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
 
     React.useEffect(() => {
+        if (fallbackZScores && Object.keys(fallbackZScores).length) {
+            setData(Object.entries(fallbackZScores).map(([category, value]) => ({ category, value })));
+            setError(null);
+            setLoading(false);
+            return;
+        }
         if (!playerName) {
             setLoading(false);
             return;
@@ -40,7 +47,7 @@ const PlayerBalanceRadar = ({ playerName, period = "2026_total" }) => {
         };
 
         fetchBalanceData();
-    }, [playerName, period]);
+    }, [playerName, period, fallbackZScores]);
 
     if (loading) {
         return (
@@ -77,7 +84,7 @@ const PlayerBalanceRadar = ({ playerName, period = "2026_total" }) => {
                     />
                     <PolarRadiusAxis
                         angle={90}
-                        domain={[0, 'auto']}
+                        domain={['auto', 'auto']}
                         tick={{ fill: '#6b7280', fontSize: 10 }}
                     />
                     <Radar

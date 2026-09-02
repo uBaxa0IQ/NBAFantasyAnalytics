@@ -20,6 +20,7 @@ def get_cors_origins():
         # По умолчанию для разработки и продакшена
         allowed_origins = [
             "http://localhost:5173",  # Vite dev server
+            "http://127.0.0.1:5173",  # Vite dev server alternative
             "http://localhost:3000",  # Docker frontend (old port)
             "http://localhost:3001",  # Docker frontend (new port)
             "http://127.0.0.1:3000",  # Docker frontend alternative
@@ -30,4 +31,3 @@ def get_cors_origins():
             "http://api-dyuden.duckdns.org",  # API domain (HTTP)
         ]
     return allowed_origins
-

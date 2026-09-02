@@ -4,7 +4,7 @@
 
 from league_metadata import LeagueMetadata
 from z_score import calculate_z_scores
-from .config import LEAGUE_ID, YEAR, ESPN_S2, SWID, CATEGORIES
+from .config import DEFAULT_PERIOD, LEAGUE_ID, YEAR, ESPN_S2, SWID, CATEGORIES, PERIODS
 
 
 
@@ -18,11 +18,11 @@ def main():
     
     # Выбор периода статистики
     periods = {
-        '1': ('2026_total', 'За весь сезон'),
-        '2': ('2026_last_30', 'За последние 30 дней'),
-        '3': ('2026_last_15', 'За последние 15 дней'),
-        '4': ('2026_last_7', 'За последние 7 дней'),
-        '5': ('2026_projected', 'Прогнозируемая статистика')
+        '1': (PERIODS['total'], 'За весь сезон'),
+        '2': (PERIODS['last_30'], 'За последние 30 дней'),
+        '3': (PERIODS['last_15'], 'За последние 15 дней'),
+        '4': (PERIODS['last_7'], 'За последние 7 дней'),
+        '5': (PERIODS['projected'], 'Прогнозируемая статистика')
     }
     
     print("\nДоступные периоды статистики:")
@@ -33,13 +33,13 @@ def main():
         period_choice = input("\nВыберите период (номер): ").strip()
         if period_choice not in periods:
             print("Неверный выбор! Используется период по умолчанию (весь сезон).")
-            period = '2026_total'
+            period = DEFAULT_PERIOD
             period_name = 'За весь сезон'
         else:
             period, period_name = periods[period_choice]
     except Exception:
         print("Ошибка ввода! Используется период по умолчанию (весь сезон).")
-        period = '2026_total'
+        period = DEFAULT_PERIOD
         period_name = 'За весь сезон'
     
     print(f"\nПолучение статистики игроков ({period_name})...")

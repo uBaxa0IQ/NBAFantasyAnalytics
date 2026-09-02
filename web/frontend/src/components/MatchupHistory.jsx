@@ -47,13 +47,6 @@ const MatchupHistory = ({ teamId }) => {
     const wins = history.matchups.filter(m => m.result === 'W').length;
     const losses = history.matchups.filter(m => m.result === 'L').length;
     const ties = history.matchups.filter(m => m.result === 'T').length;
-    const totalGames = wins + losses + ties;
-    const winRate = totalGames > 0 ? ((wins + 0.5 * ties) / totalGames * 100).toFixed(1) : 0;
-
-    const handleMatchupClick = (matchup) => {
-        setSelectedMatchup(matchup);
-    };
-
     return (
         <>
             {/* Statistics Card with Collapsible Table */}

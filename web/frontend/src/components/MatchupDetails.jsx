@@ -5,9 +5,10 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
     const [matchupData, setMatchupData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const matchupWeek = currentMatchup?.week;
 
     useEffect(() => {
-        if (!teamId || !currentMatchup) {
+        if (!teamId || !matchupWeek) {
             setMatchupData(null);
             return;
         }
@@ -31,7 +32,7 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
                 setError('Ошибка загрузки данных матчапа');
                 setLoading(false);
             });
-    }, [teamId, currentMatchup ? currentMatchup.week : null]);
+    }, [teamId, matchupWeek]);
 
     const formatValue = (category, value) => {
         if (category === 'FG%' || category === 'FT%' || category === '3PT%') {
@@ -163,4 +164,3 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
 };
 
 export default MatchupDetails;
-

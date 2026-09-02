@@ -1,32 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import PlayerSelectionModal from './PlayerSelectionModal';
-import PromptModal from './PromptModal';
+import { getSeasonConfig, normalizeSavedPeriod } from '../utils/periods';
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
+const DEFAULT_WEIGHTED_COEFFICIENTS = {
+    total: 0.45,
+    last_30: 0.35,
+    last_15: 0.15,
+    last_7: 0.05
+};
 
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
-
-const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSettings }) => {
-    const [period, setPeriod] = useState(initialSettings.period || '2026_total');
+const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig }) => {
+    const periods = seasonConfig?.periods || getSeasonConfig().periods;
+    const [period, setPeriod] = useState(normalizeSavedPeriod(initialSettings.period, periods));
     const [puntCategories, setPuntCategories] = useState(initialSettings.puntCategories || []);
-    const simulationMode = 'top_n'; // Фиксированный режим симуляции
+    const [simulationMode, setSimulationMode] = useState(initialSettings.simulationMode || 'top_n');
+    const [calculationEngine, setCalculationEngine] = useState(initialSettings.calculationEngine || 'calendar');
     const [mainTeam, setMainTeam] = useState(initialSettings.mainTeam || '');
     const [colorByTrend, setColorByTrend] = useState(initialSettings.colorByTrend !== undefined ? initialSettings.colorByTrend : false);
     const [teams, setTeams] = useState([]);
     const [refreshStatus, setRefreshStatus] = useState(null);
     const [showPlayerSelection, setShowPlayerSelection] = useState(false);
     const [selectedPlayersCount, setSelectedPlayersCount] = useState(0);
-    const [showPromptModal, setShowPromptModal] = useState(false);
-
-    // Проверяем, включен ли принудительный взвешенный режим
-    const isWeightedModeForced = leagueSettings?.force_weighted_mode;
-    const forcedPeriod = leagueSettings?.forced_period || '2026_weighted';
-
-    // Если включен принудительный режим, устанавливаем период при открытии
-    useEffect(() => {
-        if (isWeightedModeForced) {
-            setPeriod(forcedPeriod);
-        }
-    }, [isWeightedModeForced, forcedPeriod]);
+    const [weightedCoefficients, setWeightedCoefficients] = useState(DEFAULT_WEIGHTED_COEFFICIENTS);
+    const [settingsError, setSettingsError] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [readiness, setReadiness] = useState(null);
+    const [leagueId, setLeagueId] = useState(String(seasonConfig?.league_id || ''));
 
     // Форматирование времени последнего обновления
     const formatLastRefresh = (isoString) => {
@@ -88,9 +88,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                 .then(res => {
                     setTeams(res.data);
                     // Если mainTeam не установлен, устанавливаем первую команду
-                    if (!mainTeam && res.data.length > 0) {
-                        setMainTeam(res.data[0].team_id.toString());
-                    }
+                    setMainTeam(current => current || res.data[0]?.team_id?.toString() || '');
                 })
                 .catch(err => console.error('Error fetching teams:', err));
 
@@ -102,20 +100,37 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                 .catch(err => {
                     console.error('Error fetching refresh status:', err);
                 });
+
+            api.get('/settings/weighted-coefficients')
+                .then(res => setWeightedCoefficients(res.data))
+                .catch(err => {
+                    console.error('Error fetching weighted coefficients:', err);
+                    setSettingsError('Не удалось загрузить коэффициенты универсального режима');
+                });
+
+            api.get('/settings/readiness')
+                .then(res => setReadiness(res.data))
+                .catch(() => setReadiness(null));
         }
     }, [isOpen]);
 
     useEffect(() => {
         // Обновляем локальные состояния при изменении initialSettings
         if (initialSettings) {
-            setPeriod(initialSettings.period || '2026_total');
+            setPeriod(normalizeSavedPeriod(initialSettings.period, periods));
             setPuntCategories(initialSettings.puntCategories || []);
             setMainTeam(initialSettings.mainTeam || '');
+            setSimulationMode(initialSettings.simulationMode || 'top_n');
+            setCalculationEngine(initialSettings.calculationEngine || 'calendar');
             if (initialSettings.colorByTrend !== undefined) {
                 setColorByTrend(initialSettings.colorByTrend);
             }
         }
-    }, [initialSettings]);
+    }, [initialSettings, periods]);
+
+    useEffect(() => {
+        setLeagueId(String(seasonConfig?.league_id || ''));
+    }, [seasonConfig?.league_id]);
 
     useEffect(() => {
         // Загружаем количество выбранных игроков из localStorage
@@ -125,7 +140,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                 try {
                     const savedList = JSON.parse(saved);
                     setSelectedPlayersCount(savedList.length);
-                } catch (e) {
+                } catch {
                     setSelectedPlayersCount(0);
                 }
             } else {
@@ -140,24 +155,79 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
         );
     };
 
-    const handleSave = () => {
+    const handleCoefficientChange = (key, percentValue) => {
+        const numericValue = Number(percentValue);
+        setWeightedCoefficients(prev => ({
+            ...prev,
+            [key]: Number.isFinite(numericValue) ? numericValue / 100 : 0
+        }));
+        setSettingsError('');
+    };
+
+    const coefficientSum = Object.values(weightedCoefficients).reduce((sum, value) => sum + value, 0);
+    const coefficientsAreValid = Object.values(weightedCoefficients).every(value => value >= 0 && value <= 1)
+        && Math.abs(coefficientSum - 1) <= 0.001;
+
+    const handleSave = async () => {
+        setSettingsError('');
+        setSaving(true);
+
+        if (period === periods.weighted && !coefficientsAreValid) {
+            setSettingsError('Сумма коэффициентов универсального режима должна быть равна 100%');
+            setSaving(false);
+            return;
+        }
+
+        if (period === periods.weighted) {
+            try {
+                await api.put('/settings/weighted-coefficients', weightedCoefficients);
+            } catch (error) {
+                setSettingsError(error.response?.data?.detail || 'Не удалось сохранить коэффициенты');
+                setSaving(false);
+                return;
+            }
+        }
+
+        const normalizedLeagueId = leagueId.trim();
+        if (!/^\d+$/.test(normalizedLeagueId) || Number(normalizedLeagueId) <= 0) {
+            setSettingsError('League ID должен быть положительным числом');
+            setSaving(false);
+            return;
+        }
+
+        let leagueChanged = false;
+        let effectiveMainTeam = mainTeam;
+        if (normalizedLeagueId !== String(seasonConfig?.league_id || '')) {
+            try {
+                const response = await api.put('/settings/league', { league_id: Number(normalizedLeagueId) });
+                leagueChanged = true;
+                effectiveMainTeam = response.data?.season?.default_team_id
+                    ? String(response.data.season.default_team_id)
+                    : String(response.data?.teams?.[0]?.team_id || '');
+                localStorage.setItem('mainTeam', effectiveMainTeam);
+            } catch (error) {
+                setSettingsError(error.response?.data?.detail || 'Не удалось подключиться к указанной лиге');
+                setSaving(false);
+                return;
+            }
+        }
+
         const settings = {
             period,
             puntCategories,
             simulationMode,
-            mainTeam,
-            colorByTrend
+            mainTeam: effectiveMainTeam,
+            colorByTrend,
+            calculationEngine
         };
         onSave(settings);
+        setSaving(false);
         onClose();
+        if (leagueChanged) window.location.reload();
     };
 
     const handlePlayerSelectionSave = (selectedPlayers) => {
         setSelectedPlayersCount(selectedPlayers.length);
-    };
-
-    const handleGeneratePrompt = () => {
-        setShowPromptModal(true);
     };
 
     if (!isOpen) return null;
@@ -177,8 +247,32 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                     </div>
 
                     <div className="space-y-6">
-                        {/* Период - показываем только если НЕ включен принудительный режим */}
-                        {!isWeightedModeForced && (
+                        {readiness && (
+                            <div className={`rounded border px-3 py-2 text-sm ${readiness.ready ? 'border-green-200 bg-green-50 text-green-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+                                <div className="font-medium">
+                                    Сезон {readiness.season.year} · лига {readiness.season.league_id} · {readiness.team_count} команд
+                                </div>
+                                {!readiness.ready && (
+                                    <div className="mt-1 text-xs">{readiness.warnings.join(' · ')}</div>
+                                )}
+                            </div>
+                        )}
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">
+                                ESPN League ID
+                            </label>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={leagueId}
+                                onChange={event => { setLeagueId(event.target.value.replace(/\D/g, '')); setSettingsError(''); }}
+                                placeholder="Например: 623163114"
+                                className="w-full rounded border bg-white p-2"
+                            />
+                            <p className="mt-2 text-xs text-gray-600">
+                                После сохранения приложение проверит доступ через текущий ESPN-аккаунт, очистит кеш старой лиги и перезагрузит команды и категории. Сезон остаётся {seasonConfig?.year || readiness?.season?.year || 'текущим'}.
+                            </p>
+                        </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Период статистики:
@@ -188,13 +282,50 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                                 value={period}
                                 onChange={e => setPeriod(e.target.value)}
                             >
-                                <option value="2026_total">Весь сезон</option>
-                                <option value="2026_last_30">Последние 30 дней</option>
-                                <option value="2026_last_15">Последние 15 дней</option>
-                                <option value="2026_last_7">Последние 7 дней</option>
-                                <option value="2026_weighted">Взвешенный (Универсальный)</option>
+                                <option value={periods.total}>Весь сезон</option>
+                                <option value={periods.last_30}>Последние 30 дней</option>
+                                <option value={periods.last_15}>Последние 15 дней</option>
+                                <option value={periods.last_7}>Последние 7 дней</option>
+                                <option value={periods.weighted}>Взвешенный (Универсальный)</option>
                             </select>
                         </div>
+
+                        {period === periods.weighted && (
+                            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                                <div className="mb-3">
+                                    <h3 className="font-semibold text-gray-800">Коэффициенты универсального режима</h3>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                        Настройте, насколько сильно учитывать сезонную форму и последние отрезки. Значения применяются ко всей аналитике универсального периода.
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {[
+                                        ['total', 'Весь сезон'],
+                                        ['last_30', 'Последние 30 дней'],
+                                        ['last_15', 'Последние 15 дней'],
+                                        ['last_7', 'Последние 7 дней']
+                                    ].map(([key, label]) => (
+                                        <label key={key} className="text-sm text-gray-700">
+                                            <span className="block mb-1">{label}</span>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="1"
+                                                    value={Number((weightedCoefficients[key] * 100).toFixed(1))}
+                                                    onChange={event => handleCoefficientChange(key, event.target.value)}
+                                                    className="w-full border bg-white p-2 pr-8 rounded"
+                                                />
+                                                <span className="absolute right-3 top-2 text-gray-500">%</span>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className={`mt-3 text-sm font-medium ${coefficientsAreValid ? 'text-green-700' : 'text-red-700'}`}>
+                                    Сумма: {(coefficientSum * 100).toFixed(1)}% {coefficientsAreValid ? '✓' : '— требуется 100%'}
+                                </div>
+                            </div>
                         )}
 
                         {/* Punt Categories */}
@@ -217,6 +348,42 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                                     </label>
                                 ))}
                             </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Расчётный движок:
+                            </label>
+                            <select
+                                className="w-full border p-2 rounded"
+                                value={calculationEngine}
+                                onChange={event => setCalculationEngine(event.target.value)}
+                            >
+                                <option value="calendar">Новый — календарь и lineup-слоты</option>
+                                <option value="legacy">Классический — средние и Z-score</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Новый учитывает игровые дни и позиции; классический сохраняет прежнюю методику.
+                            </p>
+                        </div>
+
+                        {/* Основная команда */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Состав для расчётов и симуляций:
+                            </label>
+                            <select
+                                className="w-full border p-2 rounded"
+                                value={simulationMode}
+                                onChange={event => setSimulationMode(event.target.value)}
+                            >
+                                <option value="all">Весь текущий ростер</option>
+                                <option value="exclude_ir">Без игроков в IR</option>
+                                <option value="top_n">Выбранные игроки / лучшие 13</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Это пользовательская настройка; приложение больше не навязывает один режим.
+                            </p>
                         </div>
 
                         {/* Основная команда */}
@@ -262,7 +429,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                         </div>
 
                         {/* Настройка игроков для режима top_n */}
-                        {mainTeam && (
+                        {mainTeam && simulationMode === 'top_n' && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Настройка игроков для симуляции:
@@ -285,24 +452,6 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                                 </p>
                             </div>
                         )}
-
-                        {/* Генерация промпта для LLM */}
-                        <div className="border-t pt-4">
-                            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                                Промпт для LLM
-                            </h3>
-                            <div className="bg-gray-50 border rounded px-3 py-3 text-sm">
-                                <p className="text-gray-600 mb-3">
-                                    Сгенерируйте промпт с полным контекстом лиги для использования в LLM (ChatGPT, Claude и т.д.)
-                                </p>
-                                <button
-                                    onClick={handleGeneratePrompt}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                                >
-                                    Получить промпт
-                                </button>
-                            </div>
-                        </div>
 
                         {/* Информация о последнем обновлении */}
                         <div className="border-t pt-4">
@@ -329,6 +478,12 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                                 <div className="text-sm text-gray-500">Загрузка информации...</div>
                             )}
                         </div>
+
+                        {settingsError && (
+                            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {settingsError}
+                            </div>
+                        )}
                     </div>
 
                     {/* Кнопки */}
@@ -341,9 +496,10 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                         </button>
                         <button
                             onClick={handleSave}
-                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            disabled={saving || (period === periods.weighted && !coefficientsAreValid)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Сохранить
+                            {saving ? 'Сохранение...' : 'Сохранить'}
                         </button>
                     </div>
                 </div>
@@ -360,18 +516,6 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, leagueSetting
                 />
             )}
 
-            {/* Модальное окно промпта */}
-            {showPromptModal && (
-                <PromptModal
-                    isOpen={showPromptModal}
-                    onClose={() => setShowPromptModal(false)}
-                    period={period}
-                    simulationMode={simulationMode}
-                    topNPlayers={13}
-                    mainTeamId={mainTeam}
-                    puntCategories={puntCategories}
-                />
-            )}
         </div>
     );
 };

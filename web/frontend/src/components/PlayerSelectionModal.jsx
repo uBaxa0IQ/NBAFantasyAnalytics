@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 
 const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
@@ -6,6 +6,23 @@ const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    const loadPlayers = useCallback(async () => {
+        if (!teamId) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await api.get(`/teams/${teamId}/players-for-selection`, {
+                params: { period }
+            });
+            setPlayers(res.data.players || []);
+        } catch (err) {
+            console.error('Error loading players:', err);
+            setError('Ошибка загрузки игроков');
+        } finally {
+            setLoading(false);
+        }
+    }, [teamId, period]);
 
     useEffect(() => {
         if (isOpen && teamId) {
@@ -23,25 +40,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
                 setSelectedPlayers([]);
             }
         }
-    }, [isOpen, teamId, period]);
-
-    const loadPlayers = async () => {
-        if (!teamId) return;
-        
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await api.get(`/teams/${teamId}/players-for-selection`, {
-                params: { period }
-            });
-            setPlayers(res.data.players || []);
-        } catch (err) {
-            console.error('Error loading players:', err);
-            setError('Ошибка загрузки игроков');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [isOpen, teamId, loadPlayers]);
 
     const handleTogglePlayer = (playerName) => {
         setSelectedPlayers(prev => {
@@ -192,4 +191,3 @@ const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
 };
 
 export default PlayerSelectionModal;
-

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 
 const PromptModal = ({ isOpen, onClose, period, simulationMode, topNPlayers, mainTeamId, puntCategories }) => {
@@ -7,17 +7,7 @@ const PromptModal = ({ isOpen, onClose, period, simulationMode, topNPlayers, mai
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
-        if (isOpen) {
-            loadPrompt();
-        } else {
-            setPrompt('');
-            setData(null);
-            setCopied(false);
-        }
-    }, [isOpen, period, simulationMode, topNPlayers, mainTeamId, puntCategories]);
-
-    const loadPrompt = async () => {
+    const loadPrompt = useCallback(async () => {
         setLoading(true);
         try {
             // Получаем custom_team_players из localStorage
@@ -96,7 +86,17 @@ const PromptModal = ({ isOpen, onClose, period, simulationMode, topNPlayers, mai
         } finally {
             setLoading(false);
         }
-    };
+    }, [period, simulationMode, topNPlayers, mainTeamId, puntCategories]);
+
+    useEffect(() => {
+        if (isOpen) {
+            loadPrompt();
+        } else {
+            setPrompt('');
+            setData(null);
+            setCopied(false);
+        }
+    }, [isOpen, loadPrompt]);
 
     const handleCopy = () => {
         if (!prompt) {
@@ -294,4 +294,3 @@ const PromptModal = ({ isOpen, onClose, period, simulationMode, topNPlayers, mai
 };
 
 export default PromptModal;
-

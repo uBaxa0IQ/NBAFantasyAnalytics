@@ -4,12 +4,11 @@
 from fastapi import APIRouter, Depends, Query
 from dependencies import get_league_meta
 from core.z_score import calculate_z_scores
-from core.config import CATEGORIES, LEAGUE_ID, YEAR
+from core.config import CATEGORIES, DEFAULT_PERIOD, LEAGUE_ID, PERIODS, YEAR
 from utils.calculations import calculate_team_raw_stats, select_top_n_players
 from typing import Optional
 import json
 import math
-from pathlib import Path
 from datetime import datetime
 
 router = APIRouter(prefix="/api", tags=["prompt"])
@@ -257,11 +256,11 @@ def generate_markdown_prompt(full_data: dict) -> str:
         # Функция для получения названия периода
         def get_period_name(period_key):
             period_names = {
-                '2026_total': 'Total Season',
-                '2026_last_30': 'Last 30 Days',
-                '2026_last_15': 'Last 15 Days',
-                '2026_last_7': 'Last 7 Days',
-                '2026_weighted': 'Weighted (Universal)'
+                PERIODS['total']: 'Total Season',
+                PERIODS['last_30']: 'Last 30 Days',
+                PERIODS['last_15']: 'Last 15 Days',
+                PERIODS['last_7']: 'Last 7 Days',
+                PERIODS['weighted']: 'Weighted (Universal)'
             }
             return period_names.get(period_key, period_key)
         
@@ -399,15 +398,15 @@ def generate_system_prompt(league_info: dict, settings: dict) -> str:
     
     period_key = settings.get('p')
     period_desc = ""
-    if period_key == '2026_weighted':
+    if period_key == PERIODS['weighted']:
         period_desc = " (Взвешенный: статистика с весами Total=40%, Last30=30%, Last15=20%, Last7=10%)"
-    elif period_key == '2026_total':
+    elif period_key == PERIODS['total']:
         period_desc = " (Весь сезон)"
-    elif period_key == '2026_last_30':
+    elif period_key == PERIODS['last_30']:
         period_desc = " (Последние 30 дней)"
-    elif period_key == '2026_last_15':
+    elif period_key == PERIODS['last_15']:
         period_desc = " (Последние 15 дней)"
-    elif period_key == '2026_last_7':
+    elif period_key == PERIODS['last_7']:
         period_desc = " (Последние 7 дней)"
         
     period_line = f"\n- Период данных: {period_key}{period_desc}"
@@ -470,7 +469,7 @@ Z-SCORE:
 
 @router.get("/generate-prompt")
 def generate_prompt(
-    period: str = Query("2026_total", description="Период статистики"),
+    period: str = Query(DEFAULT_PERIOD, description="Период статистики"),
     simulation_mode: str = Query("all", description="Режим симуляции"),
     top_n_players: int = Query(13, description="Количество игроков для top_n режима"),
     main_team_id: Optional[int] = Query(None, description="ID основной команды"),
@@ -488,7 +487,7 @@ def generate_prompt(
         last_refresh = league_meta.get_last_refresh_time()
         
         league_info = {
-            "lid": LEAGUE_ID,  # league_id
+            "lid": league_meta.league_id,  # active runtime league_id
             "y": YEAR,  # year
             "tt": len(league_meta.get_teams()),  # total_teams
             "cw": current_week,  # current_week
@@ -750,38 +749,21 @@ def generate_prompt(
                     "r": result  # result
                 })
         
-        # 6. Будущие матчапы из расписания
+        # 6. Будущие матчапы из официального расписания ESPN
         upcoming_matchups = []
-        schedule_path = Path(__file__).parent.parent / "shedule.json"
-        if schedule_path.exists():
-            try:
-                with open(schedule_path, 'r', encoding='utf-8') as f:
-                    schedule = json.load(f)
-                
-                # Создаем маппинг названий к ID
-                team_name_to_id = {team.team_name: team.team_id for team in teams}
-                
-                for week_data in schedule:
-                    week_num = week_data['week']
-                    if week_num >= current_week:
-                        for matchup_str in week_data['matchups']:
-                            parts = matchup_str.split(' vs ')
-                            if len(parts) == 2:
-                                team1_name = parts[0].strip()
-                                team2_name = parts[1].strip()
-                                team1_id = team_name_to_id.get(team1_name)
-                                team2_id = team_name_to_id.get(team2_name)
-                                
-                                if team1_id and team2_id:
-                                    upcoming_matchups.append({
-                                        "w": week_num,  # week
-                                        "t1": team1_id,  # team1_id
-                                        "t1n": team1_name,  # team1_name
-                                        "t2": team2_id,  # team2_id
-                                        "t2n": team2_name  # team2_name
-                                    })
-            except Exception as e:
-                pass  # Игнорируем ошибки загрузки расписания
+        teams_by_id = {team.team_id: team for team in teams}
+        final_matchup_period = max(league_meta.league.matchup_ids, default=current_week)
+        for matchup in league_meta.get_schedule_matchups(current_week, final_matchup_period):
+            team1 = teams_by_id.get(matchup["team1_id"])
+            team2 = teams_by_id.get(matchup["team2_id"])
+            if team1 and team2:
+                upcoming_matchups.append({
+                    "w": matchup["matchup_period"],
+                    "t1": team1.team_id,
+                    "t1n": team1.team_name,
+                    "t2": team2.team_id,
+                    "t2n": team2.team_name,
+                })
         
         # 7. Топ-50 свободных агентов
         free_agents_list = league_meta.get_free_agents(size=50)
@@ -1111,4 +1093,3 @@ def generate_prompt(
         import traceback
         traceback.print_exc()
         return {"error": f"Error generating prompt: {str(e)}"}
-

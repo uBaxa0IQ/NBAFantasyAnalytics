@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-
-const CATEGORIES_ORDER = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES_ORDER } from '../utils/categories';
 
 const VIEW_FORECAST = 'forecast';
 const VIEW_CURRENT = 'current';
@@ -246,4 +245,3 @@ const PlayoffMatchupModal = ({ matchup, period, simulationMode, onClose }) => {
 };
 
 export default PlayoffMatchupModal;
-

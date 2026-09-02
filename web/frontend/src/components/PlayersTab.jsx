@@ -3,7 +3,7 @@ import FreeAgents from './FreeAgents';
 import AllPlayers from './AllPlayers';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const PlayersTab = ({ onPlayerClick, period, puntCategories, simulationMode, colorByTrend = false }) => {
+const PlayersTab = ({ onPlayerClick, period, puntCategories, simulationMode, colorByTrend = false, mainTeam, calculationEngine }) => {
     const [viewMode, setViewMode] = useState(() => {
         const saved = loadState(StorageKeys.PLAYERS, {});
         return saved.viewMode || 'free-agents';
@@ -49,6 +49,8 @@ const PlayersTab = ({ onPlayerClick, period, puntCategories, simulationMode, col
                     period={period}
                     puntCategories={puntCategories}
                     colorByTrend={colorByTrend}
+                    mainTeam={mainTeam}
+                    calculationEngine={calculationEngine}
                 />
             ) : (
                 <AllPlayers
@@ -64,4 +66,3 @@ const PlayersTab = ({ onPlayerClick, period, puntCategories, simulationMode, col
 };
 
 export default PlayersTab;
-

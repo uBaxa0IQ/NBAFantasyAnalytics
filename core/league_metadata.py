@@ -6,7 +6,15 @@
 from espn_api.basketball import League
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-from .config import CATEGORIES
+from espn_api.basketball.constant import STATS_MAP
+
+from .config import CATEGORIES, DEFAULT_CATEGORIES, PERIODS, REVERSE_CATEGORIES, normalize_period
+
+
+CATEGORY_DISPLAY_ORDER = [
+    'PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD',
+    'FG%', 'FT%', '3PT%', 'A/TO', 'TO',
+]
 
 
 
@@ -15,18 +23,57 @@ from .config import CATEGORIES
 class LeagueMetadata:
     """Класс для работы с метаданными лиги и свободными агентами."""
     
-    def __init__(self):
+    def __init__(self, league_id=None, year=None, espn_s2=None, swid=None):
         """
         Инициализация класса для работы с метаданными лиги.
         """
         from .config import LEAGUE_ID, YEAR, ESPN_S2, SWID
-        self.league_id = LEAGUE_ID
-        self.year = YEAR
-        self.espn_s2 = ESPN_S2
-        self.swid = SWID
+        from .runtime_settings import get_runtime_league_id
+        self.league_id = int(league_id) if league_id is not None else get_runtime_league_id(LEAGUE_ID)
+        self.year = int(year) if year is not None else YEAR
+        self.espn_s2 = espn_s2 if espn_s2 is not None else ESPN_S2
+        self.swid = swid if swid is not None else SWID
         self.league = None
         self.teams = []
         self.last_refresh_time = None
+        self.categories = list(DEFAULT_CATEGORIES)
+        self.reverse_categories = {'TO'}
+        self.scoring_type = None
+        self.category_mode_supported = True
+
+    def _configure_scoring(self):
+        """Read the active category set from ESPN and update shared config."""
+        raw = self.league.espn_request.get_league()
+        scoring = raw.get('settings', {}).get('scoringSettings', {})
+        self.scoring_type = scoring.get('scoringType')
+        self.category_mode_supported = self.scoring_type in {
+            'H2H_CATEGORY', 'H2H_MOST_CATEGORIES'
+        }
+
+        categories = []
+        reverse = set()
+        if self.category_mode_supported:
+            for item in scoring.get('scoringItems', []) or []:
+                category = STATS_MAP.get(str(item.get('statId')))
+                if not category or category in categories:
+                    continue
+                categories.append(category)
+                if item.get('isReverseItem') or category == 'TO':
+                    reverse.add(category)
+
+        if not categories:
+            categories = list(DEFAULT_CATEGORIES)
+        order = {category: index for index, category in enumerate(CATEGORY_DISPLAY_ORDER)}
+        categories.sort(key=lambda category: order.get(category, len(order)))
+
+        self.categories = categories
+        self.reverse_categories = reverse or ({'TO'} if 'TO' in categories else set())
+        CATEGORIES[:] = categories
+        REVERSE_CATEGORIES.clear()
+        REVERSE_CATEGORIES.update(self.reverse_categories)
+
+    def get_categories(self) -> List[str]:
+        return list(self.categories)
     
     def connect_to_league(self) -> bool:
         """
@@ -43,6 +90,7 @@ class LeagueMetadata:
                 swid=self.swid
             )
             self.teams = self.league.teams
+            self._configure_scoring()
             return True
         except Exception as e:
             print(f"Ошибка подключения к лиге: {e}")
@@ -193,37 +241,16 @@ class LeagueMetadata:
         Returns:
             Словарь со всей статистикой из API или None если данные недоступны
         """
+        period = normalize_period(period)
+
         # Обработка взвешенного периода
-        if period == '2026_weighted':
-            # Используем кастомные коэффициенты, если переданы, иначе загружаем из файла или config
+        if period == PERIODS['weighted']:
+            # Используем кастомные коэффициенты, если переданы, иначе общие настройки приложения.
             if custom_weighted_coeffs:
                 weighted_coeffs = custom_weighted_coeffs
             else:
-                # Пытаемся загрузить из JSON файла (если есть обновления через админ-панель)
-                try:
-                    from pathlib import Path
-                    import json
-                    # Путь к файлу: e:\NBAFantasyAnalytics\web\core\weighted_coefficients.json
-                    # __file__ = e:\NBAFantasyAnalytics\core\league_metadata.py
-                    # .parent = core
-                    # .parent.parent = root
-                    coeffs_file = Path(__file__).parent.parent / "web" / "core" / "weighted_coefficients.json"
-                    if coeffs_file.exists():
-                        with open(coeffs_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            weighted_coeffs = {
-                                '2026_total': float(data.get('total', 0.40)),
-                                '2026_last_30': float(data.get('last_30', 0.30)),
-                                '2026_last_15': float(data.get('last_15', 0.20)),
-                                '2026_last_7': float(data.get('last_7', 0.10))
-                            }
-                    else:
-                        from .config import WEIGHTED_PERIOD_COEFFS
-                        weighted_coeffs = WEIGHTED_PERIOD_COEFFS
-                except:
-                    # Fallback на config
-                    from .config import WEIGHTED_PERIOD_COEFFS
-                    weighted_coeffs = WEIGHTED_PERIOD_COEFFS
+                from .weighted_coefficients import load_weighted_coefficients
+                weighted_coeffs = load_weighted_coefficients()
             
             # Собираем статистику за все базовые периоды
             stats_by_period = {}
@@ -401,8 +428,15 @@ class LeagueMetadata:
                 
                 if stats:
                     player_data = {
+                        'player_id': getattr(player, 'playerId', None),
                         'name': player.name,
                         'position': getattr(player, 'position', 'N/A'),
+                        'eligible_slots': getattr(player, 'eligibleSlots', []),
+                        'lineup_slot': getattr(player, 'lineupSlot', ''),
+                        'injured': getattr(player, 'injured', False),
+                        'injury_status': getattr(player, 'injuryStatus', 'ACTIVE'),
+                        'pro_team': getattr(player, 'proTeam', None),
+                        'schedule': getattr(player, 'schedule', {}),
                         'team_id': team.team_id,
                         'team_name': team.team_name,
                         'stats': stats
@@ -453,6 +487,74 @@ class LeagueMetadata:
             matchups.append(matchup)
         
         return matchups
+
+    def get_matchups_with_scores(self, week: int) -> List[Dict[str, Any]]:
+        """Получает все матчапы и счёт одним запросом к ESPN."""
+        if not self.league and not self.connect_to_league():
+            return []
+
+        try:
+            box_scores = self.league.box_scores(matchup_period=week)
+        except Exception as error:
+            print(f"Ошибка получения матчапов за неделю {week}: {error}")
+            return []
+
+        result = []
+        for box in box_scores or []:
+            home_team = getattr(box, "home_team", None)
+            away_team = getattr(box, "away_team", None)
+            if not hasattr(home_team, "team_id") or not hasattr(away_team, "team_id"):
+                continue
+
+            home_wins = int(getattr(box, "home_wins", 0) or 0)
+            away_wins = int(getattr(box, "away_wins", 0) or 0)
+            ties = int(getattr(box, "home_ties", 0) or 0)
+            result.append(
+                {
+                    "week": week,
+                    "team1": home_team.team_name,
+                    "team2": away_team.team_name,
+                    "team1_id": home_team.team_id,
+                    "team2_id": away_team.team_id,
+                    "winner": getattr(box, "winner", "UNDECIDED"),
+                    "score": {
+                        "team1_wins": home_wins,
+                        "team2_wins": away_wins,
+                        "ties": ties,
+                        "formatted": f"{home_wins}-{away_wins}-{ties}",
+                    },
+                }
+            )
+        return result
+
+    def get_schedule_matchups(self, start_period: int, end_period: int) -> List[Dict[str, Any]]:
+        """Возвращает официальный fantasy schedule ESPN без ручного JSON."""
+        if not self.league and not self.connect_to_league():
+            return []
+
+        try:
+            schedule = self.league.espn_request.get_league().get("schedule", [])
+        except Exception as error:
+            print(f"Ошибка получения расписания ESPN: {error}")
+            return []
+
+        result = []
+        for matchup in schedule:
+            period = int(matchup.get("matchupPeriodId", 0) or 0)
+            if period < start_period or period > end_period:
+                continue
+            home_id = matchup.get("home", {}).get("teamId")
+            away_id = matchup.get("away", {}).get("teamId")
+            if not home_id or not away_id:
+                continue
+            result.append(
+                {
+                    "matchup_period": period,
+                    "team1_id": int(home_id),
+                    "team2_id": int(away_id),
+                }
+            )
+        return result
     
     def get_matchup_box_score(self, week: int, team_id: int) -> Optional[Dict[str, Any]]:
         """
@@ -822,4 +924,3 @@ class LeagueMetadata:
             'score': score,
             'winner': overall_winner
         }
-

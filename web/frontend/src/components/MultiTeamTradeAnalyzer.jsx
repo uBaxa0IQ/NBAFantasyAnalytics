@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
-
-const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam }) => {
+const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calculationEngine = 'calendar' }) => {
     const savedState = loadState(StorageKeys.MULTITEAM_TRADE, {});
     const [teams, setTeams] = useState([]);
     const [teamTrades, setTeamTrades] = useState(savedState.teamTrades || [{ teamId: '', give: [], receive: [] }]);
@@ -15,6 +14,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
     const [scopeMode, setScopeMode] = useState(savedState.scopeMode || 'team'); // 'team' или 'trade'
     const [validationErrors, setValidationErrors] = useState([]);
     const [selectedTeamForTable, setSelectedTeamForTable] = useState(savedState.selectedTeamForTable || null);
+    const selectedTeamIds = teamTrades.map(trade => trade.teamId).join(',');
 
     useEffect(() => {
         api.get('/teams').then(res => setTeams(res.data));
@@ -34,65 +34,31 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
     useEffect(() => {
         const loadPlayers = async () => {
             const newTeamPlayers = {};
-            const newTeamTrades = [...teamTrades];
-            
-            // Получаем всех трейдуемых игроков (из всех команд в трейде)
-            const allTradedPlayers = new Set();
-            teamTrades.forEach(t => {
-                t.give.forEach(name => allTradedPlayers.add(name));
-                t.receive.forEach(name => allTradedPlayers.add(name));
-            });
-            
-            for (let i = 0; i < teamTrades.length; i++) {
-                const trade = teamTrades[i];
-                if (trade.teamId) {
+            const teamIds = selectedTeamIds.split(',').filter(Boolean);
+            for (const teamId of teamIds) {
+                if (teamId) {
                     try {
                         // В аналитике команды IR игроки всегда включены
-                        const res = await api.get(`/analytics/${trade.teamId}?period=${period}&exclude_ir=false`);
+                        const res = await api.get(`/analytics/${teamId}?period=${period}&exclude_ir=false`);
                         const players = res.data.players;
-                        newTeamPlayers[trade.teamId] = players;
-                        
-                        // Фильтруем игроков в give и receive
-                        const playerNames = players.map(p => p.name);
-                        
-                        // Для give: только игроки текущей команды
-                        const filteredGive = trade.give.filter(name => playerNames.includes(name));
-                        
-                        // Для receive: игроки текущей команды ИЛИ игроки из других команд в трейде
-                        const filteredReceive = trade.receive.filter(name => 
-                            playerNames.includes(name) || allTradedPlayers.has(name)
-                        );
-                        
-                        // Если были отфильтрованы игроки, обновляем трейд
-                        if (filteredGive.length !== trade.give.length || filteredReceive.length !== trade.receive.length) {
-                            newTeamTrades[i] = {
-                                ...trade,
-                                give: filteredGive,
-                                receive: filteredReceive
-                            };
-                        }
+                        newTeamPlayers[teamId] = players;
                     } catch (err) {
-                        console.error(`Error loading players for team ${trade.teamId}:`, err);
-                        newTeamPlayers[trade.teamId] = [];
+                        console.error(`Error loading players for team ${teamId}:`, err);
+                        newTeamPlayers[teamId] = [];
                     }
                 }
             }
-            
             setTeamPlayers(newTeamPlayers);
-            // Обновляем teamTrades только если были изменения
-            if (JSON.stringify(newTeamTrades) !== JSON.stringify(teamTrades)) {
-                setTeamTrades(newTeamTrades);
-            }
         };
         loadPlayers();
-    }, [teamTrades.map(t => t.teamId).join(','), period]);
+    }, [selectedTeamIds, period]);
 
     // Инициализация выбранной команды для таблицы при получении результата
     useEffect(() => {
         if (result && result.teams && result.teams.length > 0 && !selectedTeamForTable) {
             setSelectedTeamForTable(result.teams[0].team_id);
         }
-    }, [result]);
+    }, [result, selectedTeamForTable]);
 
     const addTeam = () => {
         setTeamTrades([...teamTrades, { teamId: '', give: [], receive: [] }]);
@@ -181,7 +147,8 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
             trades,
             period,
             punt_categories: puntCategories,
-            simulation_mode: simulationMode
+            simulation_mode: simulationMode,
+            calculation_engine: calculationEngine
         };
         
         // Если режим top_n, добавляем дополнительные параметры
@@ -468,6 +435,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                         {result.teams.map(team => {
                             const display = scopeMode === 'trade' && team.trade_scope ? team.trade_scope : team;
+                            const calendarImpact = result.calendar_impact?.teams?.[team.team_id];
                             return (
                                 <div key={team.team_id} className="border rounded-lg p-6 bg-white">
                                     <h3 className="text-xl font-bold mb-2">{team.team_name}</h3>
@@ -493,6 +461,17 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                                             </span>
                                         </div>
                                     </div>
+                                    {calendarImpact && (
+                                        <div className="mb-4 p-3 rounded bg-blue-50 border border-blue-100">
+                                            <div className="text-xs text-gray-600">По оставшемуся календарю</div>
+                                            <div className={`text-lg font-bold ${calendarImpact.delta > 0 ? 'text-green-600' : calendarImpact.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                {calendarImpact.delta > 0 ? '+' : ''}{calendarImpact.delta}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                Player-games: {calendarImpact.selected_games_before} → {calendarImpact.selected_games_after}
+                                            </div>
+                                        </div>
+                                    )}
                                     {team.players_given.length > 0 && (
                                         <div className="mb-2">
                                             <span className="text-sm text-gray-600">Отдает: </span>
@@ -586,8 +565,6 @@ const MultiTeamCategoryRankingsChanges = ({ categoryRankings, teams }) => {
     
     const selectedTeamRankings = categoryRankings[selectedTeamId] || {};
     const allCategories = Object.keys(selectedTeamRankings);
-    const selectedTeamName = teams.find(t => t.team_id === selectedTeamId)?.team_name || '';
-    
     // Функция для получения цвета бейджа позиции
     const getRankBadgeColor = (rank) => {
         if (rank === 1) return 'bg-yellow-500 text-white';
@@ -688,4 +665,3 @@ const MultiTeamCategoryRankingsChanges = ({ categoryRankings, teams }) => {
 };
 
 export default MultiTeamTradeAnalyzer;
-

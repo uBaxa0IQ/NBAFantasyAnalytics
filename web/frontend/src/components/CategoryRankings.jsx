@@ -19,7 +19,6 @@ const CategoryRankings = ({ teamId, period, simulationMode, showTopOnly = false 
         
         // Функция для проверки изменений
         const checkStorage = () => {
-            const saved = localStorage.getItem(storageKey);
             setCustomPlayersKey(prev => prev + 1); // Принудительно обновляем
         };
 
@@ -303,4 +302,3 @@ const CategoryRankings = ({ teamId, period, simulationMode, showTopOnly = false 
 };
 
 export default CategoryRankings;
-

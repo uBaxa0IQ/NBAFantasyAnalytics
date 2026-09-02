@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 import api from '../api';
-
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { getSeasonConfig } from '../utils/periods';
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
 
 const PlayerComparisonModal = ({ players, onClose }) => {
+    const periods = getSeasonConfig().periods;
     const [comparisonData, setComparisonData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState('2026_total');
+    const [period, setPeriod] = useState(periods.total);
     const [statsView, setStatsView] = useState('z-scores'); // 'z-scores' или 'raw'
 
     useEffect(() => {
@@ -124,11 +125,11 @@ const PlayerComparisonModal = ({ players, onClose }) => {
                                     value={period} 
                                     onChange={e => setPeriod(e.target.value)}
                                 >
-                                    <option value="2026_total">Весь сезон</option>
-                                    <option value="2026_last_30">Последние 30 дней</option>
-                                    <option value="2026_last_15">Последние 15 дней</option>
-                                    <option value="2026_last_7">Последние 7 дней</option>
-                                    <option value="2026_weighted">Взвешенный (Универсальный)</option>
+                                    <option value={periods.total}>Весь сезон</option>
+                                    <option value={periods.last_30}>Последние 30 дней</option>
+                                    <option value={periods.last_15}>Последние 15 дней</option>
+                                    <option value={periods.last_7}>Последние 7 дней</option>
+                                    <option value={periods.weighted}>Взвешенный (Универсальный)</option>
                                 </select>
                             </div>
                             <button
@@ -243,7 +244,7 @@ const PlayerComparisonModal = ({ players, onClose }) => {
                                                 return (
                                                     <tr key={cat} className="border-b hover:bg-gray-50">
                                                         <td className="px-4 py-3 font-medium">{cat}</td>
-                                                        {comparisonData.map((playerData, idx) => {
+                                                        {comparisonData.map((playerData) => {
                                                             const zScore = playerData.z_scores?.[cat] || 0;
                                                             const numValue = typeof zScore === 'number' ? zScore : 0;
                                                             const isBest = numValue === bestValue;
@@ -408,4 +409,3 @@ const PlayerComparisonModal = ({ players, onClose }) => {
 };
 
 export default PlayerComparisonModal;
-

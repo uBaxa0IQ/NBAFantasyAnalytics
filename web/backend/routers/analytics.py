@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends
 from dependencies import get_league_meta
 from core.z_score import calculate_z_scores
+from core.config import DEFAULT_PERIOD
 import math
 
 router = APIRouter(prefix="/api", tags=["analytics"])
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["analytics"])
 @router.get("/analytics/{team_id}")
 def get_analytics(
     team_id: int,
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     exclude_ir: bool = False,
     league_meta=Depends(get_league_meta)
 ):
@@ -49,4 +50,3 @@ def get_analytics(
         "players": team_players,
         "league_metrics": data['league_metrics']
     }
-

@@ -2,7 +2,7 @@
 Общие функции для расчетов статистики.
 """
 import math
-from core.config import CATEGORIES
+from core.config import CATEGORIES, REVERSE_CATEGORIES
 
 
 def calculate_total_z(players, punt_cats):
@@ -548,8 +548,8 @@ def calculate_category_rankings(all_players_list, team_id, league_meta, period, 
                 'value': value
             })
         
-        # Сортируем по убыванию (больше = лучше)
-        category_values.sort(key=lambda x: x['value'], reverse=True)
+        reverse = cat not in REVERSE_CATEGORIES
+        category_values.sort(key=lambda x: x['value'], reverse=reverse)
         
         # Находим позицию нашей команды
         my_value = my_team_stats.get(cat, 0.0)
@@ -557,7 +557,7 @@ def calculate_category_rankings(all_players_list, team_id, league_meta, period, 
         for team_data in category_values:
             if team_data['team_id'] == team_id:
                 break
-            if team_data['value'] > my_value:
+            if (team_data['value'] > my_value and reverse) or (team_data['value'] < my_value and not reverse):
                 rank += 1
         
         category_rankings[cat] = rank
@@ -616,4 +616,3 @@ def select_top_n_players(team_players: list, n: int, punt_categories: list = Non
     
     # Возвращаем топ-N игроков
     return players_with_totals[:n]
-

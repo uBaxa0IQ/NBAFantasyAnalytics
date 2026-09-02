@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends
 from dependencies import get_league_meta
 from core.z_score import calculate_z_scores
+from core.config import DEFAULT_PERIOD
 import math
 
 router = APIRouter(prefix="/api", tags=["teams"])
@@ -83,7 +84,7 @@ def get_refresh_status(league_meta=Depends(get_league_meta)):
 @router.get("/teams/{team_id}/players-for-selection")
 def get_players_for_selection(
     team_id: int,
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     league_meta=Depends(get_league_meta)
 ):
     """

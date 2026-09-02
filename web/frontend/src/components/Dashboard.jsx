@@ -6,10 +6,11 @@ import CategoryRankings from './CategoryRankings';
 import PositionHistoryChart from './PositionHistoryChart';
 import TeamTrendsChart from './TeamTrendsChart';
 import SeasonProjectionModal from './SeasonProjectionModal';
+import PuntAdvisor from './PuntAdvisor';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
-const Dashboard = ({ period, puntCategories, mainTeam, simulationMode, isPlayoff }) => {
+const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEngine = 'calendar', puntCategories = [], onApplyPuntStrategy }) => {
     const [teams, setTeams] = useState([]);
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -73,7 +74,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode, isPlayoff
         setLoading(true);
         
         // Формируем параметры запроса
-        const params = { period, simulation_mode: simulationMode };
+        const params = { period, simulation_mode: simulationMode, calculation_engine: calculationEngine };
         
         // Если режим top_n, добавляем дополнительные параметры
         if (simulationMode === 'top_n') {
@@ -102,7 +103,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode, isPlayoff
                 console.error('Error fetching dashboard:', err);
                 setLoading(false);
             });
-    }, [mainTeam, period, simulationMode, customPlayersKey]);
+    }, [mainTeam, period, simulationMode, customPlayersKey, calculationEngine]);
 
     // Сохранение состояния при изменении compareTeamId
     useEffect(() => {
@@ -119,7 +120,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode, isPlayoff
         setProjectionLoading(true);
         
         // Формируем параметры запроса
-        const params = { period, simulation_mode: simulationMode };
+        const params = { period, simulation_mode: simulationMode, calculation_engine: calculationEngine };
         
         // Если режим top_n, добавляем дополнительные параметры
         if (simulationMode === 'top_n') {
@@ -148,7 +149,7 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode, isPlayoff
                 setSeasonProjection(null);
                 setProjectionLoading(false);
             });
-    }, [mainTeam, period, simulationMode, isPlayoff]);
+    }, [mainTeam, period, simulationMode, isPlayoff, calculationEngine]);
 
     if (!mainTeam) {
         return (
@@ -243,6 +244,13 @@ const Dashboard = ({ period, puntCategories, mainTeam, simulationMode, isPlayoff
                             )}
                         </div>
                     </div>
+
+                    <PuntAdvisor
+                        teamId={mainTeam}
+                        period={period}
+                        activePunts={puntCategories}
+                        onApply={onApplyPuntStrategy}
+                    />
 
                     {/* Matchup Details */}
                     {dashboardData.current_matchup ? (

@@ -4,23 +4,18 @@
 from fastapi import APIRouter, Depends
 from dependencies import get_league_meta
 from core.z_score import calculate_z_scores
-from core.config import CATEGORIES
+from core.config import CATEGORIES, DEFAULT_PERIOD, REVERSE_CATEGORIES
 from utils.calculations import calculate_team_raw_stats, select_top_n_players
 from typing import Optional, List
 import math
-import json
-import os
-from pathlib import Path
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
-
-from utils.calculations import calculate_team_raw_stats
 
 
 @router.get("/{team_id}")
 def get_dashboard(
     team_id: int,
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     simulation_mode: str = "all",
     top_n_players: int = 13,
     custom_team_players: Optional[str] = None,
@@ -469,7 +464,7 @@ def get_matchup_history(
 @router.get("/{team_id}/category-rankings")
 def get_category_rankings(
     team_id: int,
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     simulation_mode: str = "all",
     top_n_players: int = 13,
     custom_team_players: Optional[str] = None,
@@ -594,8 +589,8 @@ def get_category_rankings(
                 'value': value
             })
         
-        # Сортируем по убыванию (больше = лучше)
-        category_values.sort(key=lambda x: x['value'], reverse=True)
+        higher_is_better = cat not in REVERSE_CATEGORIES
+        category_values.sort(key=lambda x: x['value'], reverse=higher_is_better)
         
         # Находим позицию нашей команды
         my_value = my_team_stats.get(cat, 0.0)
@@ -603,7 +598,7 @@ def get_category_rankings(
         for team_data in category_values:
             if team_data['team_id'] == team_id:
                 break
-            if team_data['value'] > my_value:
+            if (team_data['value'] > my_value and higher_is_better) or (team_data['value'] < my_value and not higher_is_better):
                 rank += 1
         
         # Сохраняем топ команд для этой категории
@@ -640,7 +635,7 @@ def get_category_rankings(
 @router.get("/{team_id}/position-history")
 def get_position_history(
     team_id: int,
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     simulation_mode: str = "all",
     top_n_players: int = 13,
     custom_team_players: Optional[str] = None,
@@ -760,317 +755,45 @@ def get_position_history(
 @router.get("/{team_id}/season-projection")
 def get_season_projection(
     team_id: int,
-    period: str = "2026_total",
-    simulation_mode: str = "all",
-    top_n_players: int = 13,
-    custom_team_players: Optional[str] = None,
+    period: str = DEFAULT_PERIOD,
+    calculation_engine: str = "calendar",
     league_meta=Depends(get_league_meta)
 ):
-    """
-    Прогнозирует итоговое место команды в конце сезона на основе:
-    - Расписания матчапов из shedule.json
-    - Результатов прошедших матчапов
-    - Симуляции будущих матчапов на основе статистики команд
-    """
-    # Получаем команду
-    team = league_meta.get_team_by_id(team_id)
-    if not team:
-        return {"error": "Team not found"}
-    
-    # Получаем текущую неделю
-    current_week = league_meta.league.currentMatchupPeriod
-    
-    # Читаем расписание
-    schedule_path = Path(__file__).parent.parent / "shedule.json"
-    try:
-        with open(schedule_path, 'r', encoding='utf-8') as f:
-            schedule = json.load(f)
-    except Exception as e:
-        return {"error": f"Failed to load schedule: {str(e)}"}
-    
-    # Получаем все команды и создаем маппинг названий к ID
-    # Создаем маппинг с нормализацией (убираем пробелы в конце для сопоставления)
-    all_teams = league_meta.get_teams()
-    team_name_to_id = {}
-    for team in all_teams:
-        # Добавляем оригинальное название
-        team_name_to_id[team.team_name] = team.team_id
-        # Добавляем нормализованное (без пробелов в конце) для сопоставления
-        normalized_name = team.team_name.rstrip()
-        if normalized_name != team.team_name:
-            team_name_to_id[normalized_name] = team.team_id
-    
-    # Определяем exclude_ir на основе simulation_mode
-    exclude_ir = (simulation_mode == "exclude_ir")
-    
-    # Получаем статистику команд для симуляции (режим team_stats_avg)
-    all_players = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
-    
-    players_by_team = {}
-    for player in all_players:
-        player_team_id = player['team_id']
-        if player_team_id not in players_by_team:
-            players_by_team[player_team_id] = []
-        players_by_team[player_team_id].append(player)
-    
-    # Если режим "top_n", применяем логику выбора топ-N игроков
-    if simulation_mode == "top_n":
-        # Парсим custom_team_players из строки в список
-        custom_players_list = None
-        if custom_team_players:
-            custom_players_list = [name.strip() for name in custom_team_players.split(',') if name.strip()]
-        
-        # Получаем Z-scores для всех игроков (для сортировки)
-        z_data = calculate_z_scores(league_meta, period, exclude_ir=False)
-        z_scores_by_name = {p['name']: p['z_scores'] for p in z_data['players']}
-        
-        # Применяем логику выбора топ-N для каждой команды
-        for team_obj in all_teams:
-            if team_obj.team_id in players_by_team:
-                team_players = players_by_team[team_obj.team_id]
-                
-                # Для custom_team_players (для team_id) используем выбранных игроков или топ-N
-                if team_obj.team_id == team_id and custom_players_list:
-                    # Фильтруем только выбранных игроков
-                    team_players = [p for p in team_players if p['name'] in custom_players_list]
-                else:
-                    # Выбираем топ-N игроков
-                    team_players = select_top_n_players(
-                        team_players, 
-                        top_n_players, 
-                        punt_categories=[], 
-                        z_scores_data=z_scores_by_name
-                    )
-                
-                players_by_team[team_obj.team_id] = team_players
-    
-    # Рассчитываем статистику для каждой команды
-    team_stats = {}
-    for team_obj in all_teams:
-        if team_obj.team_id in players_by_team:
-            team_players = players_by_team[team_obj.team_id]
-            team_raw_stats = calculate_team_raw_stats(team_players)
-            
-            filtered_stats = {}
-            for cat in CATEGORIES:
-                if cat in team_raw_stats:
-                    filtered_stats[cat] = team_raw_stats[cat]
-                else:
-                    filtered_stats[cat] = 0.0
-            
-            team_stats[team_obj.team_id] = {
-                'name': team_obj.team_name,
-                'stats': filtered_stats
-            }
-        else:
-            team_stats[team_obj.team_id] = {
-                'name': team_obj.team_name,
-                'stats': {cat: 0.0 for cat in CATEGORIES}
-            }
-    
-    # Инициализируем рекорды для всех команд
-    team_records = {tid: {'wins': 0, 'losses': 0, 'ties': 0} for tid in team_stats.keys()}
-    
-    # Обрабатываем каждую неделю из расписания
-    for week_data in schedule:
-        week_num = week_data['week']
-        
-        # Для прошедших недель используем реальные результаты
-        if week_num < current_week:
-            # Оптимизация: получаем все box_scores за неделю одним запросом к API
-            try:
-                box_scores = league_meta.league.box_scores(matchup_period=week_num)
-            except Exception as e:
-                continue
-            
-            if not box_scores:
-                continue
-            
-            # Создаем словарь для быстрого доступа к статистике команд
-            team_stats_for_week = {}
-            for box in box_scores:
-                # Обрабатываем домашнюю команду
-                home_team_id = box.home_team.team_id
-                home_lineup = box.home_lineup
-                if home_lineup:
-                    home_stats = league_meta._extract_team_stats_from_lineup(home_lineup, box.home_team.team_name)
-                    if home_stats:
-                        team_stats_for_week[home_team_id] = home_stats['stats']
-                
-                # Обрабатываем гостевую команду
-                away_team_id = box.away_team.team_id
-                away_lineup = box.away_lineup
-                if away_lineup:
-                    away_stats = league_meta._extract_team_stats_from_lineup(away_lineup, box.away_team.team_name)
-                    if away_stats:
-                        team_stats_for_week[away_team_id] = away_stats['stats']
-            
-            # Обрабатываем каждый матчап из box_scores
-            processed_pairs = set()
-            for box in box_scores:
-                team1_id = box.home_team.team_id
-                team2_id = box.away_team.team_id
-                
-                # Создаем уникальный ключ для пары
-                team_pair = tuple(sorted([team1_id, team2_id]))
-                if team_pair in processed_pairs:
-                    continue
-                processed_pairs.add(team_pair)
-                
-                # Пропускаем, если нет статистики для одной из команд
-                if team1_id not in team_stats_for_week or team2_id not in team_stats_for_week:
-                    continue
-                
-                team1_stats = team_stats_for_week[team1_id]
-                team2_stats = team_stats_for_week[team2_id]
-                
-                # Сравниваем по категориям и считаем победы (как в get_matchup_summary)
-                team1_wins = 0
-                team2_wins = 0
-                
-                for cat in CATEGORIES:
-                    val1 = team1_stats.get(cat, 0.0)
-                    val2 = team2_stats.get(cat, 0.0)
-                    
-                    # TO (Turnovers) - чем меньше, тем лучше
-                    if cat == 'TO':
-                        if val1 < val2:
-                            team1_wins += 1
-                        elif val2 < val1:
-                            team2_wins += 1
-                    else:
-                        if val1 > val2:
-                            team1_wins += 1
-                        elif val2 > val1:
-                            team2_wins += 1
-                
-                # Обновляем рекорды
-                if team1_wins > team2_wins:
-                    team_records[team1_id]['wins'] += 1
-                    team_records[team2_id]['losses'] += 1
-                elif team2_wins > team1_wins:
-                    team_records[team1_id]['losses'] += 1
-                    team_records[team2_id]['wins'] += 1
-                else:
-                    # Ничья
-                    team_records[team1_id]['ties'] += 1
-                    team_records[team2_id]['ties'] += 1
-        
-        # Для текущей и будущих недель используем симуляцию
-        elif week_num >= current_week:
-            for matchup_str in week_data['matchups']:
-                # Парсим строку матчапа: "Team1 vs Team2"
-                parts = matchup_str.split(' vs ')
-                if len(parts) != 2:
-                    continue
-                
-                team1_name = parts[0].strip()
-                team2_name = parts[1].strip()
-                
-                # Находим ID команд
-                team1_id = team_name_to_id.get(team1_name)
-                team2_id = team_name_to_id.get(team2_name)
-                
-                if not team1_id or not team2_id:
-                    # Если не нашли команду, пропускаем этот матчап
-                    continue
-                
-                if team1_id not in team_stats or team2_id not in team_stats:
-                    continue
-                
-                # Симулируем матчап
-                stats1 = team_stats[team1_id]['stats']
-                stats2 = team_stats[team2_id]['stats']
-                
-                wins1 = 0
-                wins2 = 0
-                
-                for cat in CATEGORIES:
-                    val1 = stats1.get(cat, 0.0)
-                    val2 = stats2.get(cat, 0.0)
-                    
-                    # TO (Turnovers) - чем меньше, тем лучше
-                    if cat == 'TO':
-                        if val1 < val2:
-                            wins1 += 1
-                        elif val2 < val1:
-                            wins2 += 1
-                    else:
-                        if val1 > val2:
-                            wins1 += 1
-                        elif val2 > val1:
-                            wins2 += 1
-                
-                # Обновляем рекорды
-                if wins1 > wins2:
-                    team_records[team1_id]['wins'] += 1
-                    team_records[team2_id]['losses'] += 1
-                elif wins2 > wins1:
-                    team_records[team1_id]['losses'] += 1
-                    team_records[team2_id]['wins'] += 1
-                else:
-                    team_records[team1_id]['ties'] += 1
-                    team_records[team2_id]['ties'] += 1
-    
-    # Рассчитываем винрейт для всех команд
-    final_standings = []
-    for tid, record in team_records.items():
-        wins = record['wins']
-        losses = record['losses']
-        ties = record['ties']
-        total_games = wins + losses + ties
-        
-        win_rate = (wins + 0.5 * ties) / total_games if total_games > 0 else 0
-        
-        final_standings.append({
-            'team_id': tid,
-            'team_name': team_stats[tid]['name'],
-            'wins': wins,
-            'losses': losses,
-            'ties': ties,
-            'win_rate': win_rate
-        })
-    
-    # Сортируем по винрейту (убывание), затем по победам
-    final_standings.sort(key=lambda x: (x['win_rate'], x['wins']), reverse=True)
-    
-    # Находим позицию запрошенной команды
-    projected_position = None
-    for idx, standing in enumerate(final_standings):
-        if standing['team_id'] == team_id:
-            projected_position = idx + 1
-            break
-    
-    if projected_position is None:
-        return {"error": "Team not found in projections"}
-    
-    # Находим рекорд запрошенной команды
-    team_record = team_records[team_id]
-    
-    return {
-        'team_id': team_id,
-        'team_name': team.team_name,
-        'projected_position': projected_position,
-        'projected_record': {
-            'wins': team_record['wins'],
-            'losses': team_record['losses'],
-            'ties': team_record['ties'],
-            'win_rate': round((team_record['wins'] + 0.5 * team_record['ties']) / 
-                             (team_record['wins'] + team_record['losses'] + team_record['ties']) * 100, 1)
-            if (team_record['wins'] + team_record['losses'] + team_record['ties']) > 0 else 0
-        },
-        'total_teams': len(final_standings),
-        'full_standings': [
-            {
-                'position': idx + 1,
-                'team_id': standing['team_id'],
-                'team_name': standing['team_name'],
-                'wins': standing['wins'],
-                'losses': standing['losses'],
-                'ties': standing['ties'],
-                'win_rate': round(standing['win_rate'] * 100, 1)
-            }
-            for idx, standing in enumerate(final_standings)
-        ]
-    }
+    """Прогнозирует итог регулярки по официальному schedule и lineup projections."""
+    from services.season import project_regular_season
 
+    projection = project_regular_season(league_meta, period, calculation_engine)
+    target = next(
+        (standing for standing in projection["standings"] if standing["team_id"] == team_id),
+        None,
+    )
+    if target is None:
+        return {"error": "Team not found"}
+
+    return {
+        "team_id": team_id,
+        "team_name": target["team_name"],
+        "projected_position": target["projected_position"],
+        "projected_record": {
+            "wins": target["wins"],
+            "losses": target["losses"],
+            "ties": target["ties"],
+            "win_rate": target["win_rate"],
+        },
+        "projected_matchups": target["projected_matchups"],
+        "total_teams": len(projection["standings"]),
+        "full_standings": [
+            {
+                "position": standing["projected_position"],
+                "team_id": standing["team_id"],
+                "team_name": standing["team_name"],
+                "wins": standing["wins"],
+                "losses": standing["losses"],
+                "ties": standing["ties"],
+                "win_rate": standing["win_rate"],
+            }
+            for standing in projection["standings"]
+        ],
+        "method": projection["method"],
+        "tie_break_note": projection["tie_break_note"],
+    }

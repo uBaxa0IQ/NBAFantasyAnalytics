@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 const COLORS = [
     '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
@@ -147,4 +146,3 @@ const TopPlayersDistributionChart = ({ players, topN, puntCategories = [] }) => 
 };
 
 export default TopPlayersDistributionChart;
-

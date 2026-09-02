@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import { getTrendColor } from '../utils/trendColors';
-
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false }) => {
     const [teams, setTeams] = useState([]);
@@ -70,6 +69,11 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
         return total;
     };
 
+    const calculateGeneralZ = (player) => CATEGORIES.reduce(
+        (total, cat) => total + (player.z_scores[cat] || 0),
+        0,
+    );
+
     const handleSort = (column) => {
         if (sortBy === column) {
             setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -132,7 +136,7 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
                                     className="p-2 border cursor-pointer hover:bg-gray-200"
                                     onClick={() => handleSort('total_z')}
                                 >
-                                    Total Z <SortIcon column="total_z" />
+                                    {puntCategories.length ? 'Z стратегии' : 'Total Z'} <SortIcon column="total_z" />
                                 </th>
                                 {CATEGORIES.map(cat => (
                                     <th
@@ -162,6 +166,9 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
                                             </span>
                                         ) : (
                                             calculateTotalZ(player).toFixed(2)
+                                        )}
+                                        {puntCategories.length > 0 && (
+                                            <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>
                                         )}
                                     </td>
                                     {CATEGORIES.map(cat => {

@@ -5,16 +5,65 @@ Z-score показывает, на сколько стандартных отк�
 
 from typing import Dict, List, Any, Optional
 import math
-from .config import CATEGORIES
+from .config import CATEGORIES, REVERSE_CATEGORIES
 
 
 
 # Разделение категорий на счетные и процентные
-COUNTING_CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD']
+COUNTING_CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'TO']
 PERCENTAGE_CATEGORIES = ['FG%', 'FT%', '3PT%', 'A/TO']
 
 
+def calculate_player_z_scores(stats: Dict[str, Any], league_metrics: Dict[str, Any]) -> Dict[str, float]:
+    """Score one player against metrics calculated from rostered league players."""
+    z_scores = {}
+    for category, metric in league_metrics.items():
+        if 'mean' not in metric or category not in stats:
+            continue
+        value = (stats[category] - metric['mean']) / metric['std'] if metric['std'] else 0.0
+        z_scores[category] = -value if metric.get('reverse') else value
+
+    percentage_inputs = {
+        'FG%': ('FG%', 'FGA'),
+        'FT%': ('FT%', 'FTA'),
+        '3PT%': ('3PT%', '3PA'),
+    }
+    for category, (percentage, attempts) in percentage_inputs.items():
+        if percentage in stats and attempts in stats and category in league_metrics:
+            metric = league_metrics[category]
+            impact = (stats[percentage] - metric['weighted_avg']) * stats[attempts]
+            z_scores[category] = (
+                (impact - metric['impact_mean']) / metric['impact_std']
+                if metric['impact_std'] else 0.0
+            )
+
+    if 'AST' in stats and 'TO' in stats and 'A/TO' in league_metrics:
+        metric = league_metrics['A/TO']
+        impact = stats['AST'] - stats['TO'] * metric['weighted_avg']
+        z_scores['A/TO'] = (
+            (impact - metric['impact_mean']) / metric['impact_std']
+            if metric['impact_std'] else 0.0
+        )
+    return {
+        category: value if math.isfinite(value) else 0.0
+        for category, value in z_scores.items()
+    }
+
+
 def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -> Dict[str, Any]:
+    all_players = league_metadata.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
+    return calculate_z_scores_from_players(
+        all_players,
+        categories=league_metadata.get_categories(),
+        reverse_categories=league_metadata.reverse_categories,
+    )
+
+
+def calculate_z_scores_from_players(
+    all_players: List[Dict[str, Any]],
+    categories: Optional[List[str]] = None,
+    reverse_categories=None,
+) -> Dict[str, Any]:
     """
     Рассчитывает Z-scores для всех игроков лиги за указанный период.
     
@@ -41,14 +90,16 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
             }
         }
     """
-    # Получаем avg статистику всех игроков
-    all_players = league_metadata.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
-    
     if not all_players:
         return {'players': [], 'league_metrics': {}}
     
+    categories = list(categories or CATEGORIES)
+    reverse_categories = set(REVERSE_CATEGORIES if reverse_categories is None else reverse_categories)
+    percentage_categories = [cat for cat in PERCENTAGE_CATEGORIES if cat in categories]
+    counting_categories = [cat for cat in categories if cat not in percentage_categories]
+
     # Собираем данные для расчета метрик лиги
-    counting_data = {cat: [] for cat in COUNTING_CATEGORIES}
+    counting_data = {cat: [] for cat in counting_categories}
     percentage_data = {
         'FG%': {'FGM': [], 'FGA': []},
         'FT%': {'FTM': [], 'FTA': []},
@@ -61,7 +112,7 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
         stats = player['stats']
         
         # Счетные категории
-        for cat in COUNTING_CATEGORIES:
+        for cat in counting_categories:
             if cat in stats:
                 counting_data[cat].append(stats[cat])
         
@@ -84,12 +135,16 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
     
     # Рассчитываем метрики лиги для счетных категорий
     league_metrics = {}
-    for cat in COUNTING_CATEGORIES:
+    for cat in counting_categories:
         if counting_data[cat]:
             mean = sum(counting_data[cat]) / len(counting_data[cat])
             variance = sum((x - mean) ** 2 for x in counting_data[cat]) / len(counting_data[cat])
             std = math.sqrt(variance) if variance > 0 else 0.0001  # Избегаем деления на 0
-            league_metrics[cat] = {'mean': mean, 'std': std}
+            league_metrics[cat] = {
+                'mean': mean,
+                'std': std,
+                'reverse': cat in reverse_categories,
+            }
     
     # Рассчитываем weighted averages для процентных категорий
     weighted_averages = {}
@@ -119,13 +174,13 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
         weighted_averages['A/TO'] = total_ast / total_to if total_to > 0 else 0
     
     # Рассчитываем impact для процентных категорий
-    impact_data = {cat: [] for cat in PERCENTAGE_CATEGORIES}
+    impact_data = {cat: [] for cat in percentage_categories}
     
     for player in all_players:
         stats = player['stats']
         
         # FG% impact
-        if 'FG%' in stats and 'FGA' in stats and 'FG%' in weighted_averages:
+        if 'FG%' in impact_data and 'FG%' in stats and 'FGA' in stats and 'FG%' in weighted_averages:
             fg_pct = stats['FG%']
             fga = stats['FGA']
             fg_avg = weighted_averages['FG%']
@@ -133,7 +188,7 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
             impact_data['FG%'].append(impact)
         
         # FT% impact
-        if 'FT%' in stats and 'FTA' in stats and 'FT%' in weighted_averages:
+        if 'FT%' in impact_data and 'FT%' in stats and 'FTA' in stats and 'FT%' in weighted_averages:
             ft_pct = stats['FT%']
             fta = stats['FTA']
             ft_avg = weighted_averages['FT%']
@@ -141,7 +196,7 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
             impact_data['FT%'].append(impact)
         
         # 3PT% impact
-        if '3PT%' in stats and '3PA' in stats and '3PT%' in weighted_averages:
+        if '3PT%' in impact_data and '3PT%' in stats and '3PA' in stats and '3PT%' in weighted_averages:
             three_pct = stats['3PT%']
             three_pa = stats['3PA']
             three_avg = weighted_averages['3PT%']
@@ -149,7 +204,7 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
             impact_data['3PT%'].append(impact)
         
         # A/TO impact
-        if 'AST' in stats and 'TO' in stats and 'A/TO' in weighted_averages:
+        if 'A/TO' in impact_data and 'AST' in stats and 'TO' in stats and 'A/TO' in weighted_averages:
             ast = stats['AST']
             to = stats['TO']
             a_to_avg = weighted_averages['A/TO']
@@ -157,7 +212,7 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
             impact_data['A/TO'].append(impact)
     
     # Рассчитываем метрики для процентных категорий (по impact)
-    for cat in PERCENTAGE_CATEGORIES:
+    for cat in percentage_categories:
         if impact_data[cat]:
             impact_mean = sum(impact_data[cat]) / len(impact_data[cat])
             variance = sum((x - impact_mean) ** 2 for x in impact_data[cat]) / len(impact_data[cat])
@@ -173,73 +228,17 @@ def calculate_z_scores(league_metadata, period: str, exclude_ir: bool = False) -
     
     for player in all_players:
         stats = player['stats']
-        z_scores = {}
-        
-        # Z-scores для счетных категорий
-        for cat in COUNTING_CATEGORIES:
-            if cat in stats and cat in league_metrics:
-                value = stats[cat]
-                mean = league_metrics[cat]['mean']
-                std = league_metrics[cat]['std']
-                z_score = (value - mean) / std if std > 0 else 0
-                z_scores[cat] = z_score
-        
-        # Z-scores для процентных категорий (через impact)
-        # Для процентных категорий НЕ обрезаем отрицательные значения
-        # FG%
-        if 'FG%' in stats and 'FGA' in stats and 'FG%' in league_metrics:
-            fg_pct = stats['FG%']
-            fga = stats['FGA']
-            fg_avg = league_metrics['FG%']['weighted_avg']
-            impact = (fg_pct - fg_avg) * fga
-            impact_mean = league_metrics['FG%']['impact_mean']
-            impact_std = league_metrics['FG%']['impact_std']
-            z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
-            z_scores['FG%'] = z_score  # Оставляем отрицательные значения
-        
-        # FT%
-        if 'FT%' in stats and 'FTA' in stats and 'FT%' in league_metrics:
-            ft_pct = stats['FT%']
-            fta = stats['FTA']
-            ft_avg = league_metrics['FT%']['weighted_avg']
-            impact = (ft_pct - ft_avg) * fta
-            impact_mean = league_metrics['FT%']['impact_mean']
-            impact_std = league_metrics['FT%']['impact_std']
-            z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
-            z_scores['FT%'] = z_score  # Оставляем отрицательные значения
-        
-        # 3PT%
-        if '3PT%' in stats and '3PA' in stats and '3PT%' in league_metrics:
-            three_pct = stats['3PT%']
-            three_pa = stats['3PA']
-            three_avg = league_metrics['3PT%']['weighted_avg']
-            impact = (three_pct - three_avg) * three_pa
-            impact_mean = league_metrics['3PT%']['impact_mean']
-            impact_std = league_metrics['3PT%']['impact_std']
-            z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
-            z_scores['3PT%'] = z_score  # Оставляем отрицательные значения
-        
-        # A/TO
-        if 'AST' in stats and 'TO' in stats and 'A/TO' in league_metrics:
-            ast = stats['AST']
-            to = stats['TO']
-            a_to_avg = league_metrics['A/TO']['weighted_avg']
-            impact = ast - to * a_to_avg
-            impact_mean = league_metrics['A/TO']['impact_mean']
-            impact_std = league_metrics['A/TO']['impact_std']
-            z_score = (impact - impact_mean) / impact_std if impact_std > 0 else 0
-            z_scores['A/TO'] = z_score  # Оставляем отрицательные значения
+        z_scores = calculate_player_z_scores(stats, league_metrics)
         
         players_with_z_scores.append({
             'name': player['name'],
             'position': player['position'],
             'team_id': player['team_id'],
             'team_name': player['team_name'],
-            'z_scores': z_scores
+            'z_scores': z_scores,
         })
     
     return {
         'players': players_with_z_scores,
         'league_metrics': league_metrics
     }
-

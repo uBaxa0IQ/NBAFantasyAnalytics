@@ -14,7 +14,8 @@ from utils.calculations import (
     calculate_category_rankings,
     select_top_n_players
 )
-from admin_db import log_trade
+from trade_log_db import log_trade
+from services.trades import analyze_calendar_trade
 import math
 import json
 
@@ -380,6 +381,16 @@ def analyze_trade(
         # Не прерываем выполнение, если логирование не удалось
         print(f"Error logging trade: {e}")
     
+    calendar_impact = analyze_calendar_trade(
+        league_meta,
+        request.period,
+        {
+            request.my_team_id: {"give": request.i_give, "receive": request.i_receive},
+            request.their_team_id: {"give": request.i_receive, "receive": request.i_give},
+        },
+        request.punt_categories,
+    ) if request.calculation_engine == "calendar" else None
+
     return {
         "my_team": {
             "name": my_team_name,
@@ -417,7 +428,8 @@ def analyze_trade(
         "category_rankings": {
             "my_team": my_category_rankings,
             "their_team": their_category_rankings
-        }
+        },
+        "calendar_impact": calendar_impact,
     }
 
 
@@ -747,10 +759,21 @@ def analyze_multi_team_trade(
         # Не прерываем выполнение, если логирование не удалось
         print(f"Error logging trade: {e}")
     
+    calendar_impact = analyze_calendar_trade(
+        league_meta,
+        request.period,
+        {
+            trade.team_id: {"give": trade.give, "receive": trade.receive}
+            for trade in request.trades
+        },
+        request.punt_categories,
+    ) if request.calculation_engine == "calendar" else None
+
     return {
         "teams": teams_results,
         "simulation_ranks": simulation_ranks,
         "category_rankings": category_rankings,
+        "calendar_impact": calendar_impact,
         "validation": {
             "is_valid": True,
             "errors": []

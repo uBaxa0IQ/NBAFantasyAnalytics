@@ -3,7 +3,7 @@
 """
 from fastapi import APIRouter, Depends
 from dependencies import get_league_meta
-from core.config import CATEGORIES
+from core.config import CATEGORIES, DEFAULT_PERIOD
 from core.z_score import calculate_z_scores
 from utils.calculations import calculate_team_category_z, calculate_team_raw_stats, select_top_n_players
 from typing import Optional, List
@@ -17,7 +17,7 @@ def get_simulation(
     week: int,
     weeks_count: int = None,
     mode: str = "matchup",
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     simulation_mode: str = "all",
     top_n_players: int = 13,
     custom_team_players: Optional[str] = None,
@@ -268,7 +268,7 @@ def get_simulation_detailed(
     week: int,
     weeks_count: int = None,
     mode: str = "matchup",
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     simulation_mode: str = "all",
     top_n_players: int = 13,
     custom_team_players: Optional[str] = None,
@@ -561,4 +561,3 @@ def get_simulation_detailed(
         'period': period,
         'results': final_results
     }
-

@@ -1,19 +1,51 @@
 """
 Роутер для работы с игроками.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import Optional
 from dependencies import get_league_meta
-from core.z_score import calculate_z_scores, COUNTING_CATEGORIES, PERCENTAGE_CATEGORIES
-from core.config import CATEGORIES
+from core.z_score import calculate_player_z_scores, calculate_z_scores, COUNTING_CATEGORIES, PERCENTAGE_CATEGORIES
+from core.config import CATEGORIES, DEFAULT_PERIOD, PERIODS
 import math
+from services.waivers import recommend_free_agents
+from services.punt_advisor import recommend_punt_strategies
 
 router = APIRouter(prefix="/api", tags=["players"])
 
 
+@router.get("/punt-advisor/{team_id}")
+def get_punt_advisor(
+    team_id: int,
+    period: str = DEFAULT_PERIOD,
+    league_meta=Depends(get_league_meta),
+):
+    try:
+        return recommend_punt_strategies(league_meta, team_id, period)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/free-agent-recommendations/{team_id}")
+def get_free_agent_recommendations(
+    team_id: int,
+    period: str = DEFAULT_PERIOD,
+    position: str = None,
+    punt_categories: str = "",
+    limit: int = Query(default=30, ge=1, le=60),
+    league_meta=Depends(get_league_meta),
+):
+    punts = tuple(category.strip() for category in punt_categories.split(",") if category.strip())
+    try:
+        return recommend_free_agents(
+            league_meta, team_id, period, position, punts, limit
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.get("/free-agents")
 def get_free_agents(
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     position: str = None,
     league_meta=Depends(get_league_meta)
 ):
@@ -37,8 +69,9 @@ def get_free_agents(
         if not stats:
             continue
         
-        # Рассчитываем Z-scores для этого игрока
-        z_scores = {}
+        # Используем тот же scorer, что и для ростеров: он учитывает динамический
+        # набор категорий и обратные категории вроде TO.
+        z_scores = calculate_player_z_scores(stats, data['league_metrics'])
         
         # Счетные категории
         for cat in COUNTING_CATEGORIES:
@@ -50,7 +83,7 @@ def get_free_agents(
                 # Проверка на inf/nan
                 if not math.isfinite(z_score):
                     z_score = 0.0
-                z_scores[cat] = z_score
+                z_scores[cat] = -z_score if data['league_metrics'][cat].get('reverse') else z_score
         
         # Процентные категории
         if 'FG%' in stats and 'FGA' in stats and 'FG%' in data['league_metrics']:
@@ -109,13 +142,15 @@ def get_free_agents(
             else:
                 clean_stats[key] = val
         
-        fa_data.append({
+        record = {
+            'player_id': getattr(fa, 'playerId', None),
             'name': fa.name,
             'position': getattr(fa, 'position', 'N/A'),
             'nba_team': getattr(fa, 'proTeam', 'N/A'),
             'z_scores': z_scores,
             'stats': clean_stats
-        })
+        }
+        fa_data.append(record)
     
     return {
         "period": period,
@@ -127,7 +162,7 @@ def get_free_agents(
 
 @router.get("/all-players")
 def get_all_players(
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     exclude_ir: bool = False,
     league_meta=Depends(get_league_meta)
 ):
@@ -168,7 +203,8 @@ def get_all_players(
                             else:
                                 clean_stats[key] = val
                     
-                    all_players_data.append({
+                    record = {
+                        'player_id': getattr(roster_player, 'playerId', None),
                         'name': player['name'],
                         'position': player['position'],
                         'nba_team': getattr(roster_player, 'proTeam', 'N/A'),
@@ -176,7 +212,8 @@ def get_all_players(
                         'fantasy_team_id': player['team_id'],
                         'z_scores': clean_z_scores,
                         'stats': clean_stats
-                    })
+                    }
+                    all_players_data.append(record)
                     break
     
     return {
@@ -224,10 +261,10 @@ def get_player_trends(
     
     # Периоды для анализа (от короткого к длинному)
     periods = [
-        {'key': '2026_last_7', 'label': 'Последние 7 дней', 'order': 1},
-        {'key': '2026_last_15', 'label': 'Последние 15 дней', 'order': 2},
-        {'key': '2026_last_30', 'label': 'Последние 30 дней', 'order': 3},
-        {'key': '2026_total', 'label': 'Весь сезон', 'order': 4},
+        {'key': PERIODS['last_7'], 'label': 'Последние 7 дней', 'order': 1},
+        {'key': PERIODS['last_15'], 'label': 'Последние 15 дней', 'order': 2},
+        {'key': PERIODS['last_30'], 'label': 'Последние 30 дней', 'order': 3},
+        {'key': PERIODS['total'], 'label': 'Весь сезон', 'order': 4},
     ]
     
     trends = []
@@ -363,8 +400,8 @@ def get_all_players_trends(
         punt_cats = [cat.strip() for cat in punt_categories.split(',') if cat.strip()]
     
     # Получаем Z-scores за 15 дней и за сезон
-    z_data_15 = calculate_z_scores(league_meta, '2026_last_15', exclude_ir=False)
-    z_data_season = calculate_z_scores(league_meta, '2026_total', exclude_ir=False)
+    z_data_15 = calculate_z_scores(league_meta, PERIODS['last_15'], exclude_ir=False)
+    z_data_season = calculate_z_scores(league_meta, PERIODS['total'], exclude_ir=False)
     
     # Создаем словари для быстрого поиска
     players_15 = {p['name']: p for p in z_data_15.get('players', [])}
@@ -409,7 +446,7 @@ def get_all_players_trends(
 @router.get("/player/{player_name}/balance")
 def get_player_balance(
     player_name: str,
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     league_meta=Depends(get_league_meta)
 ):
     """
@@ -534,4 +571,3 @@ def get_player_balance(
         "period": period,
         "data": radar_data
     }
-

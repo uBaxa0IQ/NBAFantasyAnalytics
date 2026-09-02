@@ -158,9 +158,6 @@ const PositionHistoryChart = ({ teamId, period, simulationMode }) => {
     const bestPosition = Math.min(...positions);
     const worstPosition = Math.max(...positions);
     const currentPosition = data.position_history[data.position_history.length - 1]?.position;
-    const firstPosition = data.position_history[0]?.position;
-    const change = currentPosition - firstPosition;
-    
     // Генерируем метки для оси Y, обязательно включая позицию 1
     const maxPosition = Math.max(worstPosition, 1);
     const yAxisTicks = [];

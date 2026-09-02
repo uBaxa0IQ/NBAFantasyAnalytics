@@ -4,7 +4,7 @@
 from fastapi import APIRouter, Depends
 from dependencies import get_league_meta
 from core.z_score import calculate_z_scores
-from core.config import CATEGORIES
+from core.config import CATEGORIES, DEFAULT_PERIOD
 from utils.calculations import select_top_n_players
 from typing import Optional, List
 import math
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api", tags=["balance"])
 @router.get("/team-balance/{team_id}")
 def get_team_balance(
     team_id: int,
-    period: str = "2026_total",
+    period: str = DEFAULT_PERIOD,
     punt_categories: str = "",
     simulation_mode: str = "all",
     top_n_players: int = 13,
@@ -94,4 +94,3 @@ def get_team_balance(
         "period": period,
         "data": radar_data
     }
-

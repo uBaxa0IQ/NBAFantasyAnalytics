@@ -40,7 +40,7 @@ const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {projection.full_standings.map((team, idx) => {
+                                {projection.full_standings.map((team) => {
                                     const isCurrentTeam = team.team_id === projection.team_id;
                                     return (
                                         <tr 
@@ -95,4 +95,3 @@ const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
 };
 
 export default SeasonProjectionModal;
-

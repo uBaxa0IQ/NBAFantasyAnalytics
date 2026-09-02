@@ -4,8 +4,7 @@ import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import PlayerFiltersModal from './PlayerFiltersModal';
 import TopPlayersDistributionChart from './TopPlayersDistributionChart';
 import { getTrendColor } from '../utils/trendColors';
-
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
 const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode, colorByTrend = false }) => {
@@ -86,6 +85,11 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode, col
         });
         return total;
     };
+
+    const calculateGeneralZ = (player) => CATEGORIES.reduce(
+        (total, cat) => total + (player.z_scores[cat] || 0),
+        0,
+    );
 
     const handleSort = (column) => {
         if (sortBy === column) {
@@ -274,7 +278,7 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode, col
                                 <th className="p-2 border">NBA</th>
                                 <th className="p-2 border">Fantasy Команда</th>
                                 <th className="p-2 border cursor-pointer hover:bg-gray-200" onClick={() => handleSort('total_z')}>
-                                    Total Z <SortIcon column="total_z" />
+                                    {puntCategories.length ? 'Z стратегии' : 'Total Z'} <SortIcon column="total_z" />
                                 </th>
                                 {CATEGORIES.map(cat => (
                                     <th key={cat} className={`p-2 border cursor-pointer hover:bg-gray-200 ${puntCategories.includes(cat) ? 'opacity-50' : ''}`} onClick={() => handleSort(cat)}>
@@ -303,6 +307,9 @@ const AllPlayers = ({ onPlayerClick, period, puntCategories, simulationMode, col
                                             </span>
                                         ) : (
                                             calculateTotalZ(player).toFixed(2)
+                                        )}
+                                        {puntCategories.length > 0 && (
+                                            <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>
                                         )}
                                     </td>
                                     {CATEGORIES.map(cat => {

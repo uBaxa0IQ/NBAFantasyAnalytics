@@ -3,9 +3,63 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import api from '../api';
 import MatchupDetails from './MatchupDetails';
 import PlayoffMatchupModal from './PlayoffMatchupModal';
-
-const CATEGORIES_ORDER = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES_ORDER } from '../utils/categories';
 const TREND_PERIODS_ORDER = ['Season', 'Last 30', 'Last 15', 'Last 7'];
+
+const BracketSection = ({ title, matchups, seedsByTeamId, onSelect, accent = false }) => {
+    if (matchups.length === 0) return null;
+
+    return (
+        <div>
+            <h3 className="text-lg font-semibold mb-3">{title}</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {matchups.map((matchup, idx) => {
+                    const team1Seed = seedsByTeamId.get(matchup.team1.id);
+                    const team2Seed = seedsByTeamId.get(matchup.team2.id);
+                    const seedClass = accent ? 'bg-blue-600 text-white' : 'bg-gray-500 text-white';
+                    const scoreClass = accent ? 'text-blue-600' : 'text-gray-700';
+
+                    return (
+                        <button
+                            type="button"
+                            key={`${matchup.team1.id}-${matchup.team2.id}-${idx}`}
+                            className="w-full text-left bg-white border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                            onClick={() => onSelect(matchup)}
+                        >
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${seedClass}`}>
+                                        {team1Seed?.seed ?? '—'}
+                                    </span>
+                                    <div>
+                                        <div className="font-semibold">{matchup.team1.name}</div>
+                                        {team1Seed && <div className="text-xs text-gray-500">{team1Seed.wins}-{team1Seed.losses}-{team1Seed.ties} ({team1Seed.win_pct}%)</div>}
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-500">vs</div>
+                                <div className="flex items-center gap-2 text-right">
+                                    <div>
+                                        <div className="font-semibold">{matchup.team2.name}</div>
+                                        {team2Seed && <div className="text-xs text-gray-500">{team2Seed.wins}-{team2Seed.losses}-{team2Seed.ties} ({team2Seed.win_pct}%)</div>}
+                                    </div>
+                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${seedClass}`}>
+                                        {team2Seed?.seed ?? '—'}
+                                    </span>
+                                </div>
+                            </div>
+                            {matchup.score && (
+                                <div className="mt-2 flex items-baseline justify-center gap-2">
+                                    <span className={`text-2xl font-bold ${scoreClass}`}>{matchup.score.formatted}</span>
+                                    <span className="text-xs text-gray-500">счёт по категориям</span>
+                                </div>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
     const [loading, setLoading] = useState(true);
@@ -22,19 +76,22 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
     const [showMatchupAnalysisDetails, setShowMatchupAnalysisDetails] = useState(false);
 
     useEffect(() => {
-        setLoading(true);
-        setError(null);
+        const loadBracket = (showLoading = false) => {
+            if (showLoading) setLoading(true);
+            setError(null);
 
-        api.get('/playoff/bracket')
-            .then(res => {
-                setData(res.data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error('Error fetching playoff bracket:', err);
-                setError('Ошибка загрузки данных плей-офф');
-                setLoading(false);
-            });
+            api.get('/playoff/bracket')
+                .then(res => setData(res.data))
+                .catch(err => {
+                    console.error('Error fetching playoff bracket:', err);
+                    setError('Ошибка загрузки данных плей-офф');
+                })
+                .finally(() => setLoading(false));
+        };
+
+        loadBracket(true);
+        const intervalId = setInterval(() => loadBracket(false), 60000);
+        return () => clearInterval(intervalId);
     }, []);
 
     const seedsByTeamId = useMemo(() => {
@@ -49,6 +106,11 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
     const championshipMatchups = useMemo(() => {
         if (!data || !data.matchups) return [];
         return data.matchups.filter(m => m.type === 'championship');
+    }, [data]);
+
+    const placementMatchups = useMemo(() => {
+        if (!data || !data.matchups) return [];
+        return data.matchups.filter(m => m.type === 'placement');
     }, [data]);
 
     const consolationMatchups = useMemo(() => {
@@ -83,7 +145,9 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
                 try {
                     const customPlayers = JSON.parse(saved);
                     if (customPlayers.length > 0) params.custom_team_players = customPlayers.join(',');
-                } catch (_) {}
+                } catch (parseError) {
+                    console.warn('Invalid custom roster selection', parseError);
+                }
             }
         }
 
@@ -151,9 +215,9 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
         return null;
     }
 
-    const { is_playoff, current_week, playoff_start_week, round } = data;
+    const { is_playoff, season_complete, current_week, playoff_start_week, round, round_name, playoff_team_count } = data;
 
-    if (!is_playoff) {
+    if (!is_playoff && !season_complete) {
         return (
             <div className="p-6">
                 <h2 className="text-xl font-semibold mb-2">Плей-офф ещё не начался</h2>
@@ -168,9 +232,11 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
         <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h2 className="text-xl font-semibold">Плей-офф — раунд {round}</h2>
+                    <h2 className="text-xl font-semibold">
+                        {season_complete ? `Сезон завершён — ${round_name || `раунд ${round}`}` : `Плей-офф — ${round_name || `раунд ${round}`}`}
+                    </h2>
                     <p className="text-sm text-gray-600">
-                        Текущая неделя: {current_week}. Посевы основаны на реальном рекорде лиги.
+                        Matchup period {current_week}. Посевы и тай-брейк получены напрямую из ESPN.
                     </p>
                 </div>
                 <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
@@ -352,143 +418,9 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
 
             {subTab === 'bracket' && (
                 <div className="space-y-6">
-                    {championshipMatchups.length > 0 && (
-                        <div>
-                            <h3 className="text-lg font-semibold mb-3">Чемпионская сетка (Top‑8)</h3>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {championshipMatchups.map((m, idx) => {
-                                    const team1Seed = seedsByTeamId.get(m.team1.id);
-                                    const team2Seed = seedsByTeamId.get(m.team2.id);
-
-                                    return (
-                                        <div
-                                            key={`${m.team1.id}-${m.team2.id}-${idx}`}
-                                            className="bg-white border rounded-lg p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                                            onClick={() => setSelectedMatchup(m)}
-                                        >
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold">
-                                                        {team1Seed?.seed ?? '—'}
-                                                    </span>
-                                                    <div>
-                                                        <div className="font-semibold">
-                                                            {m.team1.name}
-                                                        </div>
-                                                        {team1Seed && (
-                                                            <div className="text-xs text-gray-500">
-                                                                {team1Seed.wins}-{team1Seed.losses}-
-                                                                {team1Seed.ties} ({team1Seed.win_pct}
-                                                                %)
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="text-sm text-gray-500">vs</div>
-                                                <div className="flex items-center gap-2 text-right">
-                                                    <div>
-                                                        <div className="font-semibold">
-                                                            {m.team2.name}
-                                                        </div>
-                                                        {team2Seed && (
-                                                            <div className="text-xs text-gray-500">
-                                                                {team2Seed.wins}-{team2Seed.losses}-
-                                                                {team2Seed.ties} ({team2Seed.win_pct}
-                                                                %)
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold">
-                                                        {team2Seed?.seed ?? '—'}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {m.score && (
-                                                <div className="mt-2 flex items-baseline justify-center gap-2">
-                                                    <span className="text-2xl font-bold text-blue-600">
-                                                        {m.score.formatted}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500">
-                                                        счёт по категориям
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {consolationMatchups.length > 0 && (
-                        <div>
-                            <h3 className="text-lg font-semibold mb-3">Утешительный турнир</h3>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {consolationMatchups.map((m, idx) => {
-                                    const team1Seed = seedsByTeamId.get(m.team1.id);
-                                    const team2Seed = seedsByTeamId.get(m.team2.id);
-
-                                    return (
-                                        <div
-                                            key={`${m.team1.id}-${m.team2.id}-${idx}`}
-                                            className="bg-white border rounded-lg p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                                            onClick={() => setSelectedMatchup(m)}
-                                        >
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-500 text-white text-sm font-bold">
-                                                        {team1Seed?.seed ?? '—'}
-                                                    </span>
-                                                    <div>
-                                                        <div className="font-semibold">
-                                                            {m.team1.name}
-                                                        </div>
-                                                        {team1Seed && (
-                                                            <div className="text-xs text-gray-500">
-                                                                {team1Seed.wins}-{team1Seed.losses}-
-                                                                {team1Seed.ties} ({team1Seed.win_pct}
-                                                                %)
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="text-sm text-gray-500">vs</div>
-                                                <div className="flex items-center gap-2 text-right">
-                                                    <div>
-                                                        <div className="font-semibold">
-                                                            {m.team2.name}
-                                                        </div>
-                                                        {team2Seed && (
-                                                            <div className="text-xs text-gray-500">
-                                                                {team2Seed.wins}-{team2Seed.losses}-
-                                                                {team2Seed.ties} ({team2Seed.win_pct}
-                                                                %)
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-500 text-white text-sm font-bold">
-                                                        {team2Seed?.seed ?? '—'}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {m.score && (
-                                                <div className="mt-2 flex items-baseline justify-center gap-2">
-                                                    <span className="text-2xl font-bold text-gray-700">
-                                                        {m.score.formatted}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500">
-                                                        счёт по категориям
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
+                    <BracketSection title="Чемпионский путь" matchups={championshipMatchups} seedsByTeamId={seedsByTeamId} onSelect={setSelectedMatchup} accent />
+                    <BracketSection title={`Матчи за места среди Top‑${playoff_team_count}`} matchups={placementMatchups} seedsByTeamId={seedsByTeamId} onSelect={setSelectedMatchup} />
+                    <BracketSection title="Утешительный турнир" matchups={consolationMatchups} seedsByTeamId={seedsByTeamId} onSelect={setSelectedMatchup} />
                 </div>
             )}
 
@@ -505,4 +437,3 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
 };
 
 export default PlayoffAnalysis;
-

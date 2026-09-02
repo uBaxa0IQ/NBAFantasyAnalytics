@@ -1,13 +1,11 @@
 import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
 
 const ComparisonBar = ({ players, onCompare, onClear, onRemove }) => {
-    // Подготовка данных для мини-радара (только основные категории)
-    const mainCategories = ['PTS', 'REB', 'AST', 'STL', 'BLK', 'FG%', 'FT%'];
-    
-    const radarData = mainCategories.map(cat => {
+    const radarData = CATEGORIES.map(cat => {
         const dataPoint = { category: cat };
         players.forEach((player, idx) => {
             const zScore = player.z_scores?.[cat] || 0;
@@ -33,7 +31,7 @@ const ComparisonBar = ({ players, onCompare, onClear, onRemove }) => {
                         <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
                             Сравнение ({players.length}):
                         </span>
-                        {players.map((player, idx) => (
+                        {players.map((player) => (
                             <div
                                 key={player.name}
                                 className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 min-w-[200px]"

@@ -2,18 +2,22 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import PlayerBalanceRadar from './PlayerBalanceRadar';
 import PlayerTrendsChart from './PlayerTrendsChart';
+import { getSeasonConfig } from '../utils/periods';
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromComparison, isInComparison = false }) => {
+    const periods = React.useMemo(() => getSeasonConfig().periods, []);
     const [trends, setTrends] = useState(null);
     const [loadingTrends, setLoadingTrends] = useState(false);
-    const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'current' или 'trends'
+    const isDraftProfile = player?.analysis_context === 'draft';
+    const [activeTab, setActiveTab] = useState(isDraftProfile ? 'current' : 'radar');
     const [statsView, setStatsView] = useState('z-scores'); // 'z-scores' или 'raw'
     const [rawStats, setRawStats] = useState(null);
     const [loadingStats, setLoadingStats] = useState(false);
-    const [radarPeriod, setRadarPeriod] = useState('2026_total');
+    const [radarPeriod, setRadarPeriod] = useState(periods.total);
 
     useEffect(() => {
-        if (player && activeTab === 'trends') {
+        if (player && activeTab === 'trends' && !isDraftProfile) {
             setLoadingTrends(true);
             api.get(`/player/${encodeURIComponent(player.name)}/trends`)
                 .then(res => {
@@ -25,14 +29,14 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
                     setLoadingTrends(false);
                 });
         }
-    }, [player, activeTab]);
+    }, [player, activeTab, isDraftProfile]);
 
     // Загружаем статистику, если её нет в объекте player
     useEffect(() => {
         if (player && activeTab === 'current' && statsView === 'raw' && !player.stats) {
             setLoadingStats(true);
             // Пытаемся получить статистику из all-players эндпоинта
-            api.get(`/all-players?period=2026_total`)
+            api.get(`/all-players?period=${periods.total}`)
                 .then(res => {
                     const allPlayers = res.data.players || [];
                     const foundPlayer = allPlayers.find(p => p.name === player.name);
@@ -48,7 +52,7 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
         } else if (player && player.stats) {
             setRawStats(player.stats);
         }
-    }, [player, activeTab, statsView]);
+    }, [player, activeTab, statsView, periods.total]);
 
     if (!player) return null;
 
@@ -56,7 +60,6 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
     const stats = rawStats || player.stats || {};
     
     // Категории для отображения
-    const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
     
     // Форматирование значения для отображения
     const formatStatValue = (category, value) => {
@@ -96,7 +99,10 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
                                 {player.fantasy_team && (
                                     <span>Fantasy Team: <strong>{player.fantasy_team}</strong></span>
                                 )}
+                                {isDraftProfile && <span>GP: <strong>{player.games_played || player.stats?.GP || '—'}</strong></span>}
+                                {isDraftProfile && player.espn_adp != null && <span>ESPN ADP: <strong>{player.espn_adp.toFixed(1)}</strong></span>}
                             </div>
+                            {isDraftProfile && <div className="mt-2 text-xs text-gray-500">Профиль для драфта · источник статистики: {player.stats_source || 'проекция / прошлый сезон'}</div>}
                         </div>
                         <div className="flex items-center gap-3">
                             {onAddToComparison && (
@@ -149,16 +155,10 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
                             >
                                 Текущая статистика
                             </button>
-                            <button
+                            {!isDraftProfile && <button
                                 onClick={() => setActiveTab('trends')}
-                                className={`px-4 py-2 font-medium transition-colors ${
-                                    activeTab === 'trends'
-                                        ? 'border-b-2 border-blue-600 text-blue-600'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                            >
-                                Тренды
-                            </button>
+                                className={`px-4 py-2 font-medium transition-colors ${activeTab === 'trends' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            >Тренды</button>}
                         </div>
                     </div>
 
@@ -167,24 +167,25 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
                         <div>
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-semibold">Баланс по категориям</h3>
-                                <div>
+                                {!isDraftProfile && <div>
                                     <label className="mr-2 text-sm text-gray-600">Период:</label>
                                     <select 
                                         className="border p-2 rounded text-sm" 
                                         value={radarPeriod} 
                                         onChange={e => setRadarPeriod(e.target.value)}
                                     >
-                                        <option value="2026_total">Весь сезон</option>
-                                        <option value="2026_last_30">Последние 30 дней</option>
-                                        <option value="2026_last_15">Последние 15 дней</option>
-                                        <option value="2026_last_7">Последние 7 дней</option>
-                                        <option value="2026_weighted">Взвешенный (Универсальный)</option>
+                                        <option value={periods.total}>Весь сезон</option>
+                                        <option value={periods.last_30}>Последние 30 дней</option>
+                                        <option value={periods.last_15}>Последние 15 дней</option>
+                                        <option value={periods.last_7}>Последние 7 дней</option>
+                                        <option value={periods.weighted}>Взвешенный (Универсальный)</option>
                                     </select>
-                                </div>
+                                </div>}
                             </div>
                             <PlayerBalanceRadar 
                                 playerName={player.name} 
                                 period={radarPeriod}
+                                fallbackZScores={isDraftProfile ? zScores : null}
                             />
                         </div>
                     )}

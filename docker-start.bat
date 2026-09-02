@@ -20,8 +20,8 @@ docker-compose up -d --build
 
 echo.
 echo Application is starting...
-echo Backend: http://localhost:8000
-echo Frontend: http://localhost:3001
+echo Application: http://localhost
+echo API: http://localhost/api
 echo.
 echo To view logs: docker-compose logs -f
 echo To stop: docker-compose down

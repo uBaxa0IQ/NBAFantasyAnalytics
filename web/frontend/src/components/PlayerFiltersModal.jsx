@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 const PlayerFiltersModal = ({ isOpen, onClose, onApply, initialFilters = {} }) => {
     const [filters, setFilters] = useState({});

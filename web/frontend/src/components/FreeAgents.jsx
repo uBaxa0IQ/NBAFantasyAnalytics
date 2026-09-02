@@ -3,25 +3,33 @@ import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import PlayerFiltersModal from './PlayerFiltersModal';
 import { getTrendColor } from '../utils/trendColors';
-
-const CATEGORIES = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'DD', 'FG%', 'FT%', '3PT%', 'A/TO'];
+import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
-const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = false }) => {
+const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = false, mainTeam, calculationEngine = 'calendar' }) => {
     const savedState = loadState(StorageKeys.FREE_AGENTS, {});
     const [position, setPosition] = useState(savedState.position || '');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [sortBy, setSortBy] = useState('total_z');
+    const personalized = calculationEngine === 'calendar' && mainTeam;
+    const [sortBy, setSortBy] = useState(personalized ? 'calendar_fit' : 'total_z');
     const [sortDir, setSortDir] = useState('desc');
     const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
     const [filters, setFilters] = useState(savedState.filters || {});
     const [playerTrends, setPlayerTrends] = useState({});
 
     useEffect(() => {
+        setSortBy(personalized ? 'calendar_fit' : 'total_z');
+    }, [personalized]);
+
+    useEffect(() => {
         setLoading(true);
-        const posParam = position ? `&position=${position}` : '';
-        api.get(`/free-agents?period=${period}${posParam}`)
+        const endpoint = personalized ? `/free-agent-recommendations/${mainTeam}` : '/free-agents';
+        api.get(endpoint, { params: {
+            period,
+            position: position || undefined,
+            punt_categories: puntCategories.join(','),
+        } })
             .then(res => {
                 setData(res.data);
                 setLoading(false);
@@ -30,7 +38,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                 console.error(err);
                 setLoading(false);
             });
-    }, [period, position]);
+    }, [period, position, mainTeam, puntCategories, personalized]);
 
     // Загружаем тренды, если включена окраска по тренду
     useEffect(() => {
@@ -68,6 +76,11 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
         return total;
     };
 
+    const calculateGeneralZ = (player) => CATEGORIES.reduce(
+        (total, cat) => total + (player.z_scores[cat] || 0),
+        0,
+    );
+
     const handleSort = (column) => {
         if (sortBy === column) {
             setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -83,6 +96,12 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
         if (sortBy === 'total_z') {
             valA = calculateTotalZ(a);
             valB = calculateTotalZ(b);
+        } else if (sortBy === 'calendar_fit') {
+            valA = (a.player_games_delta || 0) * 1000 + (a.lineup_gain || 0);
+            valB = (b.player_games_delta || 0) * 1000 + (b.lineup_gain || 0);
+        } else if (sortBy === 'lineup_gain' || sortBy === 'selected_games') {
+            valA = a[sortBy] || 0;
+            valB = b[sortBy] || 0;
         } else if (sortBy === 'name') {
             return sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
         } else {
@@ -154,6 +173,12 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                 </button>
             </div>
 
+            {personalized && data && (
+                <div className="mb-4 p-3 rounded bg-blue-50 text-sm text-blue-900">
+                    Рекомендации для вашей команды: прирост рассчитан после лучшей замены по оставшемуся календарю и lineup-слотам.
+                </div>
+            )}
+
             {loading && <div>Загрузка...</div>}
 
             {data && (
@@ -166,8 +191,19 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                 </th>
                                 <th className="p-2 border">Позиция</th>
                                 <th className="p-2 border">NBA Team</th>
+                                {personalized && (
+                                    <>
+                                        <th className="p-2 border cursor-pointer hover:bg-gray-200" onClick={() => handleSort('calendar_fit')}>
+                                            Эффект <SortIcon column="calendar_fit" />
+                                        </th>
+                                        <th className="p-2 border">Кого убрать</th>
+                                        <th className="p-2 border cursor-pointer hover:bg-gray-200" onClick={() => handleSort('selected_games')}>
+                                            Игр в составе <SortIcon column="selected_games" />
+                                        </th>
+                                    </>
+                                )}
                                 <th className="p-2 border cursor-pointer hover:bg-gray-200" onClick={() => handleSort('total_z')}>
-                                    Total Z <SortIcon column="total_z" />
+                                    {puntCategories.length ? 'Z стратегии' : 'Total Z'} <SortIcon column="total_z" />
                                 </th>
                                 {CATEGORIES.map(cat => (
                                     <th key={cat} className={`p-2 border cursor-pointer hover:bg-gray-200 ${puntCategories.includes(cat) ? 'opacity-50' : ''}`} onClick={() => handleSort(cat)}>
@@ -188,6 +224,18 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                     </td>
                                     <td className="p-2 border text-center text-sm">{player.position}</td>
                                     <td className="p-2 border text-center text-sm">{player.nba_team}</td>
+                                    {personalized && (
+                                        <>
+                                            <td className={`p-2 border text-center font-bold ${player.lineup_gain > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                <div>{player.lineup_gain > 0 ? '+' : ''}{player.lineup_gain.toFixed(2)} Z</div>
+                                                <div className="text-xs font-normal text-gray-500">
+                                                    {player.player_games_delta > 0 ? '+' : ''}{player.player_games_delta} player-games
+                                                </div>
+                                            </td>
+                                            <td className="p-2 border text-center text-sm">{player.drop_player}</td>
+                                            <td className="p-2 border text-center">{player.selected_games}</td>
+                                        </>
+                                    )}
                                     <td className="p-2 border font-bold text-center">
                                         {colorByTrend && playerTrends[player.name] !== undefined ? (
                                             <span style={{ color: getTrendColor(playerTrends[player.name]) }}>
@@ -195,6 +243,9 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                             </span>
                                         ) : (
                                             calculateTotalZ(player).toFixed(2)
+                                        )}
+                                        {puntCategories.length > 0 && (
+                                            <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>
                                         )}
                                     </td>
                                     {CATEGORIES.map(cat => {
@@ -211,6 +262,13 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                     })}
                                 </tr>
                             ))}
+                            {sortedPlayers.length === 0 && (
+                                <tr>
+                                    <td colSpan={CATEGORIES.length + (personalized ? 7 : 4)} className="p-6 text-center text-gray-500">
+                                        На оставшихся игровых днях нет кандидатов, которые попадут в активный состав.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

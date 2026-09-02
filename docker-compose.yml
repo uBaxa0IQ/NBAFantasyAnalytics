@@ -28,6 +28,7 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-}
     volumes:
       - ./.env:/app/.env:ro
+      - ./.cache:/app/.cache
     restart: unless-stopped
     networks:
       - nba-network
