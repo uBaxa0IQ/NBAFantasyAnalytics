@@ -10,6 +10,7 @@ from core.config import CATEGORIES, PERIODS
 from core.z_score import calculate_player_z_scores, calculate_z_scores_from_players
 from .draft_simulation import _evaluate_rosters, annotate_availability, simulate_draft_market
 from .draft_advisor import (
+    apply_adaptive_pick_scores,
     apply_pick_scores,
     build_pick_advice,
     build_scoring_context,
@@ -21,6 +22,33 @@ from .draft_live import overlay_live_draft
 
 _previous_stats_cache = {}
 _PREVIOUS_STATS_TTL_SECONDS = 6 * 60 * 60
+_roster_slots_cache = {}
+_LINEUP_SLOT_MAP = {
+    0: "PG", 1: "SG", 2: "SF", 3: "PF", 4: "C", 5: "G", 6: "F",
+    7: "SG/SF", 8: "G/F", 9: "PF/C", 10: "F/C", 11: "UT", 12: "BE",
+    13: "IR", 14: "", 15: "Rookie",
+}
+
+
+def _draft_roster_slots(league_metadata):
+    """Load the exact ESPN draftable roster slots (IR is not draftable)."""
+    key = (int(getattr(league_metadata, "league_id", 0)), int(getattr(league_metadata, "year", 0)))
+    if key in _roster_slots_cache:
+        return _roster_slots_cache[key]
+    try:
+        raw = league_metadata.league.espn_request.league_get(params={"view": "mSettings"})
+        counts = raw.get("settings", {}).get("rosterSettings", {}).get("lineupSlotCounts", {})
+        slots = []
+        for raw_id, count in counts.items():
+            slot = _LINEUP_SLOT_MAP.get(int(raw_id), "")
+            if slot in {"IR", "", "Rookie"}:
+                continue
+            slots.extend([slot] * max(0, int(count or 0)))
+        result = tuple(slots)
+    except Exception:
+        result = ()
+    _roster_slots_cache[key] = result
+    return result
 
 
 def _team_names(league_metadata):
@@ -361,6 +389,8 @@ def get_draft_recommendations(
     limit: int = 25,
     mock_player_ids=(),
     simulation_slot=None,
+    run_simulation=True,
+    include_drafted_candidates=False,
 ):
     league = league_metadata.league
     market = get_espn_market(league_metadata)
@@ -405,12 +435,28 @@ def get_draft_recommendations(
         + all_drafted_ids,
     ) if use_previous_season else {}
 
+    resolved_stats_sources = {}
+
     def stats_for(player):
         player_id = getattr(player, "playerId", None)
         if player_id is None:
             return None
-        return previous_stats.get(int(player_id)) if use_previous_season else current_stats.get(int(player_id)) \
+        normalized_id = int(player_id)
+        # Prefer the requested ESPN projection whenever it exists. Previous
+        # season data is only a per-player fallback, never a global replacement.
+        selected = current_stats.get(normalized_id) \
             or league_metadata.get_player_stats(player, period, "avg")
+        if selected:
+            resolved_stats_sources[normalized_id] = "selected_period"
+            return selected
+        fallback = previous_stats.get(normalized_id)
+        if fallback:
+            resolved_stats_sources[normalized_id] = "previous_season"
+        return fallback
+
+    def stats_source_for(player):
+        player_id = getattr(player, "playerId", None)
+        return resolved_stats_sources.get(int(player_id), "unavailable") if player_id is not None else "unavailable"
 
     score_population = []
     candidate_objects = {}
@@ -422,6 +468,7 @@ def get_draft_recommendations(
         score_population.append({
             "name": player.name,
             "position": getattr(player, "position", "N/A"),
+            "eligible_slots": list(getattr(player, "eligibleSlots", []) or []),
             "team_id": 0,
             "team_name": "Available",
             "stats": stats,
@@ -436,6 +483,7 @@ def get_draft_recommendations(
             score_population.append({
                 "name": player.name,
                 "position": getattr(player, "position", "N/A"),
+                "eligible_slots": list(getattr(player, "eligibleSlots", []) or []),
                 "team_id": -1,
                 "team_name": "Drafted",
                 "stats": stats,
@@ -443,6 +491,7 @@ def get_draft_recommendations(
     score_data = calculate_z_scores_from_players(score_population)
     scored = score_data["players"]
     scored_by_name = {player["name"]: player for player in scored}
+    drafted_objects_by_name = {player.name: player for player in drafted_by_id.values()}
     drafted_profiles_by_team = defaultdict(list)
     for pick in active_picks:
         player = drafted_by_id.get(pick.get("playerId"))
@@ -454,10 +503,12 @@ def get_draft_recommendations(
         drafted_profiles_by_team[pick.get("teamId")].append({
             "name": player.name,
             "position": getattr(player, "position", "N/A"),
+            "eligible_slots": list(getattr(player, "eligibleSlots", []) or []),
             "z_scores": z_scores,
             "general_z": sum(z_scores.values()),
             "score": sum(z_scores.values()),
             "games_played": int(player_stats.get("GP", 0) or 0),
+            "stats": player_stats,
         })
 
     # During a live draft the cached Team.roster may lag behind picks. Rebuild the
@@ -497,6 +548,7 @@ def get_draft_recommendations(
             "player_id": player_id,
             "name": roster_player.name,
             "position": getattr(roster_player, "position", "N/A"),
+            "eligible_slots": list(getattr(roster_player, "eligibleSlots", []) or []),
             "nba_team": getattr(roster_player, "proTeam", "N/A"),
             "total_z": round(sum(value for category, value in player_z.items() if category not in punt_categories), 3),
             "general_z": round(sum(player_z.values()), 3),
@@ -504,7 +556,7 @@ def get_draft_recommendations(
             "stats": stats,
             "games_played": int(stats.get("GP", 0) or 0),
             "analysis_context": "draft",
-            "stats_source": f"сезон {league_metadata.year - 1}" if use_previous_season and previous_stats else f"сезон {league_metadata.year}",
+            "stats_source": stats_source_for(roster_player),
             "stats_available": bool(stats),
         }
         attach_market(roster_record, market, player_id=player_id, name=roster_player.name)
@@ -525,6 +577,7 @@ def get_draft_recommendations(
     team_count = max(1, len(league_metadata.get_teams()))
     draft_settings = raw_draft.get("settings", {}).get("draftSettings", {})
     draft_rounds = _draft_round_count(raw_draft, team_count)
+    roster_slots = _draft_roster_slots(league_metadata)
     raw_pick_order = draft_settings.get("pickOrder") or []
     pick_order = _active_pick_order(raw_draft)
     next_pick_for_team = None
@@ -557,17 +610,20 @@ def get_draft_recommendations(
 
     recommendations = []
     for player in scored:
-        if player["name"] in roster_names or player["name"] not in candidate_objects:
+        source = candidate_objects.get(player["name"])
+        if include_drafted_candidates and source is None:
+            source = drafted_objects_by_name.get(player["name"])
+        if source is None or (not include_drafted_candidates and player["name"] in roster_names):
             continue
         z_scores = player["z_scores"]
         total_z = sum(value for category, value in z_scores.items() if category not in punt_categories)
         general_z = sum(z_scores.values())
-        source = candidate_objects[player["name"]]
         source_stats = stats_for(source)
         recommendation = {
             "player_id": getattr(source, "playerId", None),
             "name": player["name"],
             "position": player["position"],
+            "eligible_slots": list(getattr(source, "eligibleSlots", []) or []),
             "nba_team": getattr(source, "proTeam", "N/A"),
             "injury_status": getattr(source, "injuryStatus", "ACTIVE"),
             "score": round(total_z, 3),
@@ -580,7 +636,7 @@ def get_draft_recommendations(
             "stats": source_stats,
             "games_played": int(source_stats.get("GP", 0) or 0) if source_stats else 0,
             "analysis_context": "draft",
-            "stats_source": f"сезон {league_metadata.year - 1}" if use_previous_season and previous_stats else f"сезон {league_metadata.year}",
+            "stats_source": stats_source_for(source),
             "reason": "лучшая доступная ценность стратегии",
         }
         attach_market(
@@ -592,9 +648,11 @@ def get_draft_recommendations(
         recommendations.append(recommendation)
 
     annotate_availability(recommendations, planned_pick, following_pick, current_overall)
+    opponent_team_ids = [getattr(team, "team_id", None) for team in league_metadata.get_teams()]
     opponent_rosters = [
-        roster_players for drafted_team_id, roster_players in drafted_profiles_by_team.items()
-        if drafted_team_id != team_id
+        list(drafted_profiles_by_team.get(drafted_team_id, ()))
+        for drafted_team_id in opponent_team_ids
+        if drafted_team_id is not None and drafted_team_id != team_id
     ]
     scoring_context = build_scoring_context(
         roster=roster_details,
@@ -608,8 +666,11 @@ def get_draft_recommendations(
         team_count=team_count,
         rounds=draft_rounds,
         opponent_rosters=opponent_rosters,
+        roster_slots=roster_slots,
+        categories=CATEGORIES,
     )
     apply_pick_scores(recommendations, scoring_context)
+    adaptive_strategy = apply_adaptive_pick_scores(recommendations, scoring_context)
 
     existing_rosters_by_slot = {}
     if pick_order:
@@ -629,7 +690,15 @@ def get_draft_recommendations(
             current_pick=current_overall,
             punt_categories=punt_categories,
             playoff_team_count=playoff_team_count,
+            roster_slots=roster_slots,
+            categories=CATEGORIES,
         )
+    # A promoted learned policy is the final optional reranker. Applying it
+    # before lookahead would let the projected evaluator overwrite its order.
+    from .draft_ml.inference import maybe_apply_learned_rerank
+    adaptive_strategy["learned_policy"] = maybe_apply_learned_rerank(
+        recommendations, scoring_context,
+    )
     recommendations.sort(key=lambda player: player.get("score", 0), reverse=True)
     for board_rank, player in enumerate(recommendations, start=1):
         player["board_rank"] = board_rank
@@ -640,28 +709,33 @@ def get_draft_recommendations(
         {
             "name": player["name"],
             "position": player.get("position"),
+            "eligible_slots": player.get("eligible_slots") or [],
             "z_scores": player.get("z_scores", {}),
             "general_z": player.get("general_z", 0),
             "score": player.get("total_z", 0),
             "games_played": player.get("games_played", 0),
+            "stats": player.get("stats") or {},
         }
         for player in roster_details
         if player.get("player_id") in mock_id_set
     ]
 
-    simulation = simulate_draft_market(
-        recommendations,
-        team_count=max(1, len(league_metadata.get_teams())),
-        pick_order=pick_order,
-        team_id=team_id,
-        current_pick=current_overall,
-        rounds=draft_rounds,
-        selected_slot=simulation_slot,
-        existing_rosters_by_slot=existing_rosters_by_slot,
-        own_existing_roster=mock_roster_profile if mock_roster_profile and not active_picks else None,
-        playoff_team_count=playoff_team_count,
-        own_punt_categories=punt_categories,
-    )
+    simulation = None
+    if run_simulation:
+        simulation = simulate_draft_market(
+            recommendations,
+            team_count=max(1, len(league_metadata.get_teams())),
+            pick_order=pick_order,
+            team_id=team_id,
+            current_pick=current_overall,
+            rounds=draft_rounds,
+            selected_slot=simulation_slot,
+            existing_rosters_by_slot=existing_rosters_by_slot,
+            own_existing_roster=mock_roster_profile if mock_roster_profile and not active_picks else None,
+            playoff_team_count=playoff_team_count,
+            own_punt_categories=punt_categories,
+            roster_slots=roster_slots,
+        )
 
     team_names = _team_names(league_metadata)
     roster_comparison = _roster_comparison(drafted_profiles_by_team, team_names, team_id, punt_categories)
@@ -715,24 +789,28 @@ def get_draft_recommendations(
         }
 
     roster_details.sort(key=lambda player: player["total_z"], reverse=True)
-    return {
+    response = {
         "team_id": team_id,
         "period": period,
-        "stats_source": "previous_season" if use_previous_season and previous_stats else "selected_period",
-        "stats_season": league_metadata.year - 1 if use_previous_season and previous_stats else league_metadata.year,
+        "stats_source": "selected_period_with_previous_season_fallback" if previous_stats else "selected_period",
+        "stats_season": league_metadata.year,
         "analysis_context": "draft",
         "market_source": market.get("source"),
         "market_available": market.get("available", False),
         "market_stale": market.get("stale", False),
+        "availability_model": "uncalibrated_gaussian_estimate",
         "punt_categories": list(punt_categories),
         "weak_categories": weakest,
         "roster_size": len(roster),
         "roster_limit": draft_rounds,
         "draft_rounds": draft_rounds,
+        "roster_slots": list(roster_slots),
+        "draft_pick_count": len(active_picks),
         "roster": roster_details,
         "position_counts": dict(position_counts),
         "category_strength": {category: round(value, 2) for category, value in category_strength.items()},
         "strategy_suggestions": _strategy_suggestions(category_strength, len(roster_z)),
+        "adaptive_strategy": adaptive_strategy,
         "mock_player_ids": [int(player_id) for player_id in mock_player_ids],
         "planned_picks": planned_picks,
         "planned_pick": planned_pick,
@@ -747,6 +825,31 @@ def get_draft_recommendations(
         "round_balanced_comparison": round_balanced,
         "postdraft_analysis": postdraft_analysis,
         "pick_advice": pick_advice,
-        "method": "punt_aware_ev_lookahead",
+        "method": "adaptive_projected_marginal_lookahead",
         "players": recommendations[:limit],
     }
+    if raw_draft.get("draftDetail", {}).get("inProgress"):
+        try:
+            from .draft_learning import record_live_decision
+            resolved_picks = []
+            for pick in active_picks:
+                drafted = drafted_by_id.get(pick.get("playerId"))
+                resolved_picks.append({
+                    **pick,
+                    "player_name": getattr(drafted, "name", None),
+                })
+            record_live_decision(
+                league_id=league_metadata.league_id,
+                season=league_metadata.year,
+                team_id=team_id,
+                pick_count=len(active_picks),
+                target_overall=next_pick_for_team,
+                roster=roster_details,
+                advice=pick_advice,
+                adaptive_strategy=adaptive_strategy,
+                completed_picks=resolved_picks,
+            )
+        except Exception:
+            # Telemetry must never interrupt live advice.
+            pass
+    return response

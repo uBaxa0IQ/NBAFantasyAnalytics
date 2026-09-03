@@ -7,18 +7,29 @@ import math
 import random
 
 from core.config import CATEGORIES
+from core.projection import can_play_slot
 
 POSITIONS = ("PG", "SG", "SF", "PF", "C")
-OPPONENT_PUNT_PROFILES = (
-    (),
-    ("FT%", "3PM"),
-    ("FG%", "BLK"),
-    ("AST", "A/TO"),
-    ("PTS", "3PM"),
-    ("3PT%", "FT%"),
-)
+DEFAULT_DRAFT_SLOTS = ("PG", "SG", "SF", "PF", "C", "G", "F")
+FLEX_DRAFT_SLOTS = {"UT", "BE", "IR", "", "Rookie"}
 
 
+def unfilled_roster_slots(roster, roster_slots=None):
+    """Return constrained ESPN slots not covered by an optimal assignment."""
+    slots = tuple(slot for slot in (roster_slots or DEFAULT_DRAFT_SLOTS) if slot not in FLEX_DRAFT_SLOTS)
+    if not slots:
+        return ()
+    masks = {0}
+    for player in roster or ():
+        next_masks = set(masks)
+        for mask in masks:
+            for index, slot in enumerate(slots):
+                bit = 1 << index
+                if not mask & bit and can_play_slot(player, slot):
+                    next_masks.add(mask | bit)
+        masks = next_masks
+    best = max(masks, key=int.bit_count)
+    return tuple(slot for index, slot in enumerate(slots) if not best & (1 << index))
 def snake_pick_numbers(slot: int, team_count: int, rounds: int = 14):
     return [
         round_index * team_count + (slot if round_index % 2 == 0 else team_count + 1 - slot)
@@ -151,15 +162,20 @@ def _select_player(
     opponent_rosters=(),
     rounds=14,
     team_count=10,
+    roster_slots=None,
+    categories=None,
+    policy_mode="legacy",
 ):
     from .draft_advisor import build_scoring_context, score_draft_pick
 
     window_size = 18
     window = market_order[:max(8, min(window_size, len(market_order)))]
-    position_counts = Counter(player.get("position") for player in roster)
-    missing_positions = {position for position in POSITIONS if position_counts[position] == 0}
+    missing_positions = set(unfilled_roster_slots(roster, roster_slots))
     if missing_positions and own_picks_left <= len(missing_positions):
-        forced_window = [item for item in market_order if item[1].get("position") in missing_positions][:window_size]
+        forced_window = [
+            item for item in market_order
+            if any(can_play_slot(item[1], position) for position in missing_positions)
+        ][:window_size]
         if forced_window:
             window = forced_window
 
@@ -176,12 +192,24 @@ def _select_player(
         team_count=team_count,
         rounds=rounds,
         opponent_rosters=opponent_rosters,
+        roster_slots=roster_slots,
+        categories=categories,
     )
+    if policy_mode in {"adaptive", "adaptive_heuristic"}:
+        from .draft_strategy import adaptive_rank_window
+        ranked, _ = adaptive_rank_window(window, context)
+        if ranked:
+            adaptive_players = [player for _, player, _ in ranked]
+            if policy_mode == "adaptive":
+                from .draft_ml.inference import maybe_apply_learned_rerank
+                maybe_apply_learned_rerank(adaptive_players, context, limit=len(adaptive_players))
+            return adaptive_players[0]
     return max(window, key=lambda item: score_draft_pick(item[1], context, market_pick=item[0])["score"])[1]
 
 
 def _evaluate_rosters(team_rosters, own_slot, punt_categories=()):
-    active = [category for category in CATEGORIES if category not in punt_categories] or list(CATEGORIES)
+    """Evaluate real league results; punts affect selection, never league rules."""
+    active = list(CATEGORIES)
     category_totals = {
         slot: {
             category: sum((player.get("z_scores") or {}).get(category, 0) for player in roster)
@@ -249,8 +277,12 @@ def _simulate_slot(
     own_existing_roster=None,
     playoff_team_count=8,
     own_punt_categories=(),
+    roster_slots=None,
+    evaluation_mode="z_score",
+    categories=None,
+    include_samples=False,
+    own_policy="legacy",
 ):
-    rng = random.Random(seed)
     planned = snake_pick_numbers(slot, team_count, rounds)
     preset_own_roster = list(own_existing_roster or ())
     preset_own_count = len(preset_own_roster) if current_pick <= 1 else 0
@@ -274,7 +306,9 @@ def _simulate_slot(
         board = []
         for player in usable:
             market_average = _market_position(player)
-            market_pick = max(1.0, rng.gauss(market_average, _market_sigma(market_average)))
+            identity = player.get("player_id") or player.get("name")
+            player_rng = random.Random(f"{seed}:{run}:{identity}")
+            market_pick = max(1.0, player_rng.gauss(market_average, _market_sigma(market_average)))
             board.append([market_pick, player])
         remaining = {id(item[1]): item for item in board}
         team_rosters = {
@@ -283,11 +317,6 @@ def _simulate_slot(
         }
         if preset_own_roster:
             team_rosters[slot] = list(preset_own_roster)
-        opponent_punts = {
-            team_slot: rng.choice(OPPONENT_PUNT_PROFILES)
-            for team_slot in range(1, team_count + 1)
-            if team_slot != slot
-        }
         own_future_roster = []
 
         for overall in range(current_pick, team_count * rounds + 1):
@@ -304,6 +333,8 @@ def _simulate_slot(
                 "opponent_rosters": opponents,
                 "rounds": rounds,
                 "team_count": team_count,
+                "roster_slots": roster_slots,
+                "categories": categories,
             }
             if drafting_slot == slot:
                 if current_pick <= 1 and planned.index(overall) < preset_own_count:
@@ -317,18 +348,22 @@ def _simulate_slot(
                     overall,
                     len(slot_future_picks),
                     punt_categories=own_punt_categories,
+                    policy_mode=own_policy,
                     **select_kwargs,
                 )
                 own_future_roster.append(selected)
             else:
-                selected = _select_player(
-                    market_order,
-                    roster,
-                    overall,
-                    len(slot_future_picks),
-                    punt_categories=opponent_punts[drafting_slot],
-                    **select_kwargs,
-                )
+                # Opponents represent the draft market, not copies of our own
+                # optimizer. This avoids validating the model against itself.
+                missing = set(unfilled_roster_slots(roster, roster_slots))
+                if missing and len(slot_future_picks) <= len(missing):
+                    feasible = [
+                        item for item in market_order
+                        if any(can_play_slot(item[1], position) for position in missing)
+                    ]
+                    selected = (feasible or market_order)[0][1]
+                else:
+                    selected = market_order[0][1]
             roster.append(selected)
             remaining.pop(id(selected), None)
 
@@ -341,7 +376,11 @@ def _simulate_slot(
             if index < len(round_counters):
                 round_counters[index][player["name"]] += 1
         total_score += run_score
-        league_result = _evaluate_rosters(team_rosters, slot, own_punt_categories)
+        if evaluation_mode == "projected_volume":
+            from .draft_evaluation import evaluate_projected_rosters
+            league_result = evaluate_projected_rosters(team_rosters, slot, categories)
+        else:
+            league_result = _evaluate_rosters(team_rosters, slot, own_punt_categories)
         complete_roster = team_rosters[slot]
         gp_values = [float(player.get("games_played") or 0) for player in complete_roster]
         outcomes.append({
@@ -356,6 +395,8 @@ def _simulate_slot(
     average_category_wins = sum(outcome["category_wins"] for outcome in outcomes) / denominator
     average_league_rank = sum(outcome["league_rank"] for outcome in outcomes) / denominator
     average_score = total_score / denominator
+    top_four_strength_rate = round(sum(outcome["league_rank"] <= 4 for outcome in outcomes) / denominator * 100)
+    top_n_strength_rate = round(sum(outcome["league_rank"] <= min(playoff_team_count, team_count) for outcome in outcomes) / denominator * 100)
     def representative_cost(outcome):
         relative_probabilities = [
             max(
@@ -424,14 +465,18 @@ def _simulate_slot(
             "next_turn_availability": next_turn_availability,
         })
 
-    return {
+    result = {
         "slot": slot,
         "picks": planned,
         "average_score": round(average_score, 2),
         "average_category_wins": round(average_category_wins, 2),
         "average_league_rank": round(average_league_rank, 2),
-        "top_four_probability": round(sum(outcome["league_rank"] <= 4 for outcome in outcomes) / denominator * 100),
-        "playoff_probability": round(sum(outcome["league_rank"] <= min(playoff_team_count, team_count) for outcome in outcomes) / denominator * 100),
+        "top_four_strength_rate": top_four_strength_rate,
+        "projected_top_n_strength_rate": top_n_strength_rate,
+        # Backward-compatible aliases. These are roster-strength frequencies,
+        # not calibrated season/playoff probabilities.
+        "top_four_probability": top_four_strength_rate,
+        "playoff_probability": top_n_strength_rate,
         "average_games_played": round(sum(outcome["average_games_played"] for outcome in outcomes) / denominator, 1),
         "average_low_gp_count": round(sum(outcome["low_gp_count"] for outcome in outcomes) / denominator, 1),
         "category_ranks": {
@@ -453,6 +498,10 @@ def _simulate_slot(
         "round_targets": round_targets,
         "projected_roster": projected_roster,
     }
+    if include_samples:
+        result["category_win_samples"] = [round(outcome["category_wins"], 6) for outcome in outcomes]
+        result["league_rank_samples"] = [outcome["league_rank"] for outcome in outcomes]
+    return result
 
 
 def simulate_draft_market(
@@ -467,16 +516,18 @@ def simulate_draft_market(
     own_existing_roster=None,
     playoff_team_count=8,
     own_punt_categories=(),
+    roster_slots=None,
+    own_policy="adaptive",
 ):
     """Model every possible slot or the known live snake slot."""
     team_count = max(1, int(team_count or 1))
     if pick_order and team_id in pick_order:
         slot = list(pick_order).index(team_id) + 1
-        runs = 240
+        runs = 80 if own_policy == "adaptive" else 240
         result = _simulate_slot(
             players, slot, team_count, rounds, runs, current_pick, 9100 + current_pick,
             existing_rosters_by_slot, own_existing_roster, playoff_team_count,
-            own_punt_categories,
+            own_punt_categories, roster_slots, own_policy=own_policy,
         )
         future = [pick for pick in result.get("picks", []) if pick >= current_pick]
         return {
@@ -494,7 +545,7 @@ def simulate_draft_market(
         result = _simulate_slot(
             players, slot, team_count, rounds, runs, 1, 12000 + slot,
             existing_rosters_by_slot, own_existing_roster, playoff_team_count,
-            own_punt_categories,
+            own_punt_categories, roster_slots, own_policy=own_policy,
         )
         return {
             "mode": "selected_slot",
@@ -505,12 +556,12 @@ def simulate_draft_market(
             "slot_result": result,
         }
 
-    runs_per_slot = 24
+    runs_per_slot = 12 if own_policy == "adaptive" else 24
     slots = [
         _simulate_slot(
             players, slot, team_count, rounds, runs_per_slot, 1, 7000 + slot,
             existing_rosters_by_slot, own_existing_roster, playoff_team_count,
-            own_punt_categories,
+            own_punt_categories, roster_slots, own_policy=own_policy,
         )
         for slot in range(1, team_count + 1)
     ]

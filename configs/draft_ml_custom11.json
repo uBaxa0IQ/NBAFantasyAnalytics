@@ -1,0 +1,21 @@
+{
+  "format_name": "custom11",
+  "episodes": 3000,
+  "seed": 2609111,
+  "candidate_count": 12,
+  "rollouts_per_candidate": 4,
+  "team_count": 10,
+  "rounds": 13,
+  "workers": 4,
+  "projection_gp_stddev": 0.12,
+  "projection_stat_stddev": 0.08,
+  "output_dir": "artifacts/draft_ml/custom11",
+  "behavior_policies": [
+    "adaptive",
+    "legacy_balanced",
+    "legacy_fixed",
+    "roto",
+    "adp"
+  ]
+}
+

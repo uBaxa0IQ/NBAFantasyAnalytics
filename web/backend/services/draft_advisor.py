@@ -5,8 +5,10 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 import math
+from statistics import fmean, pstdev
 
 from core.config import CATEGORIES
+from core.projection import can_play_slot
 
 from .draft_simulation import (
     POSITIONS,
@@ -15,6 +17,7 @@ from .draft_simulation import (
     _player_value,
     _simulate_slot,
     conditional_availability,
+    unfilled_roster_slots,
 )
 
 
@@ -23,9 +26,10 @@ WAIT_ACTIONS = {"можно ждать"}
 FALL_ACTIONS = {"нужен фолл"}
 
 
-def _active_categories(punt_categories=()):
-    active = [category for category in CATEGORIES if category not in punt_categories]
-    return active or list(CATEGORIES)
+def _active_categories(punt_categories=(), categories=None):
+    configured = list(categories or CATEGORIES)
+    active = [category for category in configured if category not in punt_categories]
+    return active or configured
 
 
 def _sigmoid(margin, scale=1.8):
@@ -62,8 +66,8 @@ def leverage_weight(phase, roster_size):
     return 1.15
 
 
-def category_totals(roster, punt_categories=()):
-    totals = {category: 0.0 for category in _active_categories(punt_categories)}
+def category_totals(roster, punt_categories=(), categories=None):
+    totals = {category: 0.0 for category in _active_categories(punt_categories, categories)}
     for player in roster or ():
         z_scores = player.get("z_scores") or {}
         for category in totals:
@@ -81,6 +85,24 @@ def opponent_medians(opponent_rosters, punt_categories=()):
         for category in active:
             values[category].append(totals[category])
     return {category: _median(values[category]) for category in active}
+
+
+def normalized_opponent_medians(opponent_rosters, target_size, punt_categories=(), categories=None):
+    """Compare partial draft rosters at the same effective roster size."""
+    active = _active_categories(punt_categories, categories)
+    values = {category: [] for category in active}
+    target_size = max(0, int(target_size or 0))
+    for roster in opponent_rosters or ():
+        if not roster:
+            continue
+        totals = category_totals(roster, punt_categories, categories)
+        scale = target_size / len(roster) if target_size else 0.0
+        for category in active:
+            values[category].append(totals[category] * scale)
+    return {
+        category: _median(values[category]) if values[category] else 0.0
+        for category in active
+    }
 
 
 def league_medians_from_slots(team_rosters, own_slot, punt_categories=()):
@@ -103,22 +125,46 @@ def _durability_penalty(player):
     if games_played is None:
         return injury_penalty
     games_played = float(games_played)
-    if games_played <= 0:
-        return injury_penalty + 0.55
-    if games_played >= 50:
+    if games_played >= 65:
         return injury_penalty
-    return injury_penalty + min(1.7, (50.0 - games_played) * 0.035)
+    # Continuous penalty: the old branch made GP=0 less risky than GP=1.
+    return injury_penalty + min(1.7, max(0.0, (65.0 - games_played) / 65.0 * 1.7))
+
+
+def _position_keys(player_or_position):
+    if isinstance(player_or_position, str):
+        return (player_or_position,) if player_or_position in POSITIONS else ()
+    player = player_or_position or {}
+    eligible = set(player.get("eligible_slots") or player.get("eligibleSlots") or ())
+    primary = player.get("position")
+    if primary:
+        eligible.add(primary)
+    if "G" in eligible:
+        eligible.update(("PG", "SG"))
+    if "F" in eligible:
+        eligible.update(("SF", "PF"))
+    return tuple(position for position in POSITIONS if position in eligible)
 
 
 def _position_adjustment(position, position_counts, missing_positions, own_picks_left, phase):
-    depth = position_counts[position]
+    positions = _position_keys(position) or ((position,) if isinstance(position, str) else ())
+    if not positions:
+        return 0.0
+    depth = min(position_counts[item] for item in positions)
     stack_penalty = max(0, depth - 1) * 1.75 + max(0, depth - 3) * 4.0
     if phase == "early":
         stack_penalty *= 0.45
     elif phase == "late":
         stack_penalty *= 1.25
     fill_bonus = 0.0
-    if position in missing_positions:
+    fill_position = next(
+        (
+            item for item in missing_positions
+            if (not isinstance(position, str) and can_play_slot(position, item)) or item in positions
+        ),
+        None,
+    )
+    if fill_position:
         fill_bonus = 1.25 if phase != "early" else 0.55
         if own_picks_left <= len(missing_positions):
             fill_bonus += 2.8
@@ -214,6 +260,9 @@ class ScoringContext:
     replacement_at_next: float = 0.0
     elite_remaining: dict = field(default_factory=dict)
     replacement_by_position: dict = field(default_factory=dict)
+    roster_slots: tuple = ()
+    categories: tuple = ()
+    opponent_rosters: tuple = ()
 
 
 def build_scoring_context(
@@ -230,19 +279,29 @@ def build_scoring_context(
     rounds=14,
     opponent_rosters=(),
     opponent_medians_map=None,
+    roster_slots=None,
+    categories=None,
 ):
     punt_categories = tuple(punt_categories or ())
+    categories = tuple(categories or CATEGORIES)
     phase = draft_phase(len(roster or ()), rounds)
-    own_totals = category_totals(roster, punt_categories)
-    medians = opponent_medians_map if opponent_medians_map is not None else opponent_medians(
-        opponent_rosters, punt_categories,
+    own_totals = category_totals(roster, punt_categories, categories)
+    medians = opponent_medians_map if opponent_medians_map is not None else normalized_opponent_medians(
+        opponent_rosters, len(roster or ()), punt_categories, categories,
     )
-    position_counts = Counter(player.get("position") for player in roster or ())
-    missing_positions = {position for position in POSITIONS if position_counts[position] == 0}
+    position_counts = Counter()
+    covered_positions = set()
+    for player in roster or ():
+        keys = _position_keys(player)
+        covered_positions.update(keys)
+        for key in keys:
+            position_counts[key] += 1
+    missing_positions = set(unfilled_roster_slots(roster, roster_slots))
     replacement_values = {}
     by_position = defaultdict(list)
     for player in remaining or ():
-        by_position[player.get("position")].append(_player_value(player, punt_categories))
+        for position in _position_keys(player):
+            by_position[position].append(_player_value(player, punt_categories))
     for position, values in by_position.items():
         values.sort(reverse=True)
         replacement_index = min(len(values) - 1, max(0, team_count * 2 - 1))
@@ -268,6 +327,9 @@ def build_scoring_context(
         ),
         elite_remaining=elite_remaining_counts(remaining, punt_categories),
         replacement_by_position=replacement_values,
+        roster_slots=tuple(roster_slots or ()),
+        categories=categories,
+        opponent_rosters=tuple(tuple(roster) for roster in opponent_rosters or ()),
     )
 
 
@@ -276,7 +338,7 @@ def score_draft_pick(player, context: ScoringContext, market_pick=None):
     punt_categories = context.punt_categories
     base_value = _player_value(player, punt_categories)
     z_scores = player.get("z_scores") or {}
-    position = player.get("position")
+    positions = _position_keys(player)
     sampled_market = float(market_pick) if market_pick is not None else None
     listed_market = _market_position(player)
     market = sampled_market if sampled_market is not None else listed_market
@@ -294,11 +356,15 @@ def score_draft_pick(player, context: ScoringContext, market_pick=None):
         player, context.own_totals, context.medians, leverage_weight(context.phase, len(context.roster)),
         punt_categories,
     )
-    vorp = base_value - context.replacement_by_position.get(position, context.replacement_at_next)
+    replacement = min(
+        (context.replacement_by_position.get(position, context.replacement_at_next) for position in positions),
+        default=context.replacement_at_next,
+    )
+    vorp = base_value - replacement
     scarcity = max(vorp, 0.0) * (0.22 if context.phase == "early" else 0.18)
     scarcity += _category_scarcity(player, context.elite_remaining, context.team_count, punt_categories)
     position_term = _position_adjustment(
-        position, context.position_counts, context.missing_positions, context.own_picks_left, context.phase,
+        player, context.position_counts, context.missing_positions, context.own_picks_left, context.phase,
     )
     durability = _durability_penalty(player)
 
@@ -349,7 +415,7 @@ def score_draft_pick(player, context: ScoringContext, market_pick=None):
     elif helpful:
         reasons.append(f"усиливает {', '.join(helpful[:2])}")
     if position_term >= 1.2:
-        reasons.append(f"закрывает {position}")
+        reasons.append(f"закрывает {'/'.join(positions) or player.get('position', 'позицию')}")
     if urgency >= 0.8:
         reasons.append("не доживёт до следующего хода")
     elif can_wait or listed_can_wait:
@@ -397,6 +463,69 @@ def apply_pick_scores(players, context: ScoringContext):
         player["reason"] = "; ".join(breakdown["reasons"])
     players.sort(key=lambda player: player.get("score", 0), reverse=True)
     return players
+
+
+def apply_adaptive_pick_scores(players, context: ScoringContext, window_size=24):
+    """Re-rank plausible live picks with projected marginal strategy search."""
+    if not players:
+        return {"strategies": [], "category_weights": {}}
+    from .draft_strategy import adaptive_rank_window
+
+    legacy_head = list(players[:window_size])
+    market_head = sorted(
+        players,
+        key=lambda player: _market_position(player) if _market_position(player) is not None else 100_000,
+    )[:window_size]
+    candidates = []
+    seen = set()
+    for player in [*legacy_head, *market_head]:
+        identity = player.get("player_id") or player.get("name")
+        if identity in seen:
+            continue
+        seen.add(identity)
+        candidates.append(player)
+    market_window = [
+        (_market_position(player) or float(context.eval_pick), player)
+        for player in candidates
+    ]
+    ranked, strategies = adaptive_rank_window(market_window, context)
+    if not ranked:
+        return {"strategies": [], "category_weights": {}}
+
+    ranked_ids = {id(player) for _, player, _ in ranked}
+    score_floor = max((player.get("score", 0.0) for player in players if id(player) not in ranked_ids), default=-100.0)
+    for index, (adaptive_score, player, breakdown) in enumerate(ranked):
+        player["legacy_score"] = player.get("score")
+        player["adaptive_score"] = round(adaptive_score, 3)
+        player["score"] = round(score_floor + (len(ranked) - index) * 0.08, 3)
+        player["score_breakdown"] = {
+            **(player.get("score_breakdown") or {}),
+            **{key: round(value, 3) for key, value in breakdown.items()},
+        }
+    ordered = [player for _, player, _ in ranked]
+    ordered.extend(player for player in players if id(player) not in ranked_ids)
+    players[:] = ordered
+
+    category_weights = {
+        category: round(sum(
+            strategy["probability"]
+            for strategy in strategies
+            if category not in strategy["punt_categories"]
+        ), 3)
+        for category in context.categories
+    }
+    return {
+        "strategies": [
+            {
+                "id": strategy["id"],
+                "punt_categories": list(strategy["punt_categories"]),
+                "probability": round(strategy["probability"] * 100, 1),
+                "prior_delta": strategy["prior_delta"],
+            }
+            for strategy in strategies
+        ],
+        "category_weights": category_weights,
+    }
 
 
 def _lane_for(player, is_on_the_clock):
@@ -465,11 +594,21 @@ def build_pick_advice(players, context: ScoringContext, limit=6):
             "z_scores": player.get("z_scores"),
             "lookahead_wins": player.get("lookahead_wins"),
             "injury_status": player.get("injury_status"),
+            "decision_confidence": player.get("decision_confidence"),
+            "decision_delta": player.get("decision_delta"),
+            "decision_delta_ci95": player.get("decision_delta_ci95"),
+            "decision_label": player.get("decision_label"),
+            "decision_over": player.get("decision_over"),
         }
 
-    take_now = [slim(player) for player in grouped["take_now"][:4]]
-    wait = [slim(player) for player in grouped["wait"][:3]]
-    fallback = [slim(player) for player in grouped["fallback"][:3]]
+    primary_identity = primary.get("player_id") or primary.get("name")
+    without_primary = lambda rows: [
+        player for player in rows
+        if (player.get("player_id") or player.get("name")) != primary_identity
+    ]
+    take_now = [slim(player) for player in without_primary(grouped["take_now"])[:2]]
+    wait = [slim(player) for player in without_primary(grouped["wait"])[:2]]
+    fallback = [slim(player) for player in without_primary(grouped["fallback"])[:1]]
     seen = {primary.get("player_id") or primary.get("name")}
     extras = []
     for group in (take_now, wait, fallback):
@@ -515,11 +654,13 @@ def _candidate_profile(player):
     return {
         "name": player["name"],
         "position": player.get("position"),
+        "eligible_slots": player.get("eligible_slots") or player.get("eligibleSlots") or [],
         "z_scores": player.get("z_scores") or {},
         "general_z": player.get("general_z", player.get("total_z", 0)),
         "score": player.get("total_z", player.get("score", 0)),
         "games_played": player.get("games_played", 0),
         "injury_status": player.get("injury_status"),
+        "stats": player.get("stats") or {},
         "espn_adp": player.get("espn_adp"),
         "espn_market_pick": player.get("espn_market_pick"),
         "espn_roto_rank": player.get("espn_roto_rank"),
@@ -536,8 +677,10 @@ def lookahead_rerank(
     current_pick,
     punt_categories=(),
     playoff_team_count=8,
-    candidate_count=8,
-    runs=8,
+    roster_slots=None,
+    categories=None,
+    candidate_count=6,
+    runs=24,
 ):
     """Re-rank on-the-clock options by expected remaining category wins."""
     if not players or not slot or not existing_rosters_by_slot:
@@ -565,11 +708,16 @@ def lookahead_rerank(
                 rounds,
                 runs,
                 current_pick + 1,
-                9400 + current_pick * 17 + index,
+                9400 + current_pick * 17,
                 rosters,
                 None,
                 playoff_team_count,
                 punt_categories,
+                roster_slots,
+                "projected_volume",
+                categories,
+                True,
+                "adaptive",
             )
         except Exception:
             continue
@@ -579,6 +727,7 @@ def lookahead_rerank(
         candidate["lookahead_wins"] = round(wins, 3)
         candidate["lookahead_rank"] = round(rank, 2)
         candidate["lookahead_ev"] = round(ev, 3)
+        candidate["_lookahead_samples"] = simulation.get("category_win_samples") or []
         results.append((ev, candidate["score"], candidate))
 
     if not results:
@@ -607,5 +756,26 @@ def lookahead_rerank(
 
     ranked_names = {candidate["name"] for _, candidate in blended}
     head = [candidate for _, candidate in sorted(blended, key=lambda item: item[0], reverse=True)]
+    if len(head) >= 2:
+        primary_samples = head[0].get("_lookahead_samples") or []
+        second_samples = head[1].get("_lookahead_samples") or []
+        deltas = [left - right for left, right in zip(primary_samples, second_samples)]
+        if deltas:
+            mean_delta = fmean(deltas)
+            margin = 1.96 * pstdev(deltas) / math.sqrt(len(deltas)) if len(deltas) > 1 else 0.0
+            confidence = sum(delta > 0 for delta in deltas) / len(deltas) * 100
+            if confidence >= 70 and mean_delta > 0:
+                label = "решение устойчивое"
+            elif confidence >= 58 and mean_delta > 0:
+                label = "умеренное преимущество"
+            else:
+                label = "монетка"
+            head[0]["decision_confidence"] = round(confidence)
+            head[0]["decision_delta"] = round(mean_delta, 3)
+            head[0]["decision_delta_ci95"] = [round(mean_delta - margin, 3), round(mean_delta + margin, 3)]
+            head[0]["decision_label"] = label
+            head[0]["decision_over"] = head[1].get("name")
+    for candidate in head:
+        candidate.pop("_lookahead_samples", None)
     tail = [player for player in players if player.get("name") not in ranked_names]
     return head + tail

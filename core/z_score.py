@@ -233,6 +233,7 @@ def calculate_z_scores_from_players(
         players_with_z_scores.append({
             'name': player['name'],
             'position': player['position'],
+            'eligible_slots': list(player.get('eligible_slots') or ()),
             'team_id': player['team_id'],
             'team_name': player['team_name'],
             'z_scores': z_scores,

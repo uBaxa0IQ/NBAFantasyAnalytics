@@ -9,12 +9,17 @@ from web.backend.services.draft import (
     get_draft_state,
 )
 from web.backend.services.draft_advisor import (
+    _durability_penalty,
     apply_pick_scores,
     build_pick_advice,
     build_scoring_context,
+    normalized_opponent_medians,
     score_draft_pick,
 )
-from web.backend.services.draft_simulation import _adp_value, _draft_price, _evaluate_rosters, _next_turn_pick, _select_player, annotate_availability, conditional_availability, simulate_draft_market, snake_pick_numbers
+from web.backend.services.draft_benchmark import benchmark_adaptive_vs_legacy, benchmark_draft_strategies, benchmark_punt_strategies, evaluate_projected_rosters
+from web.backend.services.draft_simulation import _adp_value, _draft_price, _evaluate_rosters, _next_turn_pick, _select_player, annotate_availability, conditional_availability, simulate_draft_market, snake_pick_numbers, unfilled_roster_slots
+from web.backend.services.draft_strategy import strategy_library, strategy_probabilities
+from web.backend.services import draft_learning
 from web.backend.services.espn_market import _serialize_player, blended_market_pick
 
 
@@ -526,7 +531,7 @@ def test_leverage_prefers_category_flip_over_stacked_points():
     assert "STL" in steal_score["flips"] or steal_score["score"] > points_score["score"]
 
 
-def test_evaluate_rosters_with_punts_ignores_sacrificed_category():
+def test_evaluate_rosters_with_punts_still_counts_sacrificed_category():
     categories = CATEGORIES
     strong_punt = {
         1: [{"z_scores": {category: (4 if category != "FT%" else -8) for category in categories}}],
@@ -537,8 +542,84 @@ def test_evaluate_rosters_with_punts_ignores_sacrificed_category():
     balanced = _evaluate_rosters(strong_punt, 1)
     punted = _evaluate_rosters(strong_punt, 1, ("FT%",))
 
-    assert punted["category_wins"] / 10 > balanced["category_wins"] / 11
-    assert punted["category_ranks"]["FT%"] >= balanced["category_ranks"]["FT%"]
+    assert punted == balanced
+    assert punted["category_wins"] <= len(categories)
+
+
+def test_partial_opponent_rosters_are_normalized_to_same_size():
+    medians = normalized_opponent_medians(
+        [
+            [{"z_scores": {"PTS": 2}}],
+            [{"z_scores": {"PTS": 1}}, {"z_scores": {"PTS": 1}}],
+        ],
+        target_size=2,
+    )
+
+    assert medians["PTS"] == 3
+
+
+def test_durability_penalty_is_continuous_at_zero_games():
+    zero = _durability_penalty({"games_played": 0, "injury_status": "ACTIVE"})
+    one = _durability_penalty({"games_played": 1, "injury_status": "ACTIVE"})
+
+    assert zero >= one
+    assert zero - one < 0.1
+
+
+def test_projected_evaluator_counts_punt_category_and_projected_volume():
+    rosters = {
+        1: [{"stats": {"GP": 80, "PTS": 10, "FGM": 4, "FGA": 10}}],
+        2: [{"stats": {"GP": 40, "PTS": 15, "FGM": 9, "FGA": 20}}],
+    }
+
+    result = evaluate_projected_rosters(rosters, 1)
+
+    assert result["category_wins"] == 1 + (len(CATEGORIES) - 2) * 0.5
+    assert result["category_totals"]["PTS"] == 800
+    assert result["category_totals"]["FG%"] == 0.4
+
+
+def test_paired_benchmark_compares_model_and_punt_to_roto():
+    categories = tuple(CATEGORIES)
+    players = [
+        {
+            "player_id": index,
+            "name": f"Projected {index}",
+            "position": ("PG", "SG", "SF", "PF", "C")[index % 5],
+            "eligible_slots": [("PG", "SG", "SF", "PF", "C")[index % 5]],
+            "espn_adp": float(index),
+            "espn_market_pick": float(index),
+            "espn_roto_rank": index,
+            "games_played": 70,
+            "stats": {
+                "GP": 70,
+                "PTS": 30 - index / 10,
+                "REB": 3 + index % 8,
+                "AST": 2 + index % 6,
+                "STL": 1 + index % 3 / 10,
+                "BLK": 0.5 + index % 4 / 10,
+                "3PM": 1 + index % 5 / 10,
+                "DD": index % 2 / 10,
+                "FGM": 5,
+                "FGA": 10 + index % 3,
+                "FTM": 4,
+                "FTA": 5 + index % 2,
+                "3PA": 4 + index % 3,
+                "TO": 2,
+            },
+            "z_scores": {category: (30 - index) / 20 for category in categories},
+        }
+        for index in range(1, 37)
+    ]
+
+    result = benchmark_draft_strategies(players, 3, 4, runs_per_slot=2)
+
+    assert result["total_paired_scenarios"] == 6
+    assert [row["id"] for row in result["strategies"]] == [
+        "roto", "model_balanced", "model_punt_fgpct",
+    ]
+    assert all(row["baseline"] == "roto" for row in result["comparisons"])
+    assert all(len(row["delta_category_wins_ci95"]) == 2 for row in result["comparisons"])
 
 
 def test_pick_advice_groups_take_now_and_wait_lanes():
@@ -563,9 +644,124 @@ def test_pick_advice_groups_take_now_and_wait_lanes():
     advice = build_pick_advice([take, wait], context)
 
     assert advice["primary"]["name"] in {"Take", "Wait"}
-    assert any(player["name"] == "Take" for player in advice["take_now"])
-    assert any(player["name"] == "Wait" for player in advice["wait"])
+    displayed = [advice["primary"], *advice["take_now"], *advice["wait"], *advice["fallback"]]
+    assert any(player["name"] == "Take" for player in displayed)
+    assert any(player["name"] == "Wait" for player in displayed)
+    assert len(displayed) <= 6
     assert advice["is_on_the_clock"] is True
+
+
+def test_exact_roster_slots_respect_multi_position_eligibility():
+    roster = [
+        {"name": "Combo", "position": "PG", "eligible_slots": ["PG", "SG", "G", "UT", "BE"]},
+        {"name": "Wing", "position": "SF", "eligible_slots": ["SF", "F", "UT", "BE"]},
+    ]
+
+    missing = unfilled_roster_slots(roster, ("PG", "SG", "SF", "PF", "C", "G", "F", "UT", "BE"))
+
+    assert len(missing) == 5
+    assert "PG" not in missing
+    assert "SF" not in missing
+    assert {"PF", "C", "G", "F"}.issubset(set(missing))
+
+
+def test_exhaustive_punt_benchmark_counts_zero_one_and_two_category_strategies():
+    categories = ("PTS", "REB", "AST")
+    players = [
+        {
+            "player_id": index,
+            "name": f"Punt pool {index}",
+            "position": "G" if index % 2 else "F",
+            "eligible_slots": ["G", "UT", "BE"] if index % 2 else ["F", "UT", "BE"],
+            "espn_market_pick": float(index),
+            "espn_roto_rank": index,
+            "stats": {"GP": 70, "PTS": 10 + index, "REB": 3 + index % 4, "AST": 2 + index % 5},
+        }
+        for index in range(1, 17)
+    ]
+
+    result = benchmark_punt_strategies(
+        players, 2, 3, categories, max_punts=2, roster_slots=("G", "F", "UT"),
+        screening_runs=1, deep_runs=2, finalist_count=3,
+    )
+
+    assert result["strategies_screened"] == 7
+    assert result["max_punts"] == 2
+    assert any(row["id"] == "balanced" for row in result["finalists"])
+
+
+def test_adaptive_strategy_starts_flexible_and_probabilities_sum_to_one():
+    categories = ("FG%", "FT%", "3PM", "REB", "AST", "STL", "BLK", "PTS")
+
+    rows = strategy_probabilities([], categories, 13)
+
+    assert rows[0]["id"] == "balanced"
+    assert abs(sum(row["probability"] for row in rows) - 1.0) < 1e-9
+    assert len(strategy_library(categories)) == 6
+
+
+def test_adaptive_projected_marginal_prefers_season_volume():
+    high_volume = _player("High volume", adp=10, PTS=1.0)
+    low_volume = _player("Low volume", adp=10, PTS=1.0)
+    high_volume.update({"stats": {"GP": 80, "PTS": 20}, "games_played": 80})
+    low_volume.update({"stats": {"GP": 20, "PTS": 20}, "games_played": 20})
+
+    selected = _select_player(
+        [(10.0, low_volume), (10.0, high_volume)], [], 10, 3,
+        categories=("PTS",), policy_mode="adaptive",
+    )
+
+    assert selected["name"] == "High volume"
+
+
+def test_population_self_play_compares_adaptive_and_legacy_policies():
+    categories = ("PTS", "REB", "AST")
+    players = [
+        {
+            "player_id": index,
+            "name": f"Self play {index}",
+            "position": "G" if index % 2 else "F",
+            "eligible_slots": ["G", "UT"] if index % 2 else ["F", "UT"],
+            "espn_market_pick": float(index),
+            "espn_adp": float(index),
+            "espn_roto_rank": index,
+            "stats": {"GP": 60 + index % 10, "PTS": 8 + index, "REB": 2 + index % 5, "AST": 1 + index % 6},
+        }
+        for index in range(1, 13)
+    ]
+
+    result = benchmark_adaptive_vs_legacy(
+        players, 2, 2, categories, roster_slots=("G", "F"), runs_per_slot=1,
+    )
+
+    assert result["paired_scenarios"] == 2
+    assert {row["id"] for row in result["strategies"]} == {
+        "legacy_balanced", "legacy_best_fixed", "adaptive_heuristic", "adaptive",
+    }
+    assert result["comparisons_to_adaptive_heuristic"][0]["strategy"] == "adaptive"
+    assert result["comparisons_to_legacy_fixed"][0]["strategy"] == "adaptive"
+
+
+def test_live_decision_dataset_records_and_resolves_actual_pick(tmp_path, monkeypatch):
+    monkeypatch.setattr(draft_learning, "DB_PATH", tmp_path / "draft_learning.db")
+    draft_learning.record_live_decision(
+        league_id=1, season=2027, team_id=7, pick_count=10, target_overall=11,
+        roster=[], advice={"primary": {"name": "Recommended"}},
+        adaptive_strategy={"strategies": []}, completed_picks=[],
+    )
+    draft_learning.record_live_decision(
+        league_id=1, season=2027, team_id=7, pick_count=11, target_overall=30,
+        roster=[], advice={}, adaptive_strategy={},
+        completed_picks=[{
+            "overallPickNumber": 11, "teamId": 7, "playerId": 99,
+            "player_name": "Actually drafted",
+        }],
+    )
+
+    stats = draft_learning.learning_dataset_stats()
+
+    assert stats["decisions"] == 2
+    assert stats["resolved"] == 1
 
 
 def test_select_player_uses_punt_fit_instead_of_raw_total_z():

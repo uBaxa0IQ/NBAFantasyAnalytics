@@ -348,6 +348,9 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
                                     </label>
                                 ))}
                             </div>
+                            <p className="mt-2 text-xs text-gray-500">
+                                Для драфта: пустой список включает автоматический выбор стратегии. Любая отмеченная категория фиксирует ручной пант и отключает автоматическое переключение.
+                            </p>
                         </div>
 
                         <div>

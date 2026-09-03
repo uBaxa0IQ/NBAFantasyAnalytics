@@ -1,0 +1,21 @@
+{
+  "format_name": "standard8",
+  "episodes": 2000,
+  "seed": 2609021,
+  "candidate_count": 10,
+  "rollouts_per_candidate": 3,
+  "team_count": 10,
+  "rounds": 13,
+  "workers": 4,
+  "projection_gp_stddev": 0.12,
+  "projection_stat_stddev": 0.08,
+  "output_dir": "artifacts/draft_ml/standard8",
+  "behavior_policies": [
+    "adaptive",
+    "legacy_balanced",
+    "legacy_fixed",
+    "roto",
+    "adp"
+  ]
+}
+

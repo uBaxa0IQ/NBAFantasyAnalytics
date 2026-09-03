@@ -144,3 +144,6 @@ temp/
 *.sqlite3
 web/backend/admin.db
 
+# Generated draft ML datasets and checkpoints
+artifacts/draft_ml/
+

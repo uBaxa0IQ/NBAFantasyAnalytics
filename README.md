@@ -63,7 +63,15 @@ The application helps answer questions such as:
 - Before the draft, the application becomes Draft Prep with a projected board, virtual roster, build directions, positional scarcity, and a queue shared with the live room
 - Draft Prep separates universal planning from pick-specific availability depending on whether ESPN has published the snake order
 - ESPN Live Draft Trends data is loaded directly from the player market response: ADP, seven-day movement, ROTO rank, auction value, and roster percentage
-- Before the order is known, the draft model simulates every snake slot in an interactive position selector; a selected slot receives a 240-run full-league analysis with coherent rosters, category wins, league rank, playoff odds, availability, and selection frequency
+- Before the order is known, the draft model simulates every snake slot in an interactive position selector; a selected slot receives a 240-run full-league analysis with coherent rosters, category wins, projected strength rank, top-N strength rate, availability, and selection frequency
+- Draft Simulation includes a paired ESPN-projection benchmark comparing pure ROTO drafting, the balanced advisor, and punt FG%; every strategy sees the same market scenarios and is evaluated across every league category
+- Live advice is limited to six actionable names: one primary pick, two take-now options, two players who can wait, and one fallback. The primary pick includes paired-simulation confidence, expected category gain, and a 95% interval.
+- Live lookahead and offline draft benchmarks use an independent projected-volume evaluator (`per-game × GP`) and ESPN's exact roster slots, including multi-position eligibility.
+- `GET /api/draft/punt-benchmark/{team_id}` exhaustively screens punt combinations for standard 8-cat (`max_punts=2`, 37 strategies) or the custom 11-cat format (`format=custom11&max_punts=3`, 232 strategies), then retests finalists across every draft slot.
+- With no manually selected punt, Draft Room uses an adaptive portfolio of benchmark-derived strategies. It updates strategy probabilities after every pick and ranks candidates by projected marginal volume, market value, roster fit, and cross-strategy robustness. Selecting any Punt Category in Settings locks a manual strategy instead.
+- `GET /api/draft/adaptive-benchmark/{team_id}` compares the adaptive policy with the legacy balanced and best fixed-punt policies against a mixed self-play population, including a held-out projection stress test.
+- Live draft decisions and subsequent actual picks are recorded locally in the ignored `draft_learning.db`; `GET /api/draft/learning-stats` reports dataset size for future policy training.
+- The opt-in offline value/policy training pipeline is documented in [`docs/draft-ml-training.md`](docs/draft-ml-training.md). Generation, training, evaluation, benchmarking, and promotion require an explicit `--execute` flag.
 - Draft and post-draft player views include games played from the displayed statistics season as a compact availability-history signal
 - During an active ESPN draft the normal application automatically becomes a read-only Draft Room
 - Draft Room conditions the simulation on completed picks and includes on-the-clock state, personal pick timing, roster construction, category balance, queue, recent picks, and recommendations
