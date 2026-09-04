@@ -1,11 +1,12 @@
 """
 Роутер для анализа трейдов.
 """
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from dependencies import get_league_meta
 from models import TradeAnalysisRequest, MultiTeamTradeRequest
 from core.z_score import calculate_z_scores
 from core.config import CATEGORIES
+from core.trade_roster import selected_names_after_trade, validate_ownership
 from utils.calculations import (
     calculate_total_z,
     calculate_category_z,
@@ -29,6 +30,12 @@ def analyze_trade(
     league_meta=Depends(get_league_meta)
 ):
     """Анализирует трейд между двумя командами."""
+    try:
+        validate_ownership({team.team_id: {p.name for p in league_meta.get_team_roster(team.team_id)} for team in league_meta.get_teams()},
+                           {request.my_team_id: {'give': request.i_give, 'receive': request.i_receive},
+                            request.their_team_id: {'give': request.i_receive, 'receive': request.i_give}})
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     # Определяем exclude_ir на основе simulation_mode
     exclude_ir = (request.simulation_mode == "exclude_ir")
     
@@ -52,10 +59,19 @@ def analyze_trade(
     # Хелпер выбора состава в соответствии с режимом симуляции
     def select_roster(team_players, team_id, allow_custom=True):
         if request.simulation_mode == "top_n":
-            custom_map = request.custom_team_players if allow_custom else None
+            custom_map = request.custom_team_players
             if custom_map and team_id in custom_map:
                 selected_names = custom_map[team_id]
+                if not allow_custom:
+                    if hasattr(request, 'trades'):
+                        move = next(item for item in request.trades if item.team_id == team_id)
+                        give, receive = move.give, move.receive
+                    else:
+                        give, receive = (request.i_give, request.i_receive) if team_id == request.my_team_id else (request.i_receive, request.i_give)
+                    selected_names = selected_names_after_trade(selected_names, give, receive)
                 team_players = [p for p in team_players if p['name'] in selected_names]
+                if len(team_players) > request.top_n_players:
+                    team_players = select_top_n_players(team_players, request.top_n_players, punt_categories=request.punt_categories, z_scores_data=z_scores_by_name)
             else:
                 team_players = select_top_n_players(
                     team_players,
@@ -69,7 +85,7 @@ def analyze_trade(
     my_team_players_full = [p for p in data['players'] if p['team_id'] == request.my_team_id]
     their_team_players_full = [p for p in data['players'] if p['team_id'] == request.their_team_id]
     
-    # Применяем режим симуляции: ДО трейда учитываем custom_team_players, ПОСЛЕ — только авто top_n
+    # Preserve manual roster membership, replacing traded-out players with incoming players.
     my_team_players = select_roster(my_team_players_full, request.my_team_id, allow_custom=True)
     their_team_players = select_roster(their_team_players_full, request.their_team_id, allow_custom=True)
     
@@ -444,6 +460,11 @@ def analyze_multi_team_trade(
     Поддерживает любое количество команд, участвующих в трейде.
     """
     # Учитываем режим симуляции для исключения игроков из IR
+    try:
+        validate_ownership({team.team_id: {p.name for p in league_meta.get_team_roster(team.team_id)} for team in league_meta.get_teams()},
+                           {move.team_id: {'give': move.give, 'receive': move.receive} for move in request.trades})
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     exclude_ir = (getattr(request, "simulation_mode", "") == "exclude_ir")
     
     # Валидация
@@ -513,10 +534,19 @@ def analyze_multi_team_trade(
     
     def select_roster(team_players, team_id, allow_custom=True):
         if request.simulation_mode == "top_n":
-            custom_map = request.custom_team_players if allow_custom else None
+            custom_map = request.custom_team_players
             if custom_map and team_id in custom_map:
                 selected_names = custom_map[team_id]
+                if not allow_custom:
+                    if hasattr(request, 'trades'):
+                        move = next(item for item in request.trades if item.team_id == team_id)
+                        give, receive = move.give, move.receive
+                    else:
+                        give, receive = (request.i_give, request.i_receive) if team_id == request.my_team_id else (request.i_receive, request.i_give)
+                    selected_names = selected_names_after_trade(selected_names, give, receive)
                 team_players = [p for p in team_players if p['name'] in selected_names]
+                if len(team_players) > request.top_n_players:
+                    team_players = select_top_n_players(team_players, request.top_n_players, punt_categories=request.punt_categories, z_scores_data=z_scores_by_name)
             else:
                 team_players = select_top_n_players(
                     team_players,

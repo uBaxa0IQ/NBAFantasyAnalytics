@@ -9,13 +9,18 @@ from core.projection import (
     project_team_stats,
 )
 from core.snapshot import build_league_snapshot
-from core.z_score import calculate_player_z_scores
+from core.z_score import calculate_player_z_scores, calculate_z_scores_from_players
+from core.matchup_value import combine_stats, matchup_utility, add_matchup_values
 
 
-def _lineup_projection(players, scoring_periods, punts):
-    lineup = build_matchup_lineups(players, scoring_periods, punt_categories=punts)
+def _lineup_projection(players, scoring_periods, punts, slots, opponent=None, accrued=None):
+    if opponent is not None:
+        initial = build_matchup_lineups(players, scoring_periods, slots=slots, punt_categories=punts)
+        baseline = combine_stats(accrued or {}, project_team_stats(players, initial['selected_games']))
+        players = add_matchup_values(players, baseline, opponent, punts)
+    lineup = build_matchup_lineups(players, scoring_periods, slots=slots, punt_categories=punts, fill_slots=opponent is None)
     return (
-        sum(day["total_value"] for day in lineup["days"]),
+        sum(player_value({k: v for k, v in player.items() if k != 'lineup_value'}, punts) * lineup['selected_games'].get(player['name'], 0) for player in players),
         project_team_stats(players, lineup["selected_games"]),
         lineup["selected_games"],
     )
@@ -30,7 +35,7 @@ def recommend_free_agents(
     limit: int = 30,
 ):
     snapshot = build_league_snapshot(league_metadata, period)
-    roster = [player.as_projection_player() for player in snapshot.team_players(team_id)]
+    roster = [{**player.as_projection_player(), 'future_only': True} for player in snapshot.team_players(team_id)]
     if not roster:
         raise ValueError("Team not found or roster is empty")
 
@@ -38,10 +43,20 @@ def recommend_free_agents(
     matchup_period = int(league.currentMatchupPeriod)
     scoring_periods = get_remaining_scoring_periods(league, matchup_period)
     if not scoring_periods:
-        scoring_periods = get_matchup_scoring_periods(league, matchup_period)
+        return {'team_id': team_id, 'players': [], 'scoring_periods': [], 'method': 'season_complete', 'note': 'Нет оставшихся игровых дней.'}
+
+    box = league_metadata.get_matchup_box_score(matchup_period, team_id)
+    accrued = box['totals'] if box else {}
+    opponent = None
+    if box:
+        opponent_players = [{**p.as_projection_player(), 'future_only': True} for p in snapshot.team_players(box['opponent_id'])]
+        _, opponent_future, _ = _lineup_projection(opponent_players, scoring_periods, punt_categories, snapshot.active_slots)
+        opponent_box = league_metadata.get_matchup_box_score(matchup_period, box['opponent_id'])
+        if opponent_box:
+            opponent = combine_stats(opponent_box['totals'], opponent_future)
 
     baseline_value, baseline_stats, baseline_games = _lineup_projection(
-        roster, scoring_periods, punt_categories
+        roster, scoring_periods, punt_categories, snapshot.active_slots, opponent, accrued
     )
     free_agents = []
     free_agent_summaries = league_metadata.get_free_agents(size=200, position=position)
@@ -72,17 +87,20 @@ def recommend_free_agents(
             "injured": getattr(player, "injured", False),
             "injury_status": getattr(player, "injuryStatus", "ACTIVE"),
             "nba_team": getattr(player, "proTeam", "N/A"),
+            "future_only": True,
         }
         projection_player["base_value"] = player_value(projection_player, punt_categories)
         free_agents.append(projection_player)
 
-    # Calendar evaluation is intentionally limited to plausible adds. This keeps the
-    # endpoint responsive while the full list remains available in /free-agents.
-    candidates = sorted(free_agents, key=lambda item: item["base_value"], reverse=True)[:60]
-    drop_pool = sorted(
-        roster,
-        key=lambda item: (item.get("available", True), player_value(item, punt_categories)),
-    )[:7]
+    candidates = [player for player in free_agents if player['available']]
+    # Preserve injured assets and the upper half of the roster by season value.
+    season_players = league_metadata.get_all_players_stats(f'{league_metadata.year}_total', 'avg')
+    season_metrics = calculate_z_scores_from_players(season_players)['league_metrics'] if season_players else snapshot.league_metrics
+    season_values = {p['name']: sum(calculate_player_z_scores(p['stats'], season_metrics).get(c, 0) for c in CATEGORIES if c not in punt_categories) for p in season_players}
+    ordered = sorted(roster, key=lambda p: season_values.get(p['name'], player_value(p, punt_categories)), reverse=True)
+    protected = {p['name'] for p in ordered[:len(ordered) // 2]}
+    drop_pool = [p for p in roster if p['available'] and not p.get('injured') and p['name'] not in protected]
+    baseline_fit = matchup_utility(combine_stats(accrued, baseline_stats), opponent, punt_categories) if opponent is not None else baseline_value
 
     recommendations = []
     for candidate in candidates:
@@ -91,21 +109,23 @@ def recommend_free_agents(
             changed_roster = [player for player in roster if player["name"] != dropped["name"]]
             changed_roster.append(candidate)
             value, projected_stats, selected_games = _lineup_projection(
-                changed_roster, scoring_periods, punt_categories
+                changed_roster, scoring_periods, punt_categories, snapshot.active_slots, opponent, accrued
             )
             gain = value - baseline_value
             player_games_delta = sum(selected_games.values()) - sum(baseline_games.values())
-            comparison_key = (player_games_delta, gain)
+            fit_gain = (matchup_utility(combine_stats(accrued, projected_stats), opponent, punt_categories) if opponent is not None else value) - baseline_fit
+            comparison_key = (fit_gain, gain, player_games_delta)
             if best is None or comparison_key > best["comparison_key"]:
                 best = {
                     "drop_player": dropped["name"],
                     "lineup_gain": gain,
+                    "matchup_gain": fit_gain,
                     "player_games_delta": player_games_delta,
                     "projected_stats": projected_stats,
                     "selected_games": selected_games.get(candidate["name"], 0),
                     "comparison_key": comparison_key,
                 }
-        if best is None or best["selected_games"] <= 0:
+        if best is None or best["selected_games"] <= 0 or best['matchup_gain'] <= 0:
             continue
         recommendation = {
             "player_id": candidate.get("player_id"),
@@ -117,6 +137,7 @@ def recommend_free_agents(
             "stats": candidate["stats"],
             "base_value": round(candidate["base_value"], 3),
             "lineup_gain": round(best["lineup_gain"], 3),
+            "matchup_gain": round(best['matchup_gain'], 4),
             "player_games_delta": best["player_games_delta"],
             "drop_player": best["drop_player"],
             "selected_games": best["selected_games"],
@@ -129,7 +150,7 @@ def recommend_free_agents(
         recommendations.append(recommendation)
 
     recommendations.sort(
-        key=lambda item: (item["player_games_delta"], item["lineup_gain"]),
+        key=lambda item: (item['matchup_gain'], item["lineup_gain"], item["player_games_delta"]),
         reverse=True,
     )
     return {
@@ -138,6 +159,7 @@ def recommend_free_agents(
         "matchup_period": matchup_period,
         "scoring_periods": scoring_periods,
         "baseline_selected_games": sum(baseline_games.values()),
-        "method": "marginal_daily_lineup_value",
+        "method": "opponent_category_utility" if opponent is not None else "marginal_daily_lineup_value",
+        "note": "Сравнение одиночных замен после фактического счёта; эффект — эвристика категорий, не вероятность победы. Защищены травмированные и верхняя половина состава. Проверьте waiver-срок и лимит добавлений в ESPN.",
         "players": recommendations[:limit],
     }

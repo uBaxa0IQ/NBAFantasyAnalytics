@@ -8,10 +8,11 @@ from typing import Dict, List, Optional
 
 
 # Keep the existing filename so local trade history survives this refactor.
-DB_PATH = os.path.join(os.path.dirname(__file__), "admin.db")
+DB_PATH = os.getenv('TRADE_LOG_DB', os.path.join(os.path.dirname(__file__), "admin.db"))
 
 
 def get_db_connection():
+    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
     return connection

@@ -97,8 +97,8 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
             valA = calculateTotalZ(a);
             valB = calculateTotalZ(b);
         } else if (sortBy === 'calendar_fit') {
-            valA = (a.player_games_delta || 0) * 1000 + (a.lineup_gain || 0);
-            valB = (b.player_games_delta || 0) * 1000 + (b.lineup_gain || 0);
+            valA = a.matchup_gain ?? a.lineup_gain ?? 0;
+            valB = b.matchup_gain ?? b.lineup_gain ?? 0;
         } else if (sortBy === 'lineup_gain' || sortBy === 'selected_games') {
             valA = a[sortBy] || 0;
             valB = b[sortBy] || 0;
@@ -175,7 +175,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
 
             {personalized && data && (
                 <div className="mb-4 p-3 rounded bg-blue-50 text-sm text-blue-900">
-                    Рекомендации для вашей команды: прирост рассчитан после лучшей замены по оставшемуся календарю и lineup-слотам.
+                    {data.note || 'Прирост после одиночной замены по оставшемуся календарю и слотам лиги.'}
                 </div>
             )}
 
@@ -227,7 +227,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                     {personalized && (
                                         <>
                                             <td className={`p-2 border text-center font-bold ${player.lineup_gain > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                <div>{player.lineup_gain > 0 ? '+' : ''}{player.lineup_gain.toFixed(2)} Z</div>
+                                                <div>{player.matchup_gain > 0 ? '+' : ''}{(player.matchup_gain ?? player.lineup_gain).toFixed(3)} {data.method === 'opponent_category_utility' ? 'балла категорий' : 'Z'}</div>
                                                 <div className="text-xs font-normal text-gray-500">
                                                     {player.player_games_delta > 0 ? '+' : ''}{player.player_games_delta} player-games
                                                 </div>

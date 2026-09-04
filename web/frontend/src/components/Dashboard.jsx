@@ -310,7 +310,7 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                     {/* Position History Chart */}
                     {mainTeam && (
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
-                            <h3 className={`text-lg font-semibold text-gray-700 ${isPlayoff ? 'mb-1' : 'mb-4'}`}>Изменение позиции в лиге</h3>
+                            <h3 className={`text-lg font-semibold text-gray-700 ${isPlayoff ? 'mb-1' : 'mb-4'}`}>Ранг силы all-vs-all по неделям</h3>
                             {isPlayoff && (
                                 <p className="text-sm text-gray-500 mb-4">За регулярный сезон (недели 1–16)</p>
                             )}

@@ -3,8 +3,11 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
+from time import monotonic
 
 from .z_score import calculate_z_scores_from_players
+from .roster_rules import league_slots
+from .projection import DEFAULT_LINEUP_SLOTS
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,7 @@ class PlayerSnapshot:
     schedule: Dict[str, Any]
     stats: Dict[str, float]
     z_scores: Dict[str, float]
+    expected_return_date: Any = None
 
     @property
     def available(self) -> bool:
@@ -41,6 +45,8 @@ class PlayerSnapshot:
             "available": self.available,
             "injured": self.injured,
             "injury_status": self.injury_status,
+            "expected_return_date": self.expected_return_date,
+            "lineup_slot": self.lineup_slot,
         }
 
 
@@ -52,12 +58,19 @@ class LeagueSnapshot:
     current_scoring_period: int
     players: Tuple[PlayerSnapshot, ...]
     league_metrics: Dict[str, Any]
+    active_slots: Tuple[str, ...] = DEFAULT_LINEUP_SLOTS
 
     def team_players(self, team_id: int) -> Tuple[PlayerSnapshot, ...]:
         return tuple(player for player in self.players if player.fantasy_team_id == team_id)
 
 
 def build_league_snapshot(league_metadata, period: str, exclude_ir: bool = False) -> LeagueSnapshot:
+    from .weighted_coefficients import load_weighted_coefficients
+    key = (period, exclude_ir, str(getattr(league_metadata, 'last_refresh_time', None)), tuple(sorted(load_weighted_coefficients().items())))
+    cache = getattr(league_metadata, '_snapshot_cache', {})
+    cached = cache.get(key)
+    if cached and monotonic() - cached[0] < 30:
+        return cached[1]
     raw_players = league_metadata.get_all_players_stats(
         period,
         "avg",
@@ -84,16 +97,23 @@ def build_league_snapshot(league_metadata, period: str, exclude_ir: bool = False
             schedule=player.get("schedule") or {},
             stats=player["stats"],
             z_scores=z_by_player.get((player["team_id"], player["name"]), {}),
+            expected_return_date=player.get('expected_return_date'),
         )
         for player in raw_players
     )
 
     league = league_metadata.league
-    return LeagueSnapshot(
+    snapshot = LeagueSnapshot(
         period=period,
         created_at=datetime.now(timezone.utc),
         current_matchup_period=int(league.currentMatchupPeriod),
         current_scoring_period=int(league.current_week),
         players=players,
         league_metrics=z_data["league_metrics"],
+        active_slots=league_slots(league_metadata),
     )
+    if len(cache) >= 12:
+        cache.clear()
+    cache[key] = (monotonic(), snapshot)
+    league_metadata._snapshot_cache = cache
+    return snapshot

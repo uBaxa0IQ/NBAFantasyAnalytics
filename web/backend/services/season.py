@@ -3,10 +3,15 @@
 from collections import defaultdict
 from typing import Any, Dict
 
-from core.projection import get_matchup_scoring_periods, project_team_stats
+from core.projection import get_matchup_scoring_periods, get_remaining_scoring_periods, project_team_stats
+from core.matchup_value import combine_stats
 from core.simulation import compare_category_stats
 from core.snapshot import build_league_snapshot
 from services.projections import project_snapshot_for_matchup
+from .forecast_history import record
+from core.config import CATEGORIES, REVERSE_CATEGORIES
+import logging
+import sqlite3
 
 
 def project_regular_season(league_metadata, period: str, calculation_engine: str = "calendar") -> Dict[str, Any]:
@@ -52,10 +57,23 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
             if legacy_team_stats is not None:
                 team_stats = legacy_team_stats
             else:
-                team_stats, _ = project_snapshot_for_matchup(snapshot, teams, scoring_periods)
+                if matchup_period == current_period:
+                    scoring_periods = get_remaining_scoring_periods(league, matchup_period)
+                team_stats, _ = project_snapshot_for_matchup(snapshot, teams, scoring_periods, future_only=matchup_period == current_period)
+                if matchup_period == current_period:
+                    for team in teams:
+                        actual = league_metadata.get_matchup_box_score(matchup_period, team.team_id)
+                        if actual:
+                            team_stats[team.team_id]['stats'] = combine_stats(actual['totals'], team_stats[team.team_id]['stats'])
             for matchup in schedule_by_period[matchup_period]:
                 team1_id = matchup["team1_id"]
                 team2_id = matchup["team2_id"]
+                if matchup_period > current_period and calculation_engine == 'calendar':
+                    try:
+                        record(league_metadata.league_id, league_metadata.year, matchup_period, team1_id, team2_id, period,
+                               team_stats[team1_id]['stats'], team_stats[team2_id]['stats'], CATEGORIES, REVERSE_CATEGORIES)
+                    except (OSError, sqlite3.Error):
+                        logging.getLogger(__name__).warning('Не удалось сохранить прогноз для последующей проверки')
                 comparison = compare_category_stats(
                     team_stats[team1_id]["stats"],
                     team_stats[team2_id]["stats"],
@@ -107,6 +125,7 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
 
     return {
         "period": period,
+        "assumptions": "Сценарий с текущими составами и доступностью игроков. Текущая неделя: фактическая статистика плюс ещё не начавшиеся игры. Возвращения без подтверждённой даты, будущие замены и разброс результатов не предсказываются; место не является вероятностью финиша.",
         "current_matchup_period": current_period,
         "regular_season_end": regular_season_end,
         "standings": standings,

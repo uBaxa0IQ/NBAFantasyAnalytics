@@ -42,7 +42,7 @@ const PuntAnalyzerModal = ({ data, activePunts, onApply, onClose }) => {
         const next = current.includes(category)
             ? current.filter(item => item !== category)
             : [...current, category];
-        if (next.length > 5) return;
+        if (next.length > data.max_punts) return;
         setDepth(next.length);
         setAlternativeIndex(-1);
         setCustomPunts(next);
@@ -60,6 +60,7 @@ const PuntAnalyzerModal = ({ data, activePunts, onApply, onClose }) => {
                 </div>
 
                 <div className="p-4 space-y-5">
+                    <p className="text-sm text-amber-800">Диагностика текущего состава: исключение категорий повышает средний контроль оставшихся, но само по себе не усиливает команду. Для победы нужно {data.winning_categories} категорий.</p>
                     <div>
                         <div className="text-sm font-medium text-gray-700 mb-2">Глубина стратегии</div>
                         <div className="grid grid-cols-6 gap-2">

@@ -1,7 +1,7 @@
 """Проекция фэнтези-состава по NBA-календарю и доступным lineup slots."""
 
-from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from datetime import datetime, date
 
 
 DEFAULT_LINEUP_SLOTS: Tuple[str, ...] = (
@@ -27,6 +27,8 @@ def can_play_slot(player: Dict[str, Any], slot: str) -> bool:
 
     eligible = set(player.get("eligible_slots") or player.get("eligibleSlots") or [])
     position = player.get("position") or ""
+    if '/' in slot:
+        return any(can_play_slot(player, part) for part in slot.split('/'))
     if slot in eligible or slot == position:
         return True
     if slot == "G":
@@ -37,6 +39,8 @@ def can_play_slot(player: Dict[str, Any], slot: str) -> bool:
 
 
 def player_value(player: Dict[str, Any], punt_categories: Iterable[str] = ()) -> float:
+    if "lineup_value" in player:
+        return float(player["lineup_value"])
     punt = set(punt_categories)
     return sum(
         float(value)
@@ -47,6 +51,11 @@ def player_value(player: Dict[str, Any], punt_categories: Iterable[str] = ()) ->
 
 def has_game(player: Dict[str, Any], scoring_period: int) -> bool:
     schedule = player.get("schedule") or {}
+    if player.get('future_only'):
+        game = schedule.get(str(scoring_period), schedule.get(scoring_period)) or {}
+        date = game.get('date')
+        if isinstance(date, datetime) and date <= datetime.now(date.tzinfo):
+            return False
     return str(scoring_period) in schedule or scoring_period in schedule
 
 
@@ -54,35 +63,47 @@ def optimize_daily_lineup(
     players: Sequence[Dict[str, Any]],
     slots: Sequence[str] = DEFAULT_LINEUP_SLOTS,
     punt_categories: Iterable[str] = (),
+    fill_slots: bool = True,
 ) -> Dict[str, Any]:
-    """Максимизирует суммарную ценность lineup через DP по битовой маске слотов."""
+    """Maximum-weight assignment with optional empty slots (Hungarian algorithm)."""
     candidates = [player for player in players if player.get("available", True)]
     values = [player_value(player, punt_categories) for player in candidates]
 
-    @lru_cache(maxsize=None)
-    def solve(player_index: int, used_mask: int):
-        if player_index >= len(candidates):
-            return 0, 0.0, ()
-
-        best_count, best_value, best_assignments = solve(player_index + 1, used_mask)
-        player = candidates[player_index]
-        for slot_index, slot in enumerate(slots):
-            slot_bit = 1 << slot_index
-            if used_mask & slot_bit or not can_play_slot(player, slot):
-                continue
-            remaining_count, remaining_value, remaining_assignments = solve(
-                player_index + 1,
-                used_mask | slot_bit,
-            )
-            candidate_count = remaining_count + 1
-            candidate_value = values[player_index] + remaining_value
-            if (candidate_count, candidate_value) > (best_count, best_value):
-                best_count = candidate_count
-                best_value = candidate_value
-                best_assignments = ((player_index, slot_index),) + remaining_assignments
-        return best_count, best_value, best_assignments
-
-    _, total_value, assignments = solve(0, 0)
+    bonus = 2 * sum(abs(value) for value in values) + 1 if fill_slots else 0
+    forbidden = sum(abs(value) for value in values) + bonus * len(slots) + 1
+    costs = [[-(values[i] + bonus) if can_play_slot(player, slot) else forbidden
+              for i, player in enumerate(candidates)] + [0.0] * len(slots) for slot in slots]
+    rows, columns = len(slots), len(candidates) + len(slots)
+    u, v = [0.0] * (rows + 1), [0.0] * (columns + 1)
+    matched, previous = [0] * (columns + 1), [0] * (columns + 1)
+    for row in range(1, rows + 1):
+        matched[0], column = row, 0
+        minimum, used = [float('inf')] * (columns + 1), [False] * (columns + 1)
+        while True:
+            used[column] = True
+            active_row, delta, next_column = matched[column], float('inf'), 0
+            for j in range(1, columns + 1):
+                if not used[j]:
+                    cost = costs[active_row - 1][j - 1] - u[active_row] - v[j]
+                    if cost < minimum[j]:
+                        minimum[j], previous[j] = cost, column
+                    if minimum[j] < delta:
+                        delta, next_column = minimum[j], j
+            for j in range(columns + 1):
+                if used[j]:
+                    u[matched[j]] += delta
+                    v[j] -= delta
+                else:
+                    minimum[j] -= delta
+            column = next_column
+            if matched[column] == 0:
+                break
+        while column:
+            prior = previous[column]
+            matched[column] = matched[prior]
+            column = prior
+    assignments = [(j - 1, matched[j] - 1) for j in range(1, len(candidates) + 1) if matched[j]]
+    total_value = sum(values[i] for i, _ in assignments)
     starters = []
     selected_indexes = set()
     for player_index, slot_index in assignments:
@@ -109,13 +130,33 @@ def build_matchup_lineups(
     scoring_periods: Sequence[int],
     slots: Sequence[str] = DEFAULT_LINEUP_SLOTS,
     punt_categories: Iterable[str] = (),
+    fill_slots: bool = True,
 ) -> Dict[str, Any]:
     days = []
     selected_games: Dict[str, int] = {player["name"]: 0 for player in players}
 
+    day_cache = {}
     for scoring_period in scoring_periods:
-        playing = [player for player in players if has_game(player, scoring_period)]
-        optimized = optimize_daily_lineup(playing, slots, punt_categories)
+        playing = []
+        for player in players:
+            if not has_game(player, scoring_period):
+                continue
+            return_date = player.get('expected_return_date')
+            game_date = (player.get('schedule', {}).get(str(scoring_period), player.get('schedule', {}).get(scoring_period)) or {}).get('date')
+            if isinstance(return_date, str):
+                try:
+                    return_date = date.fromisoformat(return_date[:10])
+                except ValueError:
+                    return_date = None
+            if isinstance(return_date, datetime):
+                return_date = return_date.date()
+            if isinstance(return_date, date) and isinstance(game_date, datetime) and game_date.date() >= return_date and player.get('lineup_slot') != 'IR':
+                player = {**player, 'available': True}
+            playing.append(player)
+        key = tuple(id(player) for player in playing)
+        if key not in day_cache:
+            day_cache[key] = optimize_daily_lineup(playing, slots, punt_categories, fill_slots)
+        optimized = day_cache[key]
         for starter in optimized["starters"]:
             name = starter["player"]["name"]
             selected_games[name] = selected_games.get(name, 0) + 1

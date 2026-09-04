@@ -1,13 +1,14 @@
 """Хранение коэффициентов универсального статистического периода."""
 
 import json
+import os
 from pathlib import Path
 from typing import Dict
 
 from .config import PERIODS, WEIGHTED_PERIOD_COEFFS
 
 
-COEFFICIENTS_FILE = Path(__file__).parent.parent / "web" / "core" / "weighted_coefficients.json"
+COEFFICIENTS_FILE = Path(os.getenv('WEIGHTED_COEFFICIENTS_PATH', Path(__file__).parent.parent / "web" / "core" / "weighted_coefficients.json"))
 
 
 def load_weighted_coefficients() -> Dict[str, float]:

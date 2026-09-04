@@ -1,19 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, useState, useEffect } from 'react';
 import api from './api';
-import Dashboard from './components/Dashboard';
-import Analytics from './components/Analytics';
-import Simulation from './components/Simulation';
-import PlayersTab from './components/PlayersTab';
-import PlayerModal from './components/PlayerModal';
-import TradeAnalyzer from './components/TradeAnalyzer';
-import PlayoffAnalysis from './components/PlayoffAnalysis';
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Analytics = lazy(() => import('./components/Analytics'));
+const Simulation = lazy(() => import('./components/Simulation'));
+const PlayersTab = lazy(() => import('./components/PlayersTab'));
+const PlayerModal = lazy(() => import('./components/PlayerModal'));
+const TradeAnalyzer = lazy(() => import('./components/TradeAnalyzer'));
+const PlayoffAnalysis = lazy(() => import('./components/PlayoffAnalysis'));
 import ComparisonBar from './components/ComparisonBar';
-import PlayerComparisonModal from './components/PlayerComparisonModal';
+const PlayerComparisonModal = lazy(() => import('./components/PlayerComparisonModal'));
 import SettingsModal from './components/SettingsModal';
-import DraftAssistant from './components/DraftAssistant';
+const DraftAssistant = lazy(() => import('./components/DraftAssistant'));
 import { getSeasonConfig, normalizeSavedPeriod, saveSeasonConfig } from './utils/periods';
 
 function App() {
+  const [authRequired, setAuthRequired] = useState(false);
+  const [accessToken, setAccessToken] = useState('');
+  useEffect(() => {
+    const requireAuth = () => setAuthRequired(true);
+    window.addEventListener('nba-auth-required', requireAuth);
+    return () => window.removeEventListener('nba-auth-required', requireAuth);
+  }, []);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [comparisonPlayers, setComparisonPlayers] = useState([]);
@@ -21,6 +28,7 @@ function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isPlayoff, setIsPlayoff] = useState(false);
   const [draftState, setDraftState] = useState(null);
+  const [seasonView, setSeasonView] = useState(false);
   const [seasonConfig, setSeasonConfig] = useState(getSeasonConfig);
 
   // Общие настройки для всех вкладок с сохранением в localStorage
@@ -196,7 +204,13 @@ function App() {
     setComparisonPlayers([]);
   };
 
-  if (draftState?.status === 'live' || draftState?.status === 'upcoming' || draftState?.postdraft) {
+  if (authRequired) return <form className="mx-auto mt-20 max-w-sm space-y-4 rounded border bg-white p-6" onSubmit={event => { event.preventDefault(); sessionStorage.setItem('nba-api-token', accessToken); window.location.reload(); }}>
+    <h1 className="text-xl font-semibold">Доступ к аналитике</h1>
+    <label className="block">Ключ доступа<input type="password" required value={accessToken} onChange={event => setAccessToken(event.target.value)} className="mt-2 w-full rounded border p-2" autoComplete="current-password" /></label>
+    <button className="rounded bg-blue-700 px-4 py-2 text-white">Войти</button>
+  </form>;
+
+  if (!seasonView && (draftState?.status === 'live' || draftState?.status === 'upcoming' || draftState?.postdraft)) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-blue-900 text-white p-4 shadow-md">
@@ -206,7 +220,9 @@ function App() {
           className="container mx-auto p-4 max-w-7xl"
           style={{ paddingBottom: comparisonPlayers.length >= 2 ? '120px' : undefined }}
         >
+          <button className="mb-4 text-sm text-blue-700" onClick={() => setSeasonView(true)}>Открыть сезонную аналитику</button>
           <DraftAssistant
+            key={`${seasonConfig.league_id}:${seasonConfig.periods.projected}:${mainTeam}`}
             draftState={draftState}
             mainTeam={mainTeam}
             puntCategories={puntCategories}
@@ -257,6 +273,7 @@ function App() {
         <h1 className="text-2xl font-bold text-center">NBA Fantasy Analytics</h1>
       </header>
 
+      {seasonView && <button className="m-4 text-sm text-blue-700" onClick={() => setSeasonView(false)}>Вернуться к драфту</button>}
       <div className="sticky top-0 bg-white z-10 border-b shadow-sm">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center">

@@ -78,6 +78,7 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
                 <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
 
+            {data.note && <p className="mb-3 text-sm text-amber-800">{data.note}</p>}
             {data.days.length === 0 ? (
                 <div className="p-4 bg-amber-50 rounded text-amber-900">
                     В выбранном матчапе не осталось игровых дней.
@@ -92,7 +93,7 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
                                     <div key={`${starter.slot}-${index}`} className="bg-blue-50 rounded p-2 min-w-0">
                                         <div className="text-xs font-bold text-blue-700">{starter.slot}</div>
                                         <div className="font-medium truncate" title={starter.name}>{starter.name}</div>
-                                        <div className="text-xs text-gray-500">{starter.position} · Z {starter.value.toFixed(2)}</div>
+                                        <div className="text-xs text-gray-500">{starter.position} · {data.objective === 'opponent_category_utility' ? 'вклад' : 'Z'} {starter.value.toFixed(3)}</div>
                                     </div>
                                 ))}
                             </div>

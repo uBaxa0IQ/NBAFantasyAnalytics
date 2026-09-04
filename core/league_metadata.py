@@ -82,17 +82,29 @@ class LeagueMetadata:
         Returns:
             True если подключение успешно, False в противном случае
         """
+        previous = dict(self.__dict__)
+        old_categories, old_reverse = list(CATEGORIES), set(REVERSE_CATEGORIES)
         try:
-            self.league = League(
+            candidate = League(
                 league_id=self.league_id,
                 year=self.year,
                 espn_s2=self.espn_s2,
                 swid=self.swid
             )
-            self.teams = self.league.teams
+            self.league = candidate
+            self.teams = candidate.teams
             self._configure_scoring()
+            self._active_slot_counts = None
+            self._snapshot_cache = {}
+            self.last_refresh_error = None
             return True
         except Exception as e:
+            self.__dict__.clear()
+            self.__dict__.update(previous)
+            CATEGORIES[:] = old_categories
+            REVERSE_CATEGORIES.clear()
+            REVERSE_CATEGORIES.update(old_reverse)
+            self.last_refresh_error = type(e).__name__
             print(f"Ошибка подключения к лиге: {e}")
             return False
     
@@ -435,6 +447,7 @@ class LeagueMetadata:
                         'lineup_slot': getattr(player, 'lineupSlot', ''),
                         'injured': getattr(player, 'injured', False),
                         'injury_status': getattr(player, 'injuryStatus', 'ACTIVE'),
+                        'expected_return_date': getattr(player, 'expected_return_date', None),
                         'pro_team': getattr(player, 'proTeam', None),
                         'schedule': getattr(player, 'schedule', {}),
                         'team_id': team.team_id,

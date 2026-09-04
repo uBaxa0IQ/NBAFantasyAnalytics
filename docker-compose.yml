@@ -26,9 +26,15 @@ services:
       - ESPN_S2=${ESPN_S2}
       - SWID=${SWID}
       - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - TRADE_LOG_DB=/app/.cache/admin.db
+      - DRAFT_LEARNING_DB=/app/.cache/draft_learning.db
+      - DRAFT_MODEL_CHAMPIONS=/app/artifacts/draft_ml/champions
+      - WEIGHTED_COEFFICIENTS_PATH=/app/.cache/weighted_coefficients.json
+      - NBA_API_TOKEN=${NBA_API_TOKEN:-}
     volumes:
       - ./.env:/app/.env:ro
       - ./.cache:/app/.cache
+      - ./artifacts/draft_ml:/app/artifacts/draft_ml
     restart: unless-stopped
     networks:
       - nba-network

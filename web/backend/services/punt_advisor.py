@@ -39,13 +39,13 @@ def _strategy_metrics(punts, category_profiles, opponent_results):
 
     opponent_count = max(len(opponent_results), 1)
     opponent_coverage = (matchup_wins + matchup_ties * 0.5) / opponent_count * 100
-    margin = len(retained) - 6
+    margin = len(retained) - (len(CATEGORIES) // 2 + 1)
     locked = [category for category in retained if category_profiles[category]["win_rate"] >= 70]
     competitive = [category for category in retained if category_profiles[category]["win_rate"] >= 50]
     fragile = [category for category in retained if category_profiles[category]["win_rate"] < 40]
     score = 0.55 * opponent_coverage + 0.45 * core_control - len(punts) * 1.5
 
-    if len(punts) >= 4 or margin <= 1:
+    if margin <= 1:
         risk = "высокий"
     elif len(punts) >= 2 or opponent_coverage < 60:
         risk = "средний"
@@ -115,7 +115,8 @@ def analyze_punt_strategies(team_scores, team_id, roster):
     all_best = []
     strategy_options = []
     baseline = None
-    for punt_count in range(MAX_ANALYZED_PUNTS + 1):
+    max_punts = min(MAX_ANALYZED_PUNTS, len(CATEGORIES) - (len(CATEGORIES) // 2 + 1))
+    for punt_count in range(max_punts + 1):
         strategies = [
             _strategy_metrics(punts, category_profiles, opponent_results)
             for punts in combinations(CATEGORIES, punt_count)
@@ -165,20 +166,22 @@ def analyze_punt_strategies(team_scores, team_id, roster):
     eligible = [
         strategy
         for strategy in all_best
-        if strategy["punt_count"] <= MAX_AUTOMATIC_PUNTS
+        if strategy["punt_count"] <= min(MAX_AUTOMATIC_PUNTS, max(0, max_punts - 1))
         and strategy["opponent_coverage"] >= minimum_coverage
     ]
     recommendation = max(eligible or [baseline], key=lambda item: item["strategy_score"])
 
     return {
         "baseline": baseline,
+        "max_punts": max_punts,
+        "winning_categories": len(CATEGORIES) // 2 + 1,
         "recommendation": recommendation,
         "strategies_by_depth": strategies_by_depth,
         "strategy_options": strategy_options,
         "category_profiles": [category_profiles[category] for category in CATEGORIES],
         "total_combinations": sum(
             len(list(combinations(CATEGORIES, count)))
-            for count in range(MAX_ANALYZED_PUNTS + 1)
+            for count in range(max_punts + 1)
         ),
     }
 

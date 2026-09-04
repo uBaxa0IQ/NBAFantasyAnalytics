@@ -796,4 +796,5 @@ def get_season_projection(
         ],
         "method": projection["method"],
         "tie_break_note": projection["tie_break_note"],
+        "assumptions": projection["assumptions"],
     }

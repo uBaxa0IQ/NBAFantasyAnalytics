@@ -15,6 +15,38 @@ CUSTOM_11_CATEGORIES = ("FG%", "FT%", "3PM", "3PT%", "REB", "AST", "A/TO", "STL"
 router = APIRouter(prefix="/api/draft", tags=["draft"])
 
 
+@router.get('/jobs/{job_id}')
+def benchmark_job_status(job_id: str):
+    from services.jobs import status
+    result = status(job_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail='Расчёт не найден или истёк')
+    return result
+
+
+@router.post('/benchmark-jobs/{team_id}', status_code=202)
+def start_benchmark_job(team_id: int, period: str = PERIODS['projected'],
+                        kind: str = Query(default='benchmark', pattern='^(benchmark|punt|adaptive)$'),
+                        league_meta=Depends(get_league_meta)):
+    from services.jobs import submit
+    if league_meta.get_team_by_id(team_id) is None:
+        raise HTTPException(status_code=404, detail='Team not found')
+    categories = set(league_meta.get_categories())
+    if kind != 'benchmark' and categories not in (set(CUSTOM_11_CATEGORIES), set(STANDARD_8_CATEGORIES)):
+        raise HTTPException(status_code=400, detail='Этот benchmark поддерживает standard8 и custom11')
+    format_name = 'custom11' if categories == set(CUSTOM_11_CATEGORIES) else 'standard8'
+    operations = {
+        'benchmark': lambda: draft_benchmark(team_id, period, 'FG%', 60, None, league_meta),
+        'punt': lambda: draft_punt_benchmark(team_id, period, format_name, 2, 1, 10, league_meta),
+        'adaptive': lambda: draft_adaptive_benchmark(team_id, period, format_name, 5, league_meta),
+    }
+    key = (league_meta.league_id, league_meta.year, team_id, period, kind, str(league_meta.last_refresh_time))
+    try:
+        return {'job_id': submit(key, operations[kind])}
+    except ValueError as error:
+        raise HTTPException(status_code=429, detail=str(error)) from error
+
+
 @router.get("/learning-stats")
 def draft_learning_stats():
     return learning_dataset_stats()

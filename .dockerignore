@@ -11,6 +11,12 @@ ENV/
 
 # Node
 node_modules/
+.pnpm-store/
+.cache/
+artifacts/
+*.db
+*.sqlite
+*.sqlite3
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

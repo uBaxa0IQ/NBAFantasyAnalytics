@@ -56,7 +56,7 @@ const PlayerTrendsChart = ({ trendsData }) => {
                 </ResponsiveContainer>
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center">
-                Total Z-Score игрока за разные периоды времени
+                Сравнение перекрывающихся окон; изменение Z зависит также от уровня остальных игроков лиги.
             </p>
         </div>
     );

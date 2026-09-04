@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from web.backend.access import authorized
 from contextlib import asynccontextmanager
 import sys
 import os
@@ -18,7 +20,7 @@ sys.path.insert(0, os.path.join(project_root, 'core'))
 
 from config import get_cors_origins
 from routers import teams, analytics, simulation, players, trades, dashboard, balance, lineup, prompt, projections, settings, playoff, draft
-from dependencies import get_league_meta
+from dependencies import refresh_cached_league
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -45,10 +47,11 @@ async def background_refresh_task():
                 try:
                     # Сбрасываем кэш и создаём новый экземпляр — так current_week и плей-офф
                     # всегда берутся из свежих данных ESPN, а не из устаревшего кэша.
-                    get_league_meta.cache_clear()
-                    league_meta = get_league_meta()
-                    league_meta.last_refresh_time = datetime.now(timezone.utc)
-                    logger.info(f"Данные лиги успешно обновлены. Время: {league_meta.last_refresh_time}")
+                    success = await asyncio.to_thread(refresh_cached_league)
+                    if success:
+                        logger.info("Данные лиги успешно обновлены")
+                    else:
+                        logger.warning("ESPN недоступен; сохранён последний успешный снимок")
                 except Exception as e:
                     logger.warning(f"Ошибка при обновлении данных лиги: {e}")
                 finally:
@@ -80,6 +83,13 @@ async def lifespan(app: FastAPI):
         pass
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.middleware('http')
+async def require_access(request, call_next):
+    if request.method != 'OPTIONS' and request.url.path != '/' and not authorized(request.headers.get('authorization', '')):
+        return JSONResponse({'detail': 'Требуется ключ доступа'}, status_code=401)
+    return await call_next(request)
 
 # Настройка CORS
 allowed_origins = get_cors_origins()

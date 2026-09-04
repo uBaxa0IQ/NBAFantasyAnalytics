@@ -2,7 +2,7 @@
 Роутер для работы с командами и лигой.
 """
 from fastapi import APIRouter, Depends
-from dependencies import get_league_meta
+from dependencies import get_league_meta, refresh_cached_league
 from core.z_score import calculate_z_scores
 from core.config import DEFAULT_PERIOD
 import math
@@ -31,7 +31,7 @@ def refresh_league(league_meta=Depends(get_league_meta)):
         }
     """
     try:
-        success = league_meta.refresh_league()
+        success = refresh_cached_league()
         if success:
             return {
                 "success": True,
@@ -75,7 +75,8 @@ def get_refresh_status(league_meta=Depends(get_league_meta)):
     return {
         "last_refresh_time": last_refresh.isoformat() if last_refresh else None,
         "auto_refresh_enabled": True,
-        "refresh_interval_minutes": 5
+        "refresh_interval_minutes": 5,
+        "stale": bool(getattr(league_meta, 'last_refresh_error', None)),
     }
 
 

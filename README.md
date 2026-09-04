@@ -22,7 +22,7 @@ The application helps answer questions such as:
 - Current matchup breakdown by category winners
 - Team balance radar chart
 - Player position history and injured players list
-- Full Punt Analyzer that compares all 1,024 viable strategies from zero to five punt categories
+- Punt Analyzer enumerates only strategies retaining a category majority (1,024 combinations for 11-cat; 93 for 8-cat)
 - Core control, opponent coverage, error margin, risk, and multi-category strategy application
 
 ### Team Analytics
@@ -52,7 +52,7 @@ The application helps answer questions such as:
 ### Player Tools
 
 - Full player pool with advanced metrics
-- Team-specific free-agent add/drop recommendations
+- Team-specific, opponent-aware free-agent add/drop recommendations; injured players and the upper half of the roster by season value are protected from automatic drops
 - Side-by-side comparison (up to five players)
 - Detailed player cards
 
@@ -215,7 +215,20 @@ npm run build
 - ESPN private leagues require valid session cookies.
 - Data freshness depends on ESPN API availability and league updates.
 - Live Draft is intentionally read-only; it never submits a pick to ESPN.
-- Waiver calendar gain is meaningful during an active matchup; after season completion the last matchup is used only as a fallback preview.
+- Waiver calendar gain is meaningful during an active matchup; after the remaining calendar is exhausted, recommendations are empty.
+
+## Audit fixes and operational notes (September 2026)
+
+- Calendar projections use ESPN active slots and category directions, including turnovers. Assignment uses a polynomial-time Hungarian solver; repeated daily player sets are reused within a projection.
+- Current-week season forecasts combine accrued totals with unstarted games. ESPN expected return dates are respected for players outside IR; unknown return dates and future transactions remain scenario assumptions.
+- Add/drop and remaining-day lineup advice use marginal opponent-category utility. This is an explicitly labelled heuristic, not a calibrated probability or a globally optimal sequence of transactions. Waiver delays and transaction limits must still be checked in ESPN. Dropping injured players or protected core players requires a separate manual decision.
+- Manual roster selections are preserved through trades, replacing outgoing names with incoming names, subject to Top-N limits. Calendar trade impact is explicitly limited to the current matchup.
+- Draft queue and virtual roster are stored per league, season and team. Virtual picks affect prep calculations only; the queue persists into live draft. The app permits switching between draft and seasonal views.
+- Heavy draft benchmarks can run as bounded background jobs: `POST /api/draft/benchmark-jobs/{team_id}?kind=benchmark|punt|adaptive`, then `GET /api/draft/jobs/{job_id}`. Jobs are in-process, expire after 30 minutes once completed, and are lost on backend restart. The UI uses this path.
+- Opening the season forecast records the first forecast of each future matchup. `GET /api/projections/validation` resolves completed weeks and reports sample count, category MAE and matchup-result accuracy. Until actual outcomes accumulate, accuracy is unknown. This is prospective validation, not evidence that the ML policy beats real managers.
+- Docker persists trade/draft journals, forecast history and runtime settings under `.cache`; ML champions live under `artifacts/draft_ml`. Before recreating an existing container, back up its old `/app/web/backend/admin.db` and `/app/web/backend/draft_learning.db` and copy them to `.cache/admin.db` and `.cache/draft_learning.db` respectively. Existing local files are not moved automatically. Copy an existing `web/core/weighted_coefficients.json` to `.cache/weighted_coefficients.json` if those weights should carry over to Docker.
+- For a public host, set a strong `NBA_API_TOKEN` in the server environment and use HTTPS. The frontend asks for this key and keeps it in sessionStorage; never put the key in a `VITE_*` variable. Leaving the token unset retains local single-user access without authentication. Roles and per-user leagues are not implemented.
+- Failed ESPN refreshes retain the last successful data and report staleness. Initial connection failure returns HTTP 503 and is not cached. Snapshot cache lifetime is 30 seconds; coefficients and refresh version are part of its key.
 
 ## Contributing
 

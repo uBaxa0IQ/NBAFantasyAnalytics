@@ -21,7 +21,12 @@ def _champion_path(categories):
         path = Path(override)
         return path if path.exists() else None
     root = Path(os.getenv("DRAFT_MODEL_CHAMPIONS", "artifacts/draft_ml/champions"))
-    format_name = "custom11" if len(tuple(categories)) == 11 else "standard8"
+    configured = set(categories)
+    standard = {'FG%', 'FT%', '3PM', 'REB', 'AST', 'STL', 'BLK', 'PTS'}
+    custom = standard | {'3PT%', 'DD', 'A/TO'}
+    if configured not in (standard, custom):
+        return None
+    format_name = 'custom11' if configured == custom else 'standard8'
     format_root = root / format_name
     pointer = format_root / "current.json"
     if not pointer.exists():

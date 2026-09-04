@@ -24,10 +24,10 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
 class WeightedCoefficientsRequest(BaseModel):
-    total: float
-    last_30: float
-    last_15: float
-    last_7: float
+    total: float = Field(ge=0, le=1, allow_inf_nan=False)
+    last_30: float = Field(ge=0, le=1, allow_inf_nan=False)
+    last_15: float = Field(ge=0, le=1, allow_inf_nan=False)
+    last_7: float = Field(ge=0, le=1, allow_inf_nan=False)
 
 
 class LeagueConnectionRequest(BaseModel):

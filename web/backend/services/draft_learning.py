@@ -13,6 +13,7 @@ DB_PATH = Path(os.getenv("DRAFT_LEARNING_DB", Path(__file__).resolve().parents[1
 
 
 def _connect():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH, timeout=5)
     connection.execute(
         """

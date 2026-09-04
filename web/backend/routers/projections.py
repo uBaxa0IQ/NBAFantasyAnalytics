@@ -12,6 +12,12 @@ from services.projections import project_league_matchup, project_team_matchup
 router = APIRouter(prefix="/api/projections", tags=["projections"])
 
 
+@router.get('/validation')
+def forecast_validation(league_meta=Depends(get_league_meta)):
+    from services.forecast_history import validate
+    return validate(league_meta)
+
+
 @router.get("/league")
 def get_league_projection(
     period: str = PERIODS["weighted"],

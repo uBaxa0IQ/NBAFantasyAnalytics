@@ -463,6 +463,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
                             </h3>
                             {refreshStatus ? (
                                 <div className="bg-gray-50 border rounded px-3 py-2 text-sm">
+                                    {refreshStatus.stale && <p className="mb-2 text-amber-800">ESPN недоступен. Показаны последние успешно загруженные данные.</p>}
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="text-gray-600">Последнее обновление:</span>
                                         <span className="font-medium text-gray-800">

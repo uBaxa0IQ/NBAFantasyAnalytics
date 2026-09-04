@@ -2,20 +2,24 @@
 
 from typing import Any, Dict, Iterable
 
-from .config import CATEGORIES
+from .config import CATEGORIES, REVERSE_CATEGORIES
 
 
 def compare_category_stats(
     stats1: Dict[str, float],
     stats2: Dict[str, float],
     categories: Iterable[str] = CATEGORIES,
+    reverse_categories=None,
 ) -> Dict[str, Any]:
+    reverse = REVERSE_CATEGORIES if reverse_categories is None else set(reverse_categories)
     category_results = {}
     wins1 = 0
     wins2 = 0
     for category in categories:
         value1 = stats1.get(category, 0.0)
         value2 = stats2.get(category, 0.0)
+        if category in reverse:
+            value1, value2 = -value1, -value2
         if value1 > value2:
             category_results[category] = "win"
             wins1 += 1

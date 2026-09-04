@@ -42,8 +42,17 @@ const MetricCard = ({ label, value, hint, tone = 'text-gray-900' }) => (
     </div>
 );
 
-const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPeriod, onOpenSettings, onPlayerClick }) => {
+const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPeriod, leagueId, onOpenSettings, onPlayerClick }) => {
     const [activeTab, setActiveTab] = useState('draft');
+    const storageKey = `draft-plan:${leagueId}:${projectedPeriod}:${mainTeam}`;
+    const [plans, setPlans] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('draft-plans') || '{}'); } catch { return {}; }
+    });
+    const plan = plans[storageKey] || { queue: [], mock: [] };
+    const mockIds = draftState?.status === 'upcoming' ? plan.mock.map(p => p.player_id).join(',') : '';
+    const updatePlan = patch => setPlans(current => ({ ...current, [storageKey]: { ...(current[storageKey] || { queue: [], mock: [] }), ...patch } }));
+    useEffect(() => { localStorage.setItem('draft-plans', JSON.stringify(plans)); }, [plans]);
+
     const [playersView, setPlayersView] = useState('draft');
     const [recommendations, setRecommendations] = useState(null);
     const [recommendationsLoading, setRecommendationsLoading] = useState(false);
@@ -58,8 +67,14 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const [simulationLoading, setSimulationLoading] = useState(false);
     const [benchmark, setBenchmark] = useState(null);
     const [benchmarkLoading, setBenchmarkLoading] = useState(false);
+    const benchmarkAbort = useRef(null);
+    useEffect(() => {
+        setBenchmark(null);
+        setBenchmarkLoading(false);
+        return () => benchmarkAbort.current?.abort();
+    }, [mainTeam, projectedPeriod, leagueId]);
     const [benchmarkError, setBenchmarkError] = useState(null);
-    const lastGoodDraftRef = useRef(null);
+    const [lastGoodDraft, setLastGoodDraft] = useState(null);
     const [modeOverride, setModeOverride] = useState(null);
     const [modeSwitching, setModeSwitching] = useState(false);
     const [modeError, setModeError] = useState(null);
@@ -70,12 +85,12 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const effectiveDraftMode = modeOverride || draftState?.draft_connection_mode || 'espn';
     const analyticsDraftMode = effectiveDraftMode === 'analytics';
     const officialDraftMode = isLive && !analyticsDraftMode;
-    if (draftState && (draftState.live_snapshot_available || (draftState.pick_count || 0) > 0)) {
-        lastGoodDraftRef.current = draftState;
-    }
+    useEffect(() => {
+        if (draftState && (draftState.live_snapshot_available || (draftState.pick_count || 0) > 0)) setLastGoodDraft(draftState);
+    }, [draftState]);
     const snapshotMissing = !(draftState?.live_snapshot_available || (draftState?.pick_count || 0) > 0);
-    const viewState = officialDraftMode && snapshotMissing && lastGoodDraftRef.current
-        ? lastGoodDraftRef.current
+    const viewState = officialDraftMode && snapshotMissing && lastGoodDraft
+        ? lastGoodDraft
         : draftState;
     const pickCount = viewState?.pick_count;
     const hasLiveSnapshot = Boolean(viewState?.live_snapshot_available || pickCount);
@@ -99,13 +114,13 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         let active = true;
         setDetailedSimulations({});
         setError(null);
-        const contextKey = [mainTeam, projectedPeriod, puntCategories.join(',')].join('|');
+        const contextKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), mockIds].join('|');
         if (recommendationContextRef.current !== contextKey) {
             recommendationContextRef.current = contextKey;
             setRecommendations(null);
         }
         setRecommendationsLoading(true);
-        const cacheKey = [mainTeam, projectedPeriod, puntCategories.join(','), pickCount].join('|');
+        const cacheKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), pickCount, mockIds].join('|');
         const cached = recommendationsCache.get(cacheKey);
         if (cached && Date.now() - cached.savedAt < CACHE_TTL) {
             setRecommendations(cached.data);
@@ -113,7 +128,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
             return () => { active = false; };
         }
         api.get(`/draft/recommendations/${mainTeam}`, {
-            params: { period: projectedPeriod, punt_categories: puntCategories.join(','), limit: 300 },
+            params: { period: projectedPeriod, punt_categories: puntCategories.join(','), mock_player_ids: mockIds, limit: 300 },
         })
             .then(response => {
                 if (!active) return;
@@ -124,20 +139,20 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
             .catch(requestError => active && setError(requestError.response?.data?.detail || 'Не удалось загрузить данные драфта'))
             .finally(() => active && setRecommendationsLoading(false));
         return () => { active = false; };
-    }, [mainTeam, puntCategories, pickCount, projectedPeriod]);
+    }, [mainTeam, puntCategories, pickCount, projectedPeriod, leagueId, mockIds]);
 
     useEffect(() => {
         if (activeTab !== 'simulation' || !mainTeam || recommendations?.simulation?.mode !== 'all_slots' || detailedSimulations[simulationSlot]) return;
         let active = true;
         setSimulationLoading(true);
         api.get(`/draft/recommendations/${mainTeam}`, {
-            params: { period: projectedPeriod, punt_categories: puntCategories.join(','), simulation_slot: simulationSlot, limit: 300 },
+            params: { period: projectedPeriod, punt_categories: puntCategories.join(','), mock_player_ids: mockIds, simulation_slot: simulationSlot, limit: 300 },
         })
             .then(response => active && setDetailedSimulations(current => ({ ...current, [simulationSlot]: response.data.simulation })))
             .catch(requestError => active && setError(requestError.response?.data?.detail || 'Не удалось уточнить симуляцию'))
             .finally(() => active && setSimulationLoading(false));
         return () => { active = false; };
-    }, [activeTab, mainTeam, recommendations, simulationSlot, detailedSimulations, projectedPeriod, puntCategories]);
+    }, [activeTab, mainTeam, recommendations, simulationSlot, detailedSimulations, projectedPeriod, puntCategories, mockIds]);
 
     const draftedIds = useMemo(() => new Set(
         (viewState?.picks || []).map(pick => Number(pick.player_id)).filter(id => id > 0)
@@ -230,15 +245,23 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         if (!mainTeam || benchmarkLoading) return;
         setBenchmarkLoading(true);
         setBenchmarkError(null);
+        const controller = new AbortController();
+        benchmarkAbort.current?.abort();
+        benchmarkAbort.current = controller;
         try {
-            const response = await api.get(`/draft/benchmark/${mainTeam}`, {
-                params: { period: projectedPeriod, punt_category: 'FG%', runs_per_slot: 60 },
-            });
-            setBenchmark(response.data);
+            const response = await api.post(`/draft/benchmark-jobs/${mainTeam}`, null, { params: { period: projectedPeriod }, signal: controller.signal });
+            const deadline = Date.now() + 15 * 60 * 1000;
+            while (!controller.signal.aborted && Date.now() < deadline) {
+                const job = await api.get(`/draft/jobs/${response.data.job_id}`, { signal: controller.signal });
+                if (job.data.status === 'complete') { setBenchmark(job.data.result); return; }
+                if (job.data.status === 'failed') throw new Error(job.data.error);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+            throw new Error('Расчёт ещё выполняется. Повторное нажатие откроет тот же расчёт.');
         } catch (requestError) {
-            setBenchmarkError(requestError.response?.data?.detail || 'Не удалось сравнить стратегии');
+            if (!controller.signal.aborted) setBenchmarkError(requestError.response?.data?.detail || requestError.message || 'Не удалось сравнить стратегии');
         } finally {
-            setBenchmarkLoading(false);
+            if (!controller.signal.aborted) setBenchmarkLoading(false);
         }
     };
 
@@ -268,6 +291,22 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                     </div>
                 </div>
             </div>
+
+            <section className="mb-4 rounded border bg-white p-4">
+                <h2 className="font-semibold">Моя очередь</h2>
+                <p className="text-xs text-gray-500">Сохраняется для этой лиги, сезона и команды. Пики отправляются только через ESPN.</p>
+                <div className="mt-2 flex flex-wrap gap-2">{plan.queue.map((player, index) => <div key={player.player_id} className="rounded border p-2 text-sm">
+                    <button onClick={() => onPlayerClick?.(player)}>{draftedIds.has(Number(player.player_id)) ? 'Выбран: ' : ''}{player.name}</button>
+                    <button disabled={index === 0} aria-label={`Поднять ${player.name}`} className="ml-2" onClick={() => { const queue = [...plan.queue]; [queue[index - 1], queue[index]] = [queue[index], queue[index - 1]]; updatePlan({ queue }); }}>↑</button>
+                    <button aria-label={`Убрать ${player.name} из очереди`} className="ml-2" onClick={() => updatePlan({ queue: plan.queue.filter(p => p.player_id !== player.player_id) })}>×</button>
+                </div>)}</div>
+                {!plan.queue.length && <p className="mt-2 text-sm text-gray-500">Добавьте игроков из таблицы ниже.</p>}
+                {isUpcoming && <div className="mt-4 border-t pt-3"><h2 className="font-semibold">Виртуальный состав · {plan.mock.length}</h2>
+                    <p className="text-xs text-gray-500">Выбранные игроки участвуют в пересчёте рекомендаций и симуляции.</p>
+                    {plan.mock.map(player => <button key={player.player_id} className="mr-2 mt-2 rounded border p-2 text-sm" onClick={() => updatePlan({ mock: plan.mock.filter(p => p.player_id !== player.player_id) })}>{player.name} ×</button>)}
+                    {!!plan.mock.length && <button className="mt-2 text-sm text-red-700" onClick={() => updatePlan({ mock: [] })}>Очистить состав</button>}
+                </div>}
+            </section>
 
             {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
             {modeError && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{modeError}</div>}
@@ -306,7 +345,10 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                             {playersView === 'draft' && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2">Рынок ESPN<SortIcon column="espn_market_pick" /></th>}<th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2">Total Z<SortIcon column="total_z" /></th>
                             {CATEGORIES.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 ${playersView === 'draft' && puntCategories.includes(category) ? 'opacity-40' : ''}`}>{category}<SortIcon column={category} /></th>)}
                         </tr></thead><tbody>{visiblePlayers.map(player => <tr key={player.player_id || player.name} className="hover:bg-gray-50">
-                            <td className="cursor-pointer whitespace-nowrap border p-2 font-medium text-blue-600 hover:underline" onClick={() => onPlayerClick?.(player)}>{player.name}</td><td className="border p-2 text-center">{player.position}</td><td className="border p-2 text-center">{player.nba_team}</td><td className="border p-2 text-center">{player.games_played || '—'}</td>
+                            <td className="cursor-pointer whitespace-nowrap border p-2 font-medium text-blue-600 hover:underline" onClick={() => onPlayerClick?.(player)}>{player.name}<div className="mt-1 flex gap-2 text-xs" onClick={event => event.stopPropagation()}>
+                <button disabled={!player.player_id || plan.queue.some(p => p.player_id === player.player_id)} className="rounded border px-2 disabled:opacity-40" onClick={() => updatePlan({ queue: [...plan.queue, player] })}>В очередь</button>
+                {isUpcoming && <button disabled={!player.player_id || recommendationsLoading || roster.length >= rosterLimit || plan.mock.some(p => p.player_id === player.player_id)} className="rounded border px-2 disabled:opacity-40" onClick={() => updatePlan({ mock: [...plan.mock, player] })}>В состав</button>}
+                </div></td><td className="border p-2 text-center">{player.position}</td><td className="border p-2 text-center">{player.nba_team}</td><td className="border p-2 text-center">{player.games_played || '—'}</td>
                             {playersView === 'draft' && <td className="border p-2 text-center"><div className="font-medium">#{player.espn_market_pick?.toFixed(1) || '—'}</div><div className="text-[11px] text-gray-400">Roto #{player.espn_roto_rank ?? '—'} · ADP {player.espn_adp?.toFixed(1) || '—'}</div>{player.availability_probability != null && <div className="text-xs text-blue-500">оценка {player.availability_probability}% · {player.draft_action}</div>}</td>}<td className={`border p-2 text-center font-bold ${zScoreTone(player.total_z)}`}>{Number(player.total_z || 0).toFixed(2)}</td>
                             {CATEGORIES.map(category => { const value = playersView === 'stats' ? player.stats?.[category] : player.z_scores?.[category]; const zScore = Number(player.z_scores?.[category] || 0); const tone = playersView === 'stats' ? zScoreTone(zScore) : (value > 0 ? 'text-green-600' : value < 0 ? 'text-red-600' : 'text-gray-400'); return <td key={category} className={`border p-2 text-center ${tone} ${playersView === 'draft' && puntCategories.includes(category) ? 'opacity-30' : ''}`}>{playersView === 'stats' ? <><div className="font-medium">{formatStat(category, value)}</div><div className="mt-0.5 text-[11px] opacity-75">Z {zScore > 0 ? '+' : ''}{zScore.toFixed(2)}</div></> : Number(value || 0).toFixed(2)}</td>; })}
                         </tr>)}</tbody></table></div>
@@ -341,7 +383,7 @@ const AdaptiveStrategyPanel = ({ strategy }) => {
     const rows = strategy?.strategies || [];
     if (!rows.length) return null;
     const fixed = rows.length === 1 && rows[0].id === 'fixed';
-    return <section className="rounded-xl border bg-white p-4 shadow-sm"><div className="mb-3"><h2 className="font-bold">{fixed ? 'Ручной пант зафиксирован' : 'Автовыбор стратегии'}</h2><p className="text-xs text-gray-500">{fixed ? 'Категории из настроек имеют нулевой вес при выборе; модель не переключит их автоматически' : 'Панты в настройках не выбраны: модель сохраняет несколько путей и усиливает направление по мере формирования состава'}</p></div><div className="flex flex-wrap gap-2">{rows.slice(0, 5).map(row => <div key={row.id} className="min-w-36 flex-1 rounded-lg border p-3"><div className="text-xs text-gray-500">{row.punt_categories.length ? `Punt ${row.punt_categories.join(' + ')}` : 'Balanced'}</div><div className="mt-1 text-lg font-bold text-blue-700">{Number(row.probability).toFixed(0)}%</div></div>)}</div></section>;
+    return <section className="rounded-xl border bg-white p-4 shadow-sm"><div className="mb-3"><h2 className="font-bold">{fixed ? 'Ручной пант зафиксирован' : 'Веса стратегий модели'}</h2><p className="text-xs text-gray-500">{fixed ? 'Категории из настроек имеют нулевой вес при выборе; модель не переключит их автоматически' : 'Панты в настройках не выбраны: эвристические веса направлений обновляются по составу; проценты не являются вероятностью успеха'}</p></div><div className="flex flex-wrap gap-2">{rows.slice(0, 5).map(row => <div key={row.id} className="min-w-36 flex-1 rounded-lg border p-3"><div className="text-xs text-gray-500">{row.punt_categories.length ? `Punt ${row.punt_categories.join(' + ')}` : 'Balanced'}</div><div className="mt-1 text-lg font-bold text-blue-700">{Number(row.probability).toFixed(0)}%</div></div>)}</div></section>;
 };
 
 const laneMeta = {
@@ -370,7 +412,7 @@ const AdvicePlayerRow = ({ player, index, onPlayerClick, isPostDraft, featured =
                 <div className="mt-2 flex flex-wrap gap-1">
                     {best.map(category => <span key={category} className="rounded bg-green-50 px-2 py-0.5 text-xs text-green-700">{category} {Number(player.z_scores?.[category] || 0).toFixed(1)}</span>)}
                     {player.lookahead_wins != null && <span className="rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700">EV {Number(player.lookahead_wins).toFixed(2)} кат.</span>}
-                    {featured && player.decision_confidence != null && <span className={`rounded px-2 py-0.5 text-xs ${player.decision_label === 'решение устойчивое' ? 'bg-emerald-100 text-emerald-800' : player.decision_label === 'умеренное преимущество' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'}`}>{player.decision_label} · {Number(player.decision_confidence).toFixed(0)}%</span>}
+                    {featured && player.decision_confidence != null && <span className={`rounded px-2 py-0.5 text-xs ${player.decision_label === 'решение устойчивое' ? 'bg-emerald-100 text-emerald-800' : player.decision_label === 'умеренное преимущество' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'}`}>{player.decision_label} · лучше альтернативы в {Number(player.decision_confidence).toFixed(0)}% симуляций</span>}
                 </div>
                 {featured && player.decision_delta_ci95?.length === 2 && <div className="mt-2 text-xs text-gray-500">Против {player.decision_over}: {Number(player.decision_delta) >= 0 ? '+' : ''}{Number(player.decision_delta).toFixed(2)} категории · 95% интервал [{Number(player.decision_delta_ci95[0]).toFixed(2)}; {Number(player.decision_delta_ci95[1]).toFixed(2)}]</div>}
             </div>
@@ -436,7 +478,7 @@ const RecommendedPicks = ({ advice, players, onPlayerClick, isPostDraft }) => {
             <div className="border-b p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="font-bold">{isPostDraft ? 'Лучшие доступные свободные агенты' : 'Рекомендованные следующие пики'}</h2>
+                        <h2 className="font-bold">{isPostDraft ? 'Лучшие доступные свободные агенты' : 'Рекомендованные следующие пики (оценка модели)'}</h2>
                         <p className="text-xs text-gray-500">{advice?.summary || (isPostDraft ? 'Ценность и потенциальное усиление состава после драфта' : 'EV состава по пантам, now/later и lookahead')}</p>
                     </div>
                     <span className="text-sm text-gray-400">{advice?.phase ? `фаза ${advice.phase}` : `Top ${list.length}`}</span>
@@ -460,7 +502,7 @@ const ProjectedTurns = ({ turns, simulation }) => <section className="rounded-xl
 
 const SimulationView = ({ recommendations, selectedSimulation, simulationResults, rankedSimulationSlots, selectedSlotRank, effectiveSimulationRuns, simulationLoading, setSimulationSlot, puntCategories, teamCount, onPlayerClick, isPostDraft, benchmark, benchmarkLoading, benchmarkError, runBenchmark }) => {
     const activeCategoryCount = CATEGORIES.length;
-    return <div className="space-y-4"><section className="rounded border bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="font-bold">{isPostDraft ? `Итоговая симуляция позиции ${selectedSimulation.slot}` : `Позиция ${selectedSimulation.slot}`}</div><div className="text-sm text-gray-500">{recommendations.simulation.mode === 'all_slots' ? `#${selectedSlotRank} из ${rankedSimulationSlots.length} · ${effectiveSimulationRuns} прогонов` : `Позиция определена · ${effectiveSimulationRuns} прогонов`}{simulationLoading ? ' · уточняем…' : ''}</div></div>{recommendations.simulation.mode === 'all_slots' && <div className="flex flex-wrap gap-1">{simulationResults.map(result => <button key={result.slot} onClick={() => setSimulationSlot(result.slot)} className={`h-9 w-9 rounded border text-sm font-medium ${selectedSimulation.slot === result.slot ? 'border-blue-600 bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>{result.slot}</button>)}</div>}</div>{!isPostDraft && selectedSimulation.round_targets?.length > 0 && <div className="mt-4 text-sm text-gray-600">Пики: <span className="font-medium text-gray-900">{selectedSimulation.round_targets.map(round => round.pick).join(' · ')}</span></div>}<div className="mt-2 text-sm"><span className="text-gray-500">Стратегия: </span><span className="font-medium">{puntCategories.length ? `Punt ${puntCategories.join(' + ')}` : 'без панта'}</span></div></section><section className="grid grid-cols-2 gap-2 md:grid-cols-5"><MetricCard label="Категорий / матчап" value={`${selectedSimulation.average_category_wins?.toFixed(2) || '—'} / ${activeCategoryCount}`} hint="Punt-категории тоже считаются" /><MetricCard label="Место" value={`${selectedSimulation.average_league_rank?.toFixed(1) || '—'} / ${teamCount}`} /><MetricCard label="Топ-4 по силе" value={`${selectedSimulation.top_four_strength_rate ?? selectedSimulation.top_four_probability ?? '—'}%`} /><MetricCard label="Top-N по силе" value={`${selectedSimulation.projected_top_n_strength_rate ?? selectedSimulation.playoff_probability ?? '—'}%`} hint="Не вероятность плей-офф" /><MetricCard label="Средний GP" value={selectedSimulation.average_games_played ?? '—'} hint={`${selectedSimulation.average_low_gp_count ?? '—'} игроков < 50`} /></section>{!isPostDraft && <SimulationRosterTable recommendations={recommendations} simulation={selectedSimulation} onPlayerClick={onPlayerClick} />}<BenchmarkPanel benchmark={benchmark} loading={benchmarkLoading} error={benchmarkError} onRun={runBenchmark} disabled={isPostDraft} /><section className="rounded border bg-white p-4"><div className="mb-3 flex items-center justify-between gap-3"><h2 className="font-bold">Категории против лиги</h2><div className="text-sm text-gray-500">В среднем <span className="font-semibold text-gray-900">#{selectedSimulation.average_league_rank?.toFixed(1) || '—'} из {teamCount}</span></div></div><div className="flex flex-wrap justify-center gap-2">{CATEGORIES.map(category => { const rank = selectedSimulation.category_ranks?.[category]; const margin = selectedSimulation.category_margin?.[category]; return <div key={category} style={balancedCategoryCardStyle(CATEGORIES.length)} className={`rounded border p-3 ${puntCategories.includes(category) ? 'opacity-40' : ''}`}><div className="text-xs text-gray-500">{category} · #{rank ?? '—'}</div><div className={`font-bold ${margin > 0 ? 'text-green-600' : margin < 0 ? 'text-red-600' : 'text-gray-500'}`}>{margin != null ? `${margin > 0 ? '+' : ''}${margin.toFixed(1)}` : '—'}</div></div>; })}</div></section></div>;
+    return <div className="space-y-4"><section className="rounded border bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="font-bold">{isPostDraft ? `Итоговая симуляция позиции ${selectedSimulation.slot}` : `Позиция ${selectedSimulation.slot}`}</div><div className="text-sm text-gray-500">{recommendations.simulation.mode === 'all_slots' ? `#${selectedSlotRank} из ${rankedSimulationSlots.length} · ${effectiveSimulationRuns} прогонов` : `Позиция определена · ${effectiveSimulationRuns} прогонов`}{simulationLoading ? ' · уточняем…' : ''}</div></div>{recommendations.simulation.mode === 'all_slots' && <div className="flex flex-wrap gap-1">{simulationResults.map(result => <button key={result.slot} onClick={() => setSimulationSlot(result.slot)} className={`h-9 w-9 rounded border text-sm font-medium ${selectedSimulation.slot === result.slot ? 'border-blue-600 bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>{result.slot}</button>)}</div>}</div>{!isPostDraft && selectedSimulation.round_targets?.length > 0 && <div className="mt-4 text-sm text-gray-600">Пики: <span className="font-medium text-gray-900">{selectedSimulation.round_targets.map(round => round.pick).join(' · ')}</span></div>}<div className="mt-2 text-sm"><span className="text-gray-500">Стратегия: </span><span className="font-medium">{puntCategories.length ? `Punt ${puntCategories.join(' + ')}` : 'без панта'}</span></div></section><section className="grid grid-cols-2 gap-2 md:grid-cols-5"><MetricCard label="Категорий / матчап" value={`${selectedSimulation.average_category_wins?.toFixed(2) || '—'} / ${activeCategoryCount}`} hint="Punt-категории тоже считаются" /><MetricCard label="Место" value={`${selectedSimulation.average_league_rank?.toFixed(1) || '—'} / ${teamCount}`} /><MetricCard label="Топ-4 по силе" value={`${selectedSimulation.top_four_strength_rate ?? selectedSimulation.top_four_probability ?? '—'}%`} /><MetricCard label="Top-N по силе" value={`${selectedSimulation.projected_top_n_strength_rate ?? selectedSimulation.playoff_probability ?? '—'}%`} hint="Доля симуляций, не вероятность плей-офф" /><MetricCard label="Средний GP" value={selectedSimulation.average_games_played ?? '—'} hint={`${selectedSimulation.average_low_gp_count ?? '—'} игроков < 50`} /></section>{!isPostDraft && <SimulationRosterTable recommendations={recommendations} simulation={selectedSimulation} onPlayerClick={onPlayerClick} />}<BenchmarkPanel benchmark={benchmark} loading={benchmarkLoading} error={benchmarkError} onRun={runBenchmark} disabled={isPostDraft} /><section className="rounded border bg-white p-4"><div className="mb-3 flex items-center justify-between gap-3"><h2 className="font-bold">Категории против лиги</h2><div className="text-sm text-gray-500">В среднем <span className="font-semibold text-gray-900">#{selectedSimulation.average_league_rank?.toFixed(1) || '—'} из {teamCount}</span></div></div><div className="flex flex-wrap justify-center gap-2">{CATEGORIES.map(category => { const rank = selectedSimulation.category_ranks?.[category]; const margin = selectedSimulation.category_margin?.[category]; return <div key={category} style={balancedCategoryCardStyle(CATEGORIES.length)} className={`rounded border p-3 ${puntCategories.includes(category) ? 'opacity-40' : ''}`}><div className="text-xs text-gray-500">{category} · #{rank ?? '—'}</div><div className={`font-bold ${margin > 0 ? 'text-green-600' : margin < 0 ? 'text-red-600' : 'text-gray-500'}`}>{margin != null ? `${margin > 0 ? '+' : ''}${margin.toFixed(1)}` : '—'}</div></div>; })}</div></section></div>;
 };
 
 const BenchmarkPanel = ({ benchmark, loading, error, onRun, disabled = false }) => {

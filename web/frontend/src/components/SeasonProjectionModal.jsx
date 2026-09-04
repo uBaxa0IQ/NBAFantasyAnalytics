@@ -4,7 +4,7 @@ const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
     if (!projection || !projection.full_standings) return null;
 
     const title = isPlayoff ? 'Итоги регулярного сезона' : 'Прогноз итоговых мест';
-    const subtitle = isPlayoff ? 'Таблица по результатам недель 1–16' : 'Прогнозируемая таблица лиги на конец сезона';
+    const subtitle = isPlayoff ? 'Итоговая таблица регулярного сезона' : 'Сценарий итоговой таблицы при текущих составах';
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" onClick={onClose}>
@@ -27,6 +27,7 @@ const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
                     </div>
 
                     {/* Table */}
+                    {!isPlayoff && <p className="mb-4 text-sm text-amber-800">{projection.assumptions}</p>}
                     <div className="overflow-x-auto">
                         <table className="min-w-full bg-white border">
                             <thead>
