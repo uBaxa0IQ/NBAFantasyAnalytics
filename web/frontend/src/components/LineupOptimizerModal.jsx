@@ -35,7 +35,7 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
         </div>
     );
 
-    if (loading) return shell(<div className="text-center">Считаю состав по календарю…</div>);
+    if (loading) return shell(<div className="text-center">{calculationEngine === 'probabilistic' ? 'Считаю вероятностные сценарии состава…' : 'Считаю состав по календарю…'}</div>);
     if (error) return shell(<div className="text-red-600">{error}</div>);
     if (!data) return null;
 
@@ -79,6 +79,14 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
             </div>
 
             {data.note && <p className="mb-3 text-sm text-amber-800">{data.note}</p>}
+            {data.baseline_odds && (
+                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <span className="text-sm text-gray-600">Шанс победы: </span>
+                    <span className="text-xl font-bold text-blue-700">{(data.baseline_odds.p_win * 100).toFixed(1)}%</span>
+                    <span className="ml-3 text-xs text-gray-500">{data.baseline_odds.trials} сценариев</span>
+                    {data.injury_scenarios?.length > 0 && <div className="mt-2 space-y-1 text-xs text-amber-800">{data.injury_scenarios.map(item => <div key={item.player_id || item.name}>{item.name} ({(item.p_play * 100).toFixed(0)}% сыграть): если играет — {(item.if_plays_p_win * 100).toFixed(1)}%, если OUT — {(item.if_out_p_win * 100).toFixed(1)}%</div>)}</div>}
+                </div>
+            )}
             {data.days.length === 0 ? (
                 <div className="p-4 bg-amber-50 rounded text-amber-900">
                     В выбранном матчапе не осталось игровых дней.
@@ -88,12 +96,14 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
                     {data.days.map(day => (
                         <div key={day.scoring_period} className="border rounded-lg p-4">
                             <div className="font-semibold mb-3">Игровой день {day.scoring_period}</div>
+                            {day.empty_slot_ok && <div className="mb-2 text-xs text-amber-700">Модель допускает пустой слот, если дополнительная игра снижает шанс победы.</div>}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
                                 {day.starters.map((starter, index) => (
                                     <div key={`${starter.slot}-${index}`} className="bg-blue-50 rounded p-2 min-w-0">
                                         <div className="text-xs font-bold text-blue-700">{starter.slot}</div>
                                         <div className="font-medium truncate" title={starter.name}>{starter.name}</div>
                                         <div className="text-xs text-gray-500">{starter.position} · {data.objective === 'opponent_category_utility' ? 'вклад' : 'Z'} {starter.value.toFixed(3)}</div>
+                                        {starter.delta_p_win !== undefined && <div className={`text-xs font-semibold ${starter.delta_p_win >= 0 ? 'text-green-700' : 'text-red-700'}`}>вклад в P(win): {starter.delta_p_win >= 0 ? '+' : ''}{(starter.delta_p_win * 100).toFixed(1)} п.п.</div>}
                                     </div>
                                 ))}
                             </div>

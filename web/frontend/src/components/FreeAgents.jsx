@@ -11,7 +11,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
     const [position, setPosition] = useState(savedState.position || '');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const personalized = calculationEngine === 'calendar' && mainTeam;
+    const personalized = calculationEngine !== 'legacy' && mainTeam;
     const [sortBy, setSortBy] = useState(personalized ? 'calendar_fit' : 'total_z');
     const [sortDir, setSortDir] = useState('desc');
     const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);

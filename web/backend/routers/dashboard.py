@@ -361,10 +361,13 @@ def get_matchup_details(
         my_value = my_team_stats.get(cat, 0.0)
         opponent_value = opponent_stats.get(cat, 0.0)
         
-        # Определяем победителя
-        if my_value > opponent_value:
+        reverse = cat in league_meta.reverse_categories
+        # Определяем победителя с учётом категорий, где меньше — лучше.
+        adjusted_my = -my_value if reverse else my_value
+        adjusted_opponent = -opponent_value if reverse else opponent_value
+        if adjusted_my > adjusted_opponent:
             winner = 'my_team'
-        elif opponent_value > my_value:
+        elif adjusted_opponent > adjusted_my:
             winner = 'opponent'
         else:
             winner = 'tie'
@@ -791,10 +794,17 @@ def get_season_projection(
                 "losses": standing["losses"],
                 "ties": standing["ties"],
                 "win_rate": standing["win_rate"],
+                "p_playoff": standing.get("p_playoff"),
+                "p_seed": standing.get("p_seed"),
+                "expected_seed": standing.get("expected_seed"),
             }
             for standing in projection["standings"]
         ],
         "method": projection["method"],
         "tie_break_note": projection["tie_break_note"],
         "assumptions": projection["assumptions"],
+        "p_playoff": target.get("p_playoff"),
+        "p_seed": target.get("p_seed"),
+        "expected_seed": target.get("expected_seed"),
+        "trials": projection.get("trials"),
     }

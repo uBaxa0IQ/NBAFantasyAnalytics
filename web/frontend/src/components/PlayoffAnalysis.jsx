@@ -53,6 +53,12 @@ const BracketSection = ({ title, matchups, seedsByTeamId, onSelect, accent = fal
                                     <span className="text-xs text-gray-500">счёт по категориям</span>
                                 </div>
                             )}
+                            {matchup.p_team1_win !== undefined && (
+                                <div className="mt-3 rounded bg-blue-50 px-3 py-2 text-center text-sm text-blue-800">
+                                    {matchup.team1.name}: {(matchup.p_team1_win * 100).toFixed(1)}% · {matchup.team2.name}: {(matchup.p_team2_win * 100).toFixed(1)}%
+                                    {matchup.p_tie > 0 && ` · ничья ${(matchup.p_tie * 100).toFixed(1)}%`}
+                                </div>
+                            )}
                         </button>
                     );
                 })}
@@ -61,7 +67,7 @@ const BracketSection = ({ title, matchups, seedsByTeamId, onSelect, accent = fal
     );
 };
 
-const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
+const PlayoffAnalysis = ({ period, mainTeam, simulationMode, calculationEngine = 'calendar' }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [data, setData] = useState(null);
@@ -80,7 +86,7 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
             if (showLoading) setLoading(true);
             setError(null);
 
-            api.get('/playoff/bracket')
+            api.get('/playoff/bracket', { params: { period, calculation_engine: calculationEngine } })
                 .then(res => setData(res.data))
                 .catch(err => {
                     console.error('Error fetching playoff bracket:', err);
@@ -92,7 +98,7 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
         loadBracket(true);
         const intervalId = setInterval(() => loadBracket(false), 60000);
         return () => clearInterval(intervalId);
-    }, []);
+    }, [period, calculationEngine]);
 
     const seedsByTeamId = useMemo(() => {
         if (!data || !data.seeds) return new Map();
@@ -277,6 +283,8 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
                             <MatchupDetails
                                 teamId={parseInt(mainTeam, 10)}
                                 currentMatchup={{ week: current_week }}
+                                period={period}
+                                calculationEngine={calculationEngine}
                             />
 
                             {matchupAnalysisLoading && (
@@ -418,6 +426,20 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode }) => {
 
             {subTab === 'bracket' && (
                 <div className="space-y-6">
+                    {data.title_odds && Object.keys(data.title_odds).length > 0 && (
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                            <h3 className="mb-3 text-lg font-semibold text-blue-900">Шанс титула</h3>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                {Object.entries(data.title_odds).sort((a, b) => b[1] - a[1]).map(([teamId, probability]) => (
+                                    <div key={teamId} className="flex justify-between rounded bg-white px-3 py-2 text-sm">
+                                        <span>{seedsByTeamId.get(Number(teamId))?.team_name || `Команда ${teamId}`}</span>
+                                        <span className="font-bold text-blue-700">{(probability * 100).toFixed(1)}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                            {data.probabilistic_note && <p className="mt-3 text-xs text-gray-600">{data.probabilistic_note}</p>}
+                        </div>
+                    )}
                     <BracketSection title="Чемпионский путь" matchups={championshipMatchups} seedsByTeamId={seedsByTeamId} onSelect={setSelectedMatchup} accent />
                     <BracketSection title={`Матчи за места среди Top‑${playoff_team_count}`} matchups={placementMatchups} seedsByTeamId={seedsByTeamId} onSelect={setSelectedMatchup} />
                     <BracketSection title="Утешительный турнир" matchups={consolationMatchups} seedsByTeamId={seedsByTeamId} onSelect={setSelectedMatchup} />

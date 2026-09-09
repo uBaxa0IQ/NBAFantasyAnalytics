@@ -167,7 +167,9 @@ npm run dev
 - Statistical periods are generated automatically for the selected season; saved browser settings from an older season are migrated on startup.
 - Frontend preferences are stored in browser `localStorage`.
 - Period selection and weighted-period coefficients are available in common Settings.
-- Settings can switch between the classic averages/Z-score engine and the calendar/lineup engine.
+- Settings can switch between three independent engines: classic averages/Z-score, calendar/lineup, and probabilistic calendar Monte Carlo.
+- The probabilistic engine supports ESPN `H2H_MOST_CATEGORIES`, models player availability and statistical variance, re-optimizes valid daily lineups, and reports reproducible matchup, season, and playoff probabilities.
+- `GET /api/matchup/odds` returns the current or selected week's win/tie/loss probabilities, category probabilities, score distribution, model assumptions, quality flags, seed, and engine version.
 - Backend runtime and service-related settings are in `web/backend/config.py`.
 
 ## API Overview

@@ -385,6 +385,7 @@ function App() {
               period={period}
               mainTeam={mainTeam}
               simulationMode={simulationMode}
+              calculationEngine={calculationEngine}
             />
           )}
         </div>

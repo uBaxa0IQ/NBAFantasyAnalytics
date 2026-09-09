@@ -362,9 +362,13 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
                                 value={calculationEngine}
                                 onChange={event => setCalculationEngine(event.target.value)}
                             >
-                                <option value="calendar">Новый — календарь и lineup-слоты</option>
-                                <option value="legacy">Классический — средние и Z-score</option>
+                                <option value="probabilistic">Вероятностный — шансы и сценарии</option>
+                                <option value="calendar">Календарный — расписание и lineup-слоты</option>
+                                <option value="legacy">Простой — средние и Z-score</option>
                             </select>
+                            <p className="mt-2 text-xs text-gray-500">
+                                Вероятностный режим использует календарный расчёт как основу и добавляет разброс формы и сценарии травм.
+                            </p>
                             <p className="text-xs text-gray-500 mt-1">
                                 Новый учитывает игровые дни и позиции; классический сохраняет прежнюю методику.
                             </p>

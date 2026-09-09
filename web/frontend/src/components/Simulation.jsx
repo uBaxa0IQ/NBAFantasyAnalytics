@@ -12,9 +12,10 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [matchupOdds, setMatchupOdds] = useState(null);
     const savedSimulationType = savedState.simulationType === 'team_stats_avg' ? 'schedule_projection' : savedState.simulationType;
     const [simulationType, setSimulationType] = useState(savedSimulationType || 'schedule_projection');
-    const projectionMode = calculationEngine === 'calendar' ? 'schedule_projection' : 'team_stats_avg';
+    const projectionMode = calculationEngine === 'legacy' ? 'team_stats_avg' : 'schedule_projection';
     const effectiveSimulationType = ['schedule_projection', 'team_stats_avg'].includes(simulationType)
         ? projectionMode
         : simulationType;
@@ -145,6 +146,18 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
         }
     }, [selectedWeek, weeksCount, effectiveSimulationType, period, simulationMode, mainTeam, currentWeek]);
 
+    useEffect(() => {
+        let cancelled = false;
+        if (calculationEngine !== 'probabilistic' || !mainTeam || !currentWeek) {
+            setMatchupOdds(null);
+            return () => { cancelled = true; };
+        }
+        api.get('/matchup/odds', { params: { team_id: mainTeam, week: selectedWeek || currentWeek, period, remaining_only: parseInt(selectedWeek || currentWeek, 10) === currentWeek } })
+            .then(response => { if (!cancelled) setMatchupOdds(response.data); })
+            .catch(() => { if (!cancelled) setMatchupOdds(null); });
+        return () => { cancelled = true; };
+    }, [calculationEngine, mainTeam, selectedWeek, currentWeek, period]);
+
     // Генерируем опции для количества недель
     const weeksOptions = selectedWeek ? Array.from({ length: parseInt(selectedWeek) }, (_, i) => i + 1) : [];
 
@@ -166,7 +179,7 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                         onClick={() => setSimulationType(projectionMode)}
                         className={`px-4 py-2 rounded-md font-medium transition-colors ${effectiveSimulationType === projectionMode ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
-                        {calculationEngine === 'calendar' ? 'Прогноз по календарю' : 'По средним значениям'}
+                        {calculationEngine === 'legacy' ? 'По средним значениям' : calculationEngine === 'probabilistic' ? 'Вероятностный прогноз' : 'Прогноз по календарю'}
                     </button>
                     <button
                         onClick={() => setSimulationType('z_scores')}
@@ -216,8 +229,20 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                 </div>
             )}
 
+            {matchupOdds && (
+                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <div className="text-sm text-gray-600">{matchupOdds.team1_name} — {matchupOdds.team2_name}</div>
+                    <div className="mt-1 text-2xl font-bold text-blue-700">P(win) {(matchupOdds.p_win * 100).toFixed(1)}%</div>
+                    <div className="text-xs text-gray-600">Ничья {(matchupOdds.p_tie * 100).toFixed(1)}% · поражение {(matchupOdds.p_loss * 100).toFixed(1)}% · {matchupOdds.trials} сценариев</div>
+                    {matchupOdds.flippable?.length > 0 && <div className="mt-2 text-xs text-gray-600">Категории в борьбе: {matchupOdds.flippable.join(', ')}</div>}
+                </div>
+            )}
+
             {results && (
                 <div className="overflow-x-auto">
+                    {calculationEngine === 'probabilistic' && (
+                        <div className="mb-2 text-xs text-gray-500">Таблица ниже — календарная проверка силы против всей лиги; персональный прогноз находится в карточке выше.</div>
+                    )}
                     <table className="min-w-full bg-white border">
                         <thead>
                             <tr className="bg-gray-100">

@@ -405,7 +405,7 @@ def analyze_trade(
             request.their_team_id: {"give": request.i_receive, "receive": request.i_give},
         },
         request.punt_categories,
-    ) if request.calculation_engine == "calendar" else None
+    ) if request.calculation_engine in {"calendar", "probabilistic"} else None
 
     return {
         "my_team": {
@@ -797,7 +797,7 @@ def analyze_multi_team_trade(
             for trade in request.trades
         },
         request.punt_categories,
-    ) if request.calculation_engine == "calendar" else None
+    ) if request.calculation_engine in {"calendar", "probabilistic"} else None
 
     return {
         "teams": teams_results,

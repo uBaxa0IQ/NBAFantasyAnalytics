@@ -7,6 +7,7 @@ import PositionHistoryChart from './PositionHistoryChart';
 import TeamTrendsChart from './TeamTrendsChart';
 import SeasonProjectionModal from './SeasonProjectionModal';
 import PuntAdvisor from './PuntAdvisor';
+import LineupOptimizerModal from './LineupOptimizerModal';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
@@ -16,7 +17,9 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
     const [loading, setLoading] = useState(true);
     const [seasonProjection, setSeasonProjection] = useState(null);
     const [projectionLoading, setProjectionLoading] = useState(false);
+    const [engineValidation, setEngineValidation] = useState(null);
     const [showProjectionModal, setShowProjectionModal] = useState(false);
+    const [showLineupOptimizer, setShowLineupOptimizer] = useState(false);
     const [compareTeamId, setCompareTeamId] = useState(() => {
         const saved = loadState(StorageKeys.DASHBOARD, {});
         return saved.compareTeamId || '';
@@ -151,6 +154,16 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
             });
     }, [mainTeam, period, simulationMode, isPlayoff, calculationEngine]);
 
+    useEffect(() => {
+        if (calculationEngine !== 'probabilistic') {
+            setEngineValidation(null);
+            return;
+        }
+        api.get('/projections/validation')
+            .then(response => setEngineValidation(response.data))
+            .catch(() => setEngineValidation(null));
+    }, [calculationEngine]);
+
     if (!mainTeam) {
         return (
             <div className="text-center p-8">
@@ -219,8 +232,22 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                                         </span>
                                     </div>
                                 ) : null}
+                                {seasonProjection?.p_playoff != null && !isPlayoff && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-600">Шанс плей-офф:</span>
+                                        <span className="font-semibold text-blue-600">{(seasonProjection.p_playoff * 100).toFixed(1)}%</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowLineupOptimizer(true)}
+                            className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
+                        >
+                            Оптимизировать состав
+                        </button>
 
                         {/* Injured Players */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
@@ -252,11 +279,25 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                         onApply={onApplyPuntStrategy}
                     />
 
+                    {engineValidation && (
+                        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+                            <div className="font-semibold text-gray-700">Точность вероятностного движка</div>
+                            <div className="mt-1 text-gray-600">
+                                Проверено матчапов: {engineValidation.resolved}
+                                {engineValidation.brier_score != null && ` · Brier ${engineValidation.brier_score.toFixed(3)}`}
+                                {engineValidation.matchup_accuracy != null && ` · точность исхода ${(engineValidation.matchup_accuracy * 100).toFixed(1)}%`}
+                            </div>
+                            {!engineValidation.resolved && <div className="mt-1 text-xs text-gray-500">Метрики появятся после завершения записанных прогнозов.</div>}
+                        </div>
+                    )}
+
                     {/* Matchup Details */}
                     {dashboardData.current_matchup ? (
                         <MatchupDetails 
                             teamId={mainTeam} 
                             currentMatchup={dashboardData.current_matchup}
+                            period={period}
+                            calculationEngine={calculationEngine}
                         />
                     ) : (
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
@@ -331,6 +372,15 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                     projection={seasonProjection}
                     onClose={() => setShowProjectionModal(false)}
                     isPlayoff={isPlayoff}
+                />
+            )}
+            {showLineupOptimizer && (
+                <LineupOptimizerModal
+                    teamId={mainTeam}
+                    onClose={() => setShowLineupOptimizer(false)}
+                    puntCategories={puntCategories}
+                    period={period}
+                    calculationEngine={calculationEngine}
                 />
             )}
         </div>

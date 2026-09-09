@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 
-const MatchupDetails = ({ teamId, currentMatchup }) => {
+const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'calendar' }) => {
     const [matchupData, setMatchupData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [odds, setOdds] = useState(null);
     const matchupWeek = currentMatchup?.week;
 
     useEffect(() => {
+        let cancelled = false;
         if (!teamId || !matchupWeek) {
             setMatchupData(null);
             return;
@@ -18,6 +20,7 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
         api.get(`/dashboard/${teamId}/matchup-details`)
             .then(res => res.data)
             .then(data => {
+                if (cancelled) return;
                 if (data.error) {
                     setError(data.error);
                     setMatchupData(null);
@@ -28,11 +31,20 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
                 setLoading(false);
             })
             .catch(err => {
+                if (cancelled) return;
                 console.error('Error fetching matchup details:', err);
                 setError('Ошибка загрузки данных матчапа');
                 setLoading(false);
             });
-    }, [teamId, matchupWeek]);
+        if (calculationEngine === 'probabilistic') {
+            api.get('/matchup/odds', { params: { team_id: teamId, week: matchupWeek, period, remaining_only: true } })
+                .then(response => { if (!cancelled) setOdds(response.data); })
+                .catch(() => { if (!cancelled) setOdds(null); });
+        } else {
+            setOdds(null);
+        }
+        return () => { cancelled = true; };
+    }, [teamId, matchupWeek, period, calculationEngine]);
 
     const formatValue = (category, value) => {
         if (category === 'FG%' || category === 'FT%' || category === '3PT%') {
@@ -74,6 +86,33 @@ const MatchupDetails = ({ teamId, currentMatchup }) => {
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-700">Детали матчапа</h3>
             </div>
+
+            {odds && (
+                <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div><div className="text-xs text-gray-600">Вероятность победы</div><div className="text-3xl font-bold text-blue-700">{(odds.p_win * 100).toFixed(1)}%</div></div>
+                        <div className="text-sm text-gray-700">Ничья {(odds.p_tie * 100).toFixed(1)}% · Поражение {(odds.p_loss * 100).toFixed(1)}%</div>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded bg-red-200"><div className="h-full bg-blue-600" style={{ width: `${odds.p_win * 100}%` }} /></div>
+                    {odds.flippable?.length > 0 && <div className="mt-3 text-xs text-gray-600">Категории в борьбе: {odds.flippable.join(', ')}</div>}
+                    {odds.categories && (
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                            {Object.entries(odds.categories).map(([category, probability]) => (
+                                <div key={category} className="rounded border border-blue-100 bg-white p-2">
+                                    <div className="mb-1 flex justify-between text-xs">
+                                        <span className="font-medium text-gray-700">{category}</span>
+                                        <span className="text-gray-600">{(probability.p_win * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <div className="h-1.5 overflow-hidden rounded bg-red-100">
+                                        <div className="h-full bg-blue-500" style={{ width: `${probability.p_win * 100}%` }} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="mt-2 text-xs text-gray-500">{odds.trials} сценариев · оценка модели, не гарантия</div>
+                </div>
+            )}
             
             {/* Заголовок с командами и счетом */}
             <div className="mb-4 flex items-center justify-between flex-wrap gap-4">

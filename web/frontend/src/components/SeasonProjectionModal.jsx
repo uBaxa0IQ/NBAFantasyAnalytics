@@ -38,6 +38,7 @@ const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
                                     <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Поражения</th>
                                     <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Ничьи</th>
                                     <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Винрейт</th>
+                                    {projection.method === 'probabilistic_season_mc' && <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Шанс плей-офф</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -73,6 +74,7 @@ const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
                                                     {team.win_rate}%
                                                 </span>
                                             </td>
+                                            {projection.method === 'probabilistic_season_mc' && <td className="px-4 py-3 text-center text-sm font-bold text-green-700">{team.p_playoff == null ? '—' : `${(team.p_playoff * 100).toFixed(1)}%`}</td>}
                                         </tr>
                                     );
                                 })}

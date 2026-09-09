@@ -6,9 +6,11 @@
 from espn_api.basketball import League
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
+from time import monotonic
 from espn_api.basketball.constant import STATS_MAP
 
 from .config import CATEGORIES, DEFAULT_CATEGORIES, PERIODS, REVERSE_CATEGORIES, normalize_period
+from .simulation import compare_category_stats
 
 
 CATEGORY_DISPLAY_ORDER = [
@@ -96,6 +98,7 @@ class LeagueMetadata:
             self._configure_scoring()
             self._active_slot_counts = None
             self._snapshot_cache = {}
+            self._box_scores_cache = {}
             self.last_refresh_error = None
             return True
         except Exception as e:
@@ -480,7 +483,7 @@ class LeagueMetadata:
                 return []
         
         try:
-            box_scores = self.league.box_scores(matchup_period=week)
+            box_scores = self._get_box_scores_cached(week)
         except Exception as e:
             print(f"Ошибка получения матчапов за неделю {week}: {e}")
             return []
@@ -507,7 +510,7 @@ class LeagueMetadata:
             return []
 
         try:
-            box_scores = self.league.box_scores(matchup_period=week)
+            box_scores = self._get_box_scores_cached(week)
         except Exception as error:
             print(f"Ошибка получения матчапов за неделю {week}: {error}")
             return []
@@ -601,7 +604,7 @@ class LeagueMetadata:
                 return None
         
         try:
-            box_scores = self.league.box_scores(matchup_period=week)
+            box_scores = self._get_box_scores_cached(week)
         except Exception as e:
             print(f"Ошибка получения матчапов за неделю {week}: {e}")
             return None
@@ -668,6 +671,7 @@ class LeagueMetadata:
                 total_to += player_stats.get('TO', 0)
                 
                 player_data = {
+                    'player_id': getattr(player, 'playerId', None),
                     'name': player.name,
                     'position': getattr(player, 'position', 'N/A'),
                     'stats': player_stats
@@ -721,7 +725,7 @@ class LeagueMetadata:
         
         try:
             # Один запрос к API для получения всех матчапов за неделю
-            box_scores = self.league.box_scores(matchup_period=week)
+            box_scores = self._get_box_scores_cached(week)
         except Exception as e:
             print(f"Ошибка получения матчапов за неделю {week}: {e}")
             return {}
@@ -748,6 +752,19 @@ class LeagueMetadata:
                 teams_stats[away_team_id] = away_stats
         
         return teams_stats
+
+    def _get_box_scores_cached(self, week: int):
+        """Share the expensive ESPN box-score response across one request burst."""
+        cache = getattr(self, '_box_scores_cache', {})
+        cached = cache.get(int(week))
+        if cached and monotonic() - cached[0] < 60:
+            return cached[1]
+        box_scores = self.league.box_scores(matchup_period=int(week))
+        if len(cache) > 24:
+            cache.clear()
+        cache[int(week)] = (monotonic(), box_scores)
+        self._box_scores_cache = cache
+        return box_scores
     
     def _extract_team_stats_from_lineup(self, lineup, team_name: str) -> Optional[Dict[str, Any]]:
         """
@@ -798,6 +815,7 @@ class LeagueMetadata:
                 total_to += player_stats.get('TO', 0)
                 
                 player_data = {
+                    'player_id': getattr(player, 'playerId', None),
                     'name': player.name,
                     'position': getattr(player, 'position', 'N/A'),
                     'stats': player_stats
@@ -832,7 +850,9 @@ class LeagueMetadata:
         
         return {
             'name': team_name,
-            'stats': filtered_stats
+            'stats': filtered_stats,
+            'totals': totals,
+            'players': players_data,
         }
     
     def get_matchup_summary(self, week: int, team1_id: int, team2_id: int) -> Optional[Dict[str, Any]]:
@@ -884,30 +904,17 @@ class LeagueMetadata:
         team1_filtered = self.filter_stats_by_categories(team1_stats)
         team2_filtered = self.filter_stats_by_categories(team2_stats)
         
-        # Сравниваем по категориям
-        category_results = {}
-        team1_wins = 0
-        team2_wins = 0
-        
-        for category in CATEGORIES:
-            team1_value = team1_filtered.get(category, 0.0)
-            team2_value = team2_filtered.get(category, 0.0)
-            
-            # Определяем победителя категории
-            if team1_value > team2_value:
-                winner = 'team1'
-                team1_wins += 1
-            elif team2_value > team1_value:
-                winner = 'team2'
-                team2_wins += 1
-            else:
-                winner = 'tie'
-            
-            category_results[category] = {
-                'team1_value': team1_value,
-                'team2_value': team2_value,
-                'winner': winner
+        comparison = compare_category_stats(team1_filtered, team2_filtered, CATEGORIES, REVERSE_CATEGORIES)
+        team1_wins = comparison['team1_wins']
+        team2_wins = comparison['team2_wins']
+        category_results = {
+            category: {
+                'team1_value': team1_filtered.get(category, 0.0),
+                'team2_value': team2_filtered.get(category, 0.0),
+                'winner': 'team1' if outcome == 'win' else 'team2' if outcome == 'loss' else 'tie',
             }
+            for category, outcome in comparison['categories'].items()
+        }
         
         # Определяем общего победителя матчапа
         if team1_wins > team2_wins:

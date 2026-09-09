@@ -58,3 +58,7 @@ WEIGHTED_PERIOD_COEFFS = {
     PERIODS['last_15']: 0.05,
     PERIODS['last_7']: 0.05
 }
+
+# Probabilistic engine defaults. API requests are still clamped by the engine.
+MATCHUP_MC_TRIALS = int(os.getenv("MATCHUP_MC_TRIALS", "400"))
+SEASON_MC_TRIALS = int(os.getenv("SEASON_MC_TRIALS", "300"))

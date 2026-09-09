@@ -10,11 +10,16 @@ from core.snapshot import build_league_snapshot
 from services.projections import project_snapshot_for_matchup
 from .forecast_history import record
 from core.config import CATEGORIES, REVERSE_CATEGORIES
+from core.config import MATCHUP_MC_TRIALS, SEASON_MC_TRIALS
+from core.matchup_mc import stable_seed
+from core.season_mc import simulate_season
 import logging
 import sqlite3
 
 
 def project_regular_season(league_metadata, period: str, calculation_engine: str = "calendar") -> Dict[str, Any]:
+    if calculation_engine == "probabilistic":
+        return project_regular_season_probabilistic(league_metadata, period)
     league = league_metadata.league
     teams = league_metadata.get_teams()
     regular_season_end = int(league.settings.reg_season_count)
@@ -131,4 +136,61 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
         "standings": standings,
         "tie_break_note": "Future ties are ordered by projected win rate and wins; ESPN applies the configured league tie-breaker.",
         "method": "legacy_team_averages" if calculation_engine == "legacy" else "schedule_projection",
+    }
+
+
+def project_regular_season_probabilistic(league_metadata, period: str) -> Dict[str, Any]:
+    """Propagate calibrated matchup uncertainty through the remaining schedule."""
+    from .matchup_engine import build_engine_inputs, simulate_pair
+
+    league = league_metadata.league
+    teams = league_metadata.get_teams()
+    current_period = int(league.currentMatchupPeriod)
+    regular_season_end = int(league.settings.reg_season_count)
+    playoff_count = int(getattr(league.settings, "playoff_team_count", 0) or max(1, len(teams) // 2))
+    base_teams = [{
+        "team_id": team.team_id, "team_name": team.team_name,
+        "wins": int(getattr(team, "wins", 0) or 0),
+        "losses": int(getattr(team, "losses", 0) or 0),
+        "ties": int(getattr(team, "ties", 0) or 0),
+    } for team in teams]
+    schedule = league_metadata.get_schedule_matchups(current_period, regular_season_end)
+    inputs = build_engine_inputs(league_metadata, period)
+    odds_rows = []
+    per_team = defaultdict(list)
+    pair_trials = max(100, min(180, MATCHUP_MC_TRIALS // 2))
+    for matchup in schedule:
+        week = int(matchup["matchup_period"])
+        left, right = int(matchup["team1_id"]), int(matchup["team2_id"])
+        odds = simulate_pair(
+            league_metadata, inputs, left, right, week,
+            remaining_only=week == current_period, trials=pair_trials,
+        )
+        odds_rows.append(odds)
+        per_team[left].append({"week": week, "opponent_id": right, "p_win": odds["p_win"], "p_tie": odds["p_tie"], "p_loss": odds["p_loss"]})
+        per_team[right].append({"week": week, "opponent_id": left, "p_win": odds["p_loss"], "p_tie": odds["p_tie"], "p_loss": odds["p_win"]})
+        if week > current_period:
+            try:
+                expected = odds.get("expected_stats") or [{}, {}]
+                record(league_metadata.league_id, league_metadata.year, week, left, right, period, expected[0], expected[1], inputs["categories"], inputs["reverse_categories"], odds)
+            except (OSError, sqlite3.Error):
+                logging.getLogger(__name__).warning("Не удалось сохранить вероятностный прогноз")
+
+    seed = stable_seed(league_metadata.league_id, league_metadata.year, current_period, period, "season-v1")
+    simulations = simulate_season(base_teams, odds_rows, playoff_count, trials=SEASON_MC_TRIALS, seed=seed)
+    standings = []
+    for position, row in enumerate(simulations, 1):
+        expected = row["expected_record"]
+        standings.append({
+            **row,
+            "projected_position": position,
+            "wins": round(expected["wins"], 1), "losses": round(expected["losses"], 1), "ties": round(expected["ties"], 1),
+            "win_rate": round((expected["wins"] + .5 * expected["ties"]) / max(sum(expected.values()), 1) * 100, 1),
+            "projected_matchups": per_team[row["team_id"]],
+        })
+    return {
+        "period": period, "current_matchup_period": current_period, "regular_season_end": regular_season_end,
+        "standings": standings, "method": "probabilistic_season_mc", "trials": SEASON_MC_TRIALS, "seed": seed,
+        "tie_break_note": "При равных результатах ESPN tie-break может изменить порядок посева.",
+        "assumptions": "Вероятностный сценарий H2H Most Categories с текущими составами, календарём и статусами травм.",
     }
