@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from dependencies import get_league_meta
 from core.config import CATEGORIES, PERIODS
 from services.draft import get_draft_recommendations, get_draft_state
+from services.draft_calculation import StaleDraftCalculation, draft_calculations
 from services.draft_benchmark import benchmark_adaptive_vs_legacy, benchmark_draft_strategies, benchmark_punt_strategies
 from services.draft_learning import learning_dataset_stats
 
@@ -65,6 +66,8 @@ def draft_recommendations(
     mock_player_ids: str = "",
     simulation_slot: int | None = Query(default=None, ge=1, le=30),
     limit: int = Query(default=25, ge=1, le=300),
+    expected_pick_count: int | None = Query(default=None, ge=0),
+    trigger: str | None = Query(default=None, pattern="^(upcoming|our_turn|round_end|completed|manual)$"),
     league_meta=Depends(get_league_meta),
 ):
     if league_meta.get_team_by_id(team_id) is None:
@@ -74,7 +77,24 @@ def draft_recommendations(
         mock_ids = tuple(int(player_id) for player_id in mock_player_ids.split(",") if player_id.strip())
     except ValueError as error:
         raise HTTPException(status_code=400, detail="Invalid mock player IDs") from error
-    return get_draft_recommendations(league_meta, team_id, period, punts, limit, mock_ids, simulation_slot)
+    def calculate(cancel_check=None):
+        return get_draft_recommendations(
+            league_meta, team_id, period, punts, limit, mock_ids, simulation_slot,
+            expected_pick_count=expected_pick_count,
+            cancel_check=cancel_check,
+            live_fast=expected_pick_count is not None,
+        )
+
+    if expected_pick_count is None:
+        return calculate()
+    coordinator_key = (int(league_meta.league_id), int(league_meta.year), int(team_id))
+    request_key = (
+        int(expected_pick_count), period, punts, mock_ids, simulation_slot, int(limit),
+    )
+    try:
+        return draft_calculations.run_latest(coordinator_key, request_key, calculate)
+    except StaleDraftCalculation as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/benchmark/{team_id}")

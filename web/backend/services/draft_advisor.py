@@ -562,14 +562,22 @@ def build_pick_advice(players, context: ScoringContext, limit=6):
     for player in players:
         lane = _lane_for(player, context.is_on_the_clock)
         player["advice_lane"] = lane
-        if lane == "take_now":
+        if lane == "take_now" or (not context.is_on_the_clock and lane == "reach"):
             grouped["take_now"].append(player)
         elif lane in {"wait", "target"}:
             grouped["wait"].append(player)
         else:
             grouped["fallback"].append(player)
 
-    primary = players[0]
+    # Off the clock, a player who is very unlikely to survive until our pick is
+    # useful context, but cannot be the main plan. Prefer an actually reachable
+    # target/bubble and keep impossible falls in the fallback lane.
+    reachable = [
+        player for player in players
+        if player.get("advice_lane") != "reach"
+        and (player.get("availability_probability") is None or player["availability_probability"] >= 35)
+    ]
+    primary = (reachable or players)[0]
     if context.is_on_the_clock and grouped["take_now"]:
         best_urgent = grouped["take_now"][0]
         if best_urgent["score"] >= primary["score"] - 1.35:
@@ -681,6 +689,7 @@ def lookahead_rerank(
     categories=None,
     candidate_count=6,
     runs=24,
+    cancel_check=None,
 ):
     """Re-rank on-the-clock options by expected remaining category wins."""
     if not players or not slot or not existing_rosters_by_slot:
@@ -691,6 +700,8 @@ def lookahead_rerank(
 
     results = []
     for index, candidate in enumerate(candidates):
+        if cancel_check:
+            cancel_check()
         remaining = [player for player in players if player.get("name") != candidate["name"]]
         if not remaining:
             continue
@@ -718,8 +729,11 @@ def lookahead_rerank(
                 categories,
                 True,
                 "adaptive",
+                cancel_check,
             )
         except Exception:
+            if cancel_check:
+                cancel_check()
             continue
         wins = float(simulation.get("average_category_wins") or 0)
         rank = float(simulation.get("average_league_rank") or team_count)

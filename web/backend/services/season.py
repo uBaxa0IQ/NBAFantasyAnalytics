@@ -107,15 +107,15 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
 
     standings = []
     teams_by_id = {team.team_id: team for team in teams}
-    for team_id, record in records.items():
-        total = record["wins"] + record["losses"] + record["ties"]
-        win_rate = (record["wins"] + 0.5 * record["ties"]) / total if total else 0.0
+    for team_id, team_record in records.items():
+        total = team_record["wins"] + team_record["losses"] + team_record["ties"]
+        win_rate = (team_record["wins"] + 0.5 * team_record["ties"]) / total if total else 0.0
         standings.append(
             {
                 "team_id": team_id,
                 "team_name": teams_by_id[team_id].team_name,
                 "official_position": int(getattr(teams_by_id[team_id], "standing", 0) or 0),
-                **record,
+                **team_record,
                 "win_rate": round(win_rate * 100, 1),
                 "projected_matchups": projected_matchups[team_id],
             }

@@ -71,6 +71,17 @@ def test_live_snake_draft_reports_next_team_after_reversal():
     assert state["settings"]["order_known"] is True
 
 
+def test_stale_live_selecting_team_does_not_override_snake_order():
+    metadata = FakeLeagueMetadata()
+    raw = metadata.league.espn_request.get_league_draft()
+    raw["draftDetail"]["liveSelectingTeamId"] = 3
+    metadata.league.espn_request.get_league_draft = lambda: raw
+
+    state = get_draft_state(metadata)
+
+    assert state["next_team_id"] == 2
+
+
 def test_snake_plan_handles_both_directions():
     assert _planned_team_picks(2, [1, 2, 3], rounds=4) == [2, 5, 8, 11]
 
@@ -507,6 +518,23 @@ def test_off_the_clock_does_not_rank_a_gone_star_first():
     assert reachable["score"] > gone_star["score"]
     advice = build_pick_advice(players, context)
     assert advice["primary"]["name"] == "Reachable"
+
+
+def test_off_the_clock_advice_never_promotes_zero_percent_fall():
+    impossible = _player("Impossible", adp=1, PTS=10.0)
+    reachable = _player("Reachable", adp=50, PTS=2.0)
+    impossible.update({"score": 20.0, "availability_probability": 0, "draft_action": "нужен фолл"})
+    reachable.update({"score": 5.0, "availability_probability": 90, "draft_action": "цель на ход"})
+    context = build_scoring_context(
+        roster=[], remaining=[impossible, reachable], eval_pick=50,
+        is_on_the_clock=False, picks_until_turn=9, team_count=10, rounds=13,
+    )
+
+    advice = build_pick_advice([impossible, reachable], context)
+
+    assert advice["primary"]["name"] == "Reachable"
+    assert "Reachable" in advice["summary"]
+    assert any(player["name"] == "Impossible" for player in advice["take_now"])
 
 
 def test_leverage_prefers_category_flip_over_stacked_points():

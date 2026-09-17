@@ -282,6 +282,7 @@ def _simulate_slot(
     categories=None,
     include_samples=False,
     own_policy="legacy",
+    cancel_check=None,
 ):
     planned = snake_pick_numbers(slot, team_count, rounds)
     preset_own_roster = list(own_existing_roster or ())
@@ -303,6 +304,8 @@ def _simulate_slot(
     market_ceiling = max(_market_position(player) for player in usable)
 
     for run in range(runs):
+        if cancel_check:
+            cancel_check()
         board = []
         for player in usable:
             market_average = _market_position(player)
@@ -320,6 +323,8 @@ def _simulate_slot(
         own_future_roster = []
 
         for overall in range(current_pick, team_count * rounds + 1):
+            if cancel_check and overall % max(1, team_count) == 1:
+                cancel_check()
             if not remaining:
                 break
             market_order = sorted(remaining.values(), key=lambda item: item[0])
@@ -518,16 +523,19 @@ def simulate_draft_market(
     own_punt_categories=(),
     roster_slots=None,
     own_policy="adaptive",
+    runs_override=None,
+    cancel_check=None,
 ):
     """Model every possible slot or the known live snake slot."""
     team_count = max(1, int(team_count or 1))
     if pick_order and team_id in pick_order:
         slot = list(pick_order).index(team_id) + 1
-        runs = 80 if own_policy == "adaptive" else 240
+        runs = int(runs_override or (80 if own_policy == "adaptive" else 240))
         result = _simulate_slot(
             players, slot, team_count, rounds, runs, current_pick, 9100 + current_pick,
             existing_rosters_by_slot, own_existing_roster, playoff_team_count,
             own_punt_categories, roster_slots, own_policy=own_policy,
+            cancel_check=cancel_check,
         )
         future = [pick for pick in result.get("picks", []) if pick >= current_pick]
         return {
@@ -546,6 +554,7 @@ def simulate_draft_market(
             players, slot, team_count, rounds, runs, 1, 12000 + slot,
             existing_rosters_by_slot, own_existing_roster, playoff_team_count,
             own_punt_categories, roster_slots, own_policy=own_policy,
+            cancel_check=cancel_check,
         )
         return {
             "mode": "selected_slot",
@@ -562,6 +571,7 @@ def simulate_draft_market(
             players, slot, team_count, rounds, runs_per_slot, 1, 7000 + slot,
             existing_rosters_by_slot, own_existing_roster, playoff_team_count,
             own_punt_categories, roster_slots, own_policy=own_policy,
+            cancel_check=cancel_check,
         )
         for slot in range(1, team_count + 1)
     ]

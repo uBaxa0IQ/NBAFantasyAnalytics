@@ -3,6 +3,7 @@
 from collections import Counter, defaultdict
 from itertools import combinations
 from datetime import datetime, timezone
+from time import monotonic
 
 from espn_api.basketball.player import Player
 
@@ -322,8 +323,15 @@ def get_draft_state(league_metadata):
     if status != "completed" and settings.get("type") == "SNAKE" and pick_order:
         next_index = len(picks)
         next_team_id = _snake_team_at(next_index, pick_order)
-    if status == "live" and detail.get("liveSelectingTeamId"):
-        next_team_id = detail["liveSelectingTeamId"]
+    live_selecting_team_id = detail.get("liveSelectingTeamId")
+    # ESPN can keep liveSelectingTeamId on the team that just picked while the
+    # picks array has already advanced. For a known snake order, the picks array
+    # is the monotonic source of truth; only accept the live hint if consistent.
+    if status == "live" and live_selecting_team_id and (
+        not (settings.get("type") == "SNAKE" and pick_order)
+        or next_team_id == live_selecting_team_id
+    ):
+        next_team_id = live_selecting_team_id
 
     next_overall = len(picks) + 1 if status != "completed" else None
     next_round = ((next_overall - 1) // len(pick_order) + 1) if next_overall and pick_order else None
@@ -391,11 +399,23 @@ def get_draft_recommendations(
     simulation_slot=None,
     run_simulation=True,
     include_drafted_candidates=False,
+    expected_pick_count=None,
+    cancel_check=None,
+    live_fast=False,
 ):
+    started_at = monotonic()
+    ensure_current = cancel_check or (lambda: None)
+    ensure_current()
     league = league_metadata.league
-    market = get_espn_market(league_metadata)
     raw_draft = overlay_live_draft(league_metadata, league.espn_request.get_league_draft())
     active_picks = _active_picks(raw_draft)
+    if expected_pick_count is not None and len(active_picks) != int(expected_pick_count):
+        from .draft_calculation import StaleDraftCalculation
+        raise StaleDraftCalculation(
+            f"Снимок драфта изменился: ожидался пик {expected_pick_count}, сейчас {len(active_picks)}"
+        )
+    ensure_current()
+    market = get_espn_market(league_metadata)
     all_drafted_ids = list(dict.fromkeys(
         pick.get("playerId")
         for pick in active_picks
@@ -403,6 +423,7 @@ def get_draft_recommendations(
     ))
     drafted_id_set = {int(player_id) for player_id in all_drafted_ids}
     drafted_players = league.player_info(playerId=all_drafted_ids) if all_drafted_ids else []
+    ensure_current()
     if drafted_players and not isinstance(drafted_players, list):
         drafted_players = [drafted_players]
     drafted_by_id = {getattr(player, "playerId", None): player for player in drafted_players or []}
@@ -412,6 +433,7 @@ def get_draft_recommendations(
     # source of truth for availability, so remove drafted IDs and duplicates
     # before scoring or simulating the remaining board.
     raw_free_agents = league_metadata.get_free_agents(size=300)
+    ensure_current()
     free_agents = []
     seen_free_agents = set()
     for player in raw_free_agents:
@@ -434,6 +456,7 @@ def get_draft_recommendations(
         [getattr(player, "playerId", None) for player in free_agents]
         + all_drafted_ids,
     ) if use_previous_season else {}
+    ensure_current()
 
     resolved_stats_sources = {}
 
@@ -692,6 +715,9 @@ def get_draft_recommendations(
             playoff_team_count=playoff_team_count,
             roster_slots=roster_slots,
             categories=CATEGORIES,
+            candidate_count=4 if live_fast else 6,
+            runs=8 if live_fast else 24,
+            cancel_check=ensure_current,
         )
     # A promoted learned policy is the final optional reranker. Applying it
     # before lookahead would let the projected evaluator overwrite its order.
@@ -722,6 +748,7 @@ def get_draft_recommendations(
 
     simulation = None
     if run_simulation:
+        ensure_current()
         simulation = simulate_draft_market(
             recommendations,
             team_count=max(1, len(league_metadata.get_teams())),
@@ -735,6 +762,8 @@ def get_draft_recommendations(
             playoff_team_count=playoff_team_count,
             own_punt_categories=punt_categories,
             roster_slots=roster_slots,
+            runs_override=32 if live_fast and pick_order else None,
+            cancel_check=ensure_current,
         )
 
     team_names = _team_names(league_metadata)
@@ -806,6 +835,8 @@ def get_draft_recommendations(
         "draft_rounds": draft_rounds,
         "roster_slots": list(roster_slots),
         "draft_pick_count": len(active_picks),
+        "snapshot_revision": len(active_picks),
+        "calculated_at": datetime.now(timezone.utc).isoformat(),
         "roster": roster_details,
         "position_counts": dict(position_counts),
         "category_strength": {category: round(value, 2) for category, value in category_strength.items()},
@@ -828,6 +859,8 @@ def get_draft_recommendations(
         "method": "adaptive_projected_marginal_lookahead",
         "players": recommendations[:limit],
     }
+    ensure_current()
+    response["calculation_seconds"] = round(monotonic() - started_at, 3)
     if raw_draft.get("draftDetail", {}).get("inProgress"):
         try:
             from .draft_learning import record_live_decision

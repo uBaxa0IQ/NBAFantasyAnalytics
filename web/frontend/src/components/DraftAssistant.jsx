@@ -3,6 +3,15 @@ import api from '../api';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 const recommendationsCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
+const storedRecommendationKey = contextKey => `draft-recommendation:${contextKey}`;
+
+const readStoredRecommendation = contextKey => {
+    try { return JSON.parse(sessionStorage.getItem(storedRecommendationKey(contextKey)) || 'null'); } catch { return null; }
+};
+
+const storeRecommendation = (contextKey, data) => {
+    try { sessionStorage.setItem(storedRecommendationKey(contextKey), JSON.stringify(data)); } catch { /* refresh fallback only */ }
+};
 
 const formatStat = (category, value) => {
     if (value == null || Number.isNaN(Number(value))) return '—';
@@ -57,6 +66,9 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const [recommendations, setRecommendations] = useState(null);
     const [recommendationsLoading, setRecommendationsLoading] = useState(false);
     const recommendationContextRef = useRef(null);
+    const recommendationAbort = useRef(null);
+    const recommendationRequestId = useRef(0);
+    const lastRequestedRecommendation = useRef(null);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
     const [position, setPosition] = useState('ALL');
@@ -100,6 +112,22 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         ? new Date(Number(viewState.live_updated_at) * 1000).toLocaleTimeString('ru-RU')
         : null;
     const teamCount = Math.max(1, viewState?.team_count || 1);
+    const isOurTurn = isLive && String(viewState?.next_team_id || '') === String(mainTeam || '');
+    const isRoundEnd = isLive && Number(pickCount || 0) > 0 && Number(pickCount) % teamCount === 0;
+    const recommendationTrigger = isUpcoming
+        ? `upcoming:${pickCount || 0}:${mockIds}`
+        : isPostDraft
+            ? `completed:${pickCount || 0}`
+            : isOurTurn || isRoundEnd
+                ? `live:${pickCount || 0}`
+                : null;
+    const recommendationTriggerKind = isUpcoming
+        ? 'upcoming'
+        : isPostDraft
+            ? 'completed'
+            : isOurTurn
+                ? 'our_turn'
+                : 'round_end';
 
     useEffect(() => {
         if (recommendations?.simulation?.mode === 'known_order') setSimulationSlot(recommendations.simulation.slot);
@@ -109,37 +137,70 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         if (modeOverride && draftState?.draft_connection_mode === modeOverride) setModeOverride(null);
     }, [draftState?.draft_connection_mode, modeOverride]);
 
+    const recommendationContextKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), mockIds].join('|');
+
     useEffect(() => {
-        if (!mainTeam || pickCount === undefined) return;
-        let active = true;
+        if (!mainTeam) return;
+        if (recommendationContextRef.current === recommendationContextKey) return;
+        recommendationContextRef.current = recommendationContextKey;
+        recommendationAbort.current?.abort();
+        recommendationRequestId.current += 1;
+        lastRequestedRecommendation.current = null;
+        setRecommendations(readStoredRecommendation(recommendationContextKey));
+        setRecommendationsLoading(false);
         setDetailedSimulations({});
         setError(null);
-        const contextKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), mockIds].join('|');
-        if (recommendationContextRef.current !== contextKey) {
-            recommendationContextRef.current = contextKey;
-            setRecommendations(null);
-        }
+    }, [mainTeam, recommendationContextKey]);
+
+    useEffect(() => {
+        if (!mainTeam || pickCount === undefined || !recommendationTrigger) return;
+        const requestKey = `${recommendationContextKey}|${recommendationTrigger}`;
+        if (lastRequestedRecommendation.current === requestKey) return;
+        lastRequestedRecommendation.current = requestKey;
+        recommendationAbort.current?.abort();
+        const controller = new AbortController();
+        recommendationAbort.current = controller;
+        const requestId = recommendationRequestId.current + 1;
+        recommendationRequestId.current = requestId;
+        setDetailedSimulations({});
+        setError(null);
         setRecommendationsLoading(true);
         const cacheKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), pickCount, mockIds].join('|');
         const cached = recommendationsCache.get(cacheKey);
         if (cached && Date.now() - cached.savedAt < CACHE_TTL) {
             setRecommendations(cached.data);
             setRecommendationsLoading(false);
-            return () => { active = false; };
+            return;
         }
         api.get(`/draft/recommendations/${mainTeam}`, {
-            params: { period: projectedPeriod, punt_categories: puntCategories.join(','), mock_player_ids: mockIds, limit: 300 },
+            params: {
+                period: projectedPeriod,
+                punt_categories: puntCategories.join(','),
+                mock_player_ids: mockIds,
+                limit: 300,
+                expected_pick_count: isLive ? pickCount : undefined,
+                trigger: recommendationTriggerKind,
+            },
+            signal: controller.signal,
         })
             .then(response => {
-                if (!active) return;
+                if (requestId !== recommendationRequestId.current) return;
+                if (isLive && Number(response.data?.draft_pick_count) !== Number(pickCount)) return;
                 recommendationsCache.set(cacheKey, { data: response.data, savedAt: Date.now() });
                 if (recommendationsCache.size > 8) recommendationsCache.delete(recommendationsCache.keys().next().value);
+                storeRecommendation(recommendationContextKey, response.data);
                 setRecommendations(response.data);
             })
-            .catch(requestError => active && setError(requestError.response?.data?.detail || 'Не удалось загрузить данные драфта'))
-            .finally(() => active && setRecommendationsLoading(false));
-        return () => { active = false; };
-    }, [mainTeam, puntCategories, pickCount, projectedPeriod, leagueId, mockIds]);
+            .catch(requestError => {
+                if (requestId !== recommendationRequestId.current || requestError.code === 'ERR_CANCELED') return;
+                if (requestError.response?.status !== 409) setError(requestError.response?.data?.detail || 'Не удалось загрузить данные драфта');
+            })
+            .finally(() => {
+                if (requestId === recommendationRequestId.current) setRecommendationsLoading(false);
+            });
+    }, [mainTeam, pickCount, recommendationContextKey, recommendationTrigger, recommendationTriggerKind, isLive, leagueId, projectedPeriod, puntCategories, mockIds]);
+
+    useEffect(() => () => recommendationAbort.current?.abort(), []);
 
     useEffect(() => {
         if (activeTab !== 'simulation' || !mainTeam || recommendations?.simulation?.mode !== 'all_slots' || detailedSimulations[simulationSlot]) return;
@@ -212,6 +273,9 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const balancedRound = recommendations?.round_balanced_comparison;
     const balancedComparison = balancedRound?.comparison;
     const pickAdvice = recommendations?.pick_advice;
+    const calculatedPickCount = recommendations?.draft_pick_count;
+    const recommendationsAreStale = isLive && recommendations && Number(calculatedPickCount) !== Number(pickCount);
+    const waitingForScheduledCalculation = isLive && !recommendations && !recommendationsLoading && !recommendationTrigger;
     const projectedTurns = (selectedSimulation?.round_targets || []).slice(0, 3);
     const completedRounds = balancedRound?.completed_rounds || 0;
     const roundProgress = pickCount ? (pickCount % teamCount || teamCount) : 0;
@@ -310,12 +374,13 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
 
             {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
             {modeError && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{modeError}</div>}
-            {recommendationsLoading && recommendations && <div className="mb-4 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800"><span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />Пересчитываем данные после пика #{pickCount || '—'} — предыдущий дэшборд остаётся доступным.</div>}
+            {recommendationsLoading && recommendations && <div className="mb-4 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800"><span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />Пересчитываем снимок после пика #{pickCount || '—'}. Новый расчёт заменит предыдущий целиком.</div>}
+            {recommendationsAreStale && !recommendationsLoading && <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">Аналитика рассчитана после пика #{calculatedPickCount}. Текущее состояние — после пика #{pickCount}. Следующий полный пересчёт запустится в конце раунда или с началом вашего хода.</div>}
             {!mainTeam ? (
                 <div className="rounded border bg-white p-6 text-center"><button onClick={onOpenSettings} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Выбрать команду</button></div>
             ) : !recommendations ? (
                 <div className="rounded border bg-white p-10 text-center text-gray-500">
-                    {error ? 'Данные драфта сейчас недоступны' : 'Загрузка…'}
+                    {error ? 'Данные драфта сейчас недоступны' : waitingForScheduledCalculation ? 'Ожидаем конца раунда или начала вашего хода для первого расчёта' : 'Загрузка…'}
                 </div>
             ) : <>
                 {(activeTab === 'draft' || activeTab === 'players') && officialDraftMode && !hasLiveSnapshot && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-8 text-center shadow-sm"><div className="text-sm font-semibold uppercase tracking-wide text-blue-700">Сейчас используется Draft Room ESPN</div><h1 className="mt-2 text-2xl font-bold text-gray-900">Снимок live-драфта ещё не получен</h1><p className="mx-auto mt-2 max-w-2xl text-sm text-gray-600">Один раз включите аналитику, чтобы загрузить актуальные пики, состав и рекомендации. После возврата в ESPN этот снимок останется на экране.</p><button disabled={modeSwitching} onClick={() => switchDraftMode('analytics')} className="mt-5 rounded bg-blue-600 px-5 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60">{modeSwitching ? 'Подключаемся…' : 'Получить live-снимок'}</button></section>}
@@ -447,10 +512,12 @@ const RecommendedPicks = ({ advice, players, onPlayerClick, isPostDraft }) => {
     const byKey = new Map((players || []).map(player => [player.player_id || player.name, player]));
     const hydrate = row => {
         if (!row) return null;
-        return { ...row, ...(byKey.get(row.player_id) || byKey.get(row.name) || {}) };
+        const current = byKey.get(row.player_id) || byKey.get(row.name);
+        return current ? { ...row, ...current } : null;
     };
     const fallback = (players || []).slice(0, 6);
-    const primary = hydrate(advice?.primary) || fallback[0];
+    const advisedPrimary = hydrate(advice?.primary);
+    const primary = advisedPrimary || fallback[0];
     const used = new Set(primary ? [primary.player_id || primary.name] : []);
     const unique = list => (list || []).map(hydrate).filter(player => {
         if (!player) return false;
@@ -463,7 +530,7 @@ const RecommendedPicks = ({ advice, players, onPlayerClick, isPostDraft }) => {
     const takeNow = unique(advice?.take_now);
     const wait = unique(advice?.wait);
     const fallbackLane = unique(advice?.fallback);
-    const hasAdvice = Boolean(advice?.primary);
+    const hasAdvice = Boolean(advisedPrimary);
     const lanes = isPostDraft
         ? []
         : onClock
@@ -479,7 +546,7 @@ const RecommendedPicks = ({ advice, players, onPlayerClick, isPostDraft }) => {
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="font-bold">{isPostDraft ? 'Лучшие доступные свободные агенты' : 'Рекомендованные следующие пики (оценка модели)'}</h2>
-                        <p className="text-xs text-gray-500">{advice?.summary || (isPostDraft ? 'Ценность и потенциальное усиление состава после драфта' : 'EV состава по пантам, now/later и lookahead')}</p>
+                        <p className="text-xs text-gray-500">{(advisedPrimary && advice?.summary) || (isPostDraft ? 'Ценность и потенциальное усиление состава после драфта' : 'Актуальные доступные игроки; старая цель уже выбрана')}</p>
                     </div>
                     <span className="text-sm text-gray-400">{advice?.phase ? `фаза ${advice.phase}` : `Top ${list.length}`}</span>
                 </div>
