@@ -28,7 +28,6 @@ function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isPlayoff, setIsPlayoff] = useState(false);
   const [draftState, setDraftState] = useState(null);
-  const [seasonView, setSeasonView] = useState(false);
   const [seasonConfig, setSeasonConfig] = useState(getSeasonConfig);
 
   // Общие настройки для всех вкладок с сохранением в localStorage
@@ -210,7 +209,7 @@ function App() {
     <button className="rounded bg-blue-700 px-4 py-2 text-white">Войти</button>
   </form>;
 
-  if (!seasonView && (draftState?.status === 'live' || draftState?.status === 'upcoming' || draftState?.postdraft)) {
+  if (draftState?.status === 'live' || draftState?.status === 'upcoming' || draftState?.postdraft) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-blue-900 text-white p-4 shadow-md">
@@ -220,7 +219,6 @@ function App() {
           className="container mx-auto p-4 max-w-7xl"
           style={{ paddingBottom: comparisonPlayers.length >= 2 ? '120px' : undefined }}
         >
-          <button className="mb-4 text-sm text-blue-700" onClick={() => setSeasonView(true)}>Открыть сезонную аналитику</button>
           <DraftAssistant
             key={`${seasonConfig.league_id}:${seasonConfig.periods.projected}:${mainTeam}`}
             draftState={draftState}
@@ -273,7 +271,6 @@ function App() {
         <h1 className="text-2xl font-bold text-center">NBA Fantasy Analytics</h1>
       </header>
 
-      {seasonView && <button className="m-4 text-sm text-blue-700" onClick={() => setSeasonView(false)}>Вернуться к драфту</button>}
       <div className="sticky top-0 bg-white z-10 border-b shadow-sm">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center">
