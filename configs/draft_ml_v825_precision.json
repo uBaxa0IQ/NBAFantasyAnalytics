@@ -1,0 +1,19 @@
+{
+  "seed": 8250917,
+  "output": "artifacts/draft_ml/v825-projected-precision",
+  "champion": "artifacts/draft_ml/v811-residual/frozen.pt",
+  "snapshot": "artifacts/draft_ml/2027-projected/standard8-2027-projected-v1.json",
+  "workers": 6,
+  "commit_round": 3,
+  "states_per_format": 4,
+  "shortlist": 24,
+  "audit_rollouts": 16,
+  "terminal_draws": 4,
+  "max_punts": {"8": 2, "9": 2, "10": 3, "11": 3},
+  "reliability_gates": {
+    "median_spearman_min": 0.6,
+    "top3_overlap_two_min": 0.6,
+    "cross_selected_positive_min": 0.8,
+    "mean_cross_regret_max": 0.005
+  }
+}

@@ -11,7 +11,13 @@ import ComparisonBar from './components/ComparisonBar';
 const PlayerComparisonModal = lazy(() => import('./components/PlayerComparisonModal'));
 import SettingsModal from './components/SettingsModal';
 const DraftAssistant = lazy(() => import('./components/DraftAssistant'));
+const MockDraftPage = lazy(() => import('./components/MockDraftPage'));
 import { getSeasonConfig, normalizeSavedPeriod, saveSeasonConfig } from './utils/periods';
+
+const readMockRoute = () => {
+  const path = (window.location.pathname || '/').replace(/\/$/, '') || '/';
+  return window.location.hash === '#/mock' || path === '/mock';
+};
 
 function App() {
   const [authRequired, setAuthRequired] = useState(false);
@@ -29,6 +35,16 @@ function App() {
   const [isPlayoff, setIsPlayoff] = useState(false);
   const [draftState, setDraftState] = useState(null);
   const [seasonConfig, setSeasonConfig] = useState(getSeasonConfig);
+  const [mockRoute, setMockRoute] = useState(readMockRoute);
+  useEffect(() => {
+    const sync = () => setMockRoute(readMockRoute());
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => {
+      window.removeEventListener('hashchange', sync);
+      window.removeEventListener('popstate', sync);
+    };
+  }, []);
 
   // Общие настройки для всех вкладок с сохранением в localStorage
   const [period, setPeriod] = useState(() => {
@@ -208,6 +224,42 @@ function App() {
     <label className="block">Ключ доступа<input type="password" required value={accessToken} onChange={event => setAccessToken(event.target.value)} className="mt-2 w-full rounded border p-2" autoComplete="current-password" /></label>
     <button className="rounded bg-blue-700 px-4 py-2 text-white">Войти</button>
   </form>;
+
+  if (mockRoute) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-blue-900 p-4 text-white shadow-md">
+          <h1 className="text-center text-2xl font-bold">Мок-драфт</h1>
+        </header>
+        <main className="container mx-auto max-w-7xl p-4">
+          <MockDraftPage
+            mainTeam={mainTeam}
+            projectedPeriod={seasonConfig.periods.projected}
+            leagueId={seasonConfig.league_id}
+            puntCategories={puntCategories}
+            onPlayerClick={handlePlayerClick}
+            onOpenSettings={() => setShowSettingsModal(true)}
+          />
+        </main>
+        {selectedPlayer && (
+          <PlayerModal
+            player={selectedPlayer}
+            onClose={closeModal}
+            onAddToComparison={addToComparison}
+            onRemoveFromComparison={removeFromComparison}
+            isInComparison={comparisonPlayers.some(player => player.name === selectedPlayer.name)}
+          />
+        )}
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          onSave={handleSaveSettings}
+          initialSettings={{ period, puntCategories, simulationMode, mainTeam, colorByTrend, calculationEngine }}
+          seasonConfig={seasonConfig}
+        />
+      </div>
+    );
+  }
 
   if (draftState?.status === 'live' || draftState?.status === 'upcoming' || draftState?.postdraft) {
     return (

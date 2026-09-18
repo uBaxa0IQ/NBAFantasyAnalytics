@@ -95,7 +95,10 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
                 <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
                     {data.days.map(day => (
                         <div key={day.scoring_period} className="border rounded-lg p-4">
-                            <div className="font-semibold mb-3">Игровой день {day.scoring_period}</div>
+                            <div className="font-semibold mb-3">
+                                Игровой день {day.scoring_period}
+                                {day.delta_p_win !== undefined && <span className={`ml-2 text-xs ${day.delta_p_win >= 0 ? 'text-green-700' : 'text-red-700'}`}>Δ состава: {day.delta_p_win >= 0 ? '+' : ''}{(day.delta_p_win * 100).toFixed(1)} п.п. P(win)</span>}
+                            </div>
                             {day.empty_slot_ok && <div className="mb-2 text-xs text-amber-700">Модель допускает пустой слот, если дополнительная игра снижает шанс победы.</div>}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
                                 {day.starters.map((starter, index) => (
@@ -103,7 +106,6 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
                                         <div className="text-xs font-bold text-blue-700">{starter.slot}</div>
                                         <div className="font-medium truncate" title={starter.name}>{starter.name}</div>
                                         <div className="text-xs text-gray-500">{starter.position} · {data.objective === 'opponent_category_utility' ? 'вклад' : 'Z'} {starter.value.toFixed(3)}</div>
-                                        {starter.delta_p_win !== undefined && <div className={`text-xs font-semibold ${starter.delta_p_win >= 0 ? 'text-green-700' : 'text-red-700'}`}>вклад в P(win): {starter.delta_p_win >= 0 ? '+' : ''}{(starter.delta_p_win * 100).toFixed(1)} п.п.</div>}
                                     </div>
                                 ))}
                             </div>

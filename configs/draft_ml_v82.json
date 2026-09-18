@@ -1,0 +1,32 @@
+{
+  "seed": 820915,
+  "output": "artifacts/draft_ml/v82-auto-strategy",
+  "champion": "artifacts/draft_ml/v811-residual/frozen.pt",
+  "snapshot": "artifacts/draft_ml/standard8/standard8-market-v4-inputs.json",
+  "workers": 6,
+  "commit_round": 3,
+  "train_states_per_format": 20,
+  "validation_states_per_format": 5,
+  "shortlist": 24,
+  "label_rollouts": 2,
+  "terminal_draws": 2,
+  "validation_cycles_per_seat": 2,
+  "holdout_cycles_per_seat": 4,
+  "max_punts": {"8": 2, "9": 2, "10": 3, "11": 3},
+  "training": {
+    "epochs": 36,
+    "width": 48,
+    "learning_rate": 0.0002,
+    "weight_decay": 0.01,
+    "patience": 7,
+    "minimum_improvement": 0.0001,
+    "ranking_temperature": 0.03,
+    "regression_weight": 1.0,
+    "ranking_weight": 0.25,
+    "device": "auto"
+  },
+  "validation_gates": {
+    "normalized_delta_min": 0.002,
+    "interval_low_min": -0.005
+  }
+}

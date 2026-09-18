@@ -7,6 +7,8 @@ from web.backend.services.draft import (
     _round_balanced_roster_comparison,
     _strategy_suggestions,
     get_draft_state,
+    estimate_projected_double_doubles,
+    normalize_projected_stats,
 )
 from web.backend.services.draft_advisor import (
     _durability_penalty,
@@ -42,6 +44,51 @@ class FakeRequest:
                 }
             },
         }
+
+
+def test_projected_stats_restore_sparse_zero_fields_and_ratios():
+    normalized = normalize_projected_stats({
+        "GP": 70, "PTS": 8, "REB": 5, "AST": 2,
+        "FGM": 3, "FGA": 6, "FTM": 2, "FTA": 2,
+    })
+
+    assert normalized is not None
+    assert normalized["3PM"] == normalized["3PA"] == 0
+    assert normalized["STL"] == normalized["BLK"] == 0
+    assert normalized["FG%"] == .5
+    assert normalized["FT%"] == 1
+    assert "DD" not in normalized
+
+
+def test_projected_double_doubles_use_prior_rate_and_peer_fallback():
+    projected = {
+        1: {"GP": 70, "PTS": 27, "REB": 12, "AST": 10, "STL": 1, "BLK": 1},
+        2: {"GP": 70, "PTS": 20, "REB": 11, "AST": 2, "STL": 1, "BLK": 1},
+        3: {"GP": 70, "PTS": 20, "REB": 10.5, "AST": 2, "STL": 1, "BLK": 1},
+    }
+    historical = {
+        1: {"GP": 65, "PTS": 28, "REB": 13, "AST": 10.5, "STL": 1, "BLK": 1, "DD": .85},
+        2: {"GP": 70, "PTS": 19, "REB": 11, "AST": 2, "STL": 1, "BLK": 1, "DD": .55},
+    }
+
+    result, sources = estimate_projected_double_doubles(projected, historical)
+
+    assert .6 < result[1]["DD"] <= 1
+    assert .3 < result[2]["DD"] < .8
+    assert result[3]["DD"] > 0
+    assert sources[1] == "derived_prior_and_peers"
+    assert sources[3] == "derived_peers"
+
+
+def test_projected_stats_quarantine_incomplete_or_impossible_cards():
+    incomplete = {"GP": 70, "STL": .5, "FGA": 4}
+    impossible = {
+        "GP": 70, "PTS": 8, "REB": 5, "AST": 2,
+        "FGM": 7, "FGA": 6, "FTM": 2, "FTA": 2,
+    }
+
+    assert normalize_projected_stats(incomplete) is None
+    assert normalize_projected_stats(impossible) is None
 
 
 class FakeLeagueMetadata:
@@ -764,7 +811,7 @@ def test_population_self_play_compares_adaptive_and_legacy_policies():
 
     assert result["paired_scenarios"] == 2
     assert {row["id"] for row in result["strategies"]} == {
-        "legacy_balanced", "legacy_best_fixed", "adaptive_heuristic", "adaptive",
+        "roto", "legacy_balanced", "legacy_best_fixed", "adaptive_heuristic", "adaptive",
     }
     assert result["comparisons_to_adaptive_heuristic"][0]["strategy"] == "adaptive"
     assert result["comparisons_to_legacy_fixed"][0]["strategy"] == "adaptive"

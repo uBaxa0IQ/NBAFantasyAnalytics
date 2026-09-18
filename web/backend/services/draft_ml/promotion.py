@@ -18,6 +18,7 @@ DEFAULT_THRESHOLDS = {
 
 def promotion_decision(test_metrics, self_play_report, thresholds=None):
     thresholds = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
+    live_ranker = test_metrics.get("reranker") or test_metrics["policy"]
     adaptive = next(row for row in self_play_report["strategies"] if row["id"] == "adaptive")
     champion = next(row for row in self_play_report["strategies"] if row["id"] == "legacy_balanced")
     comparison = next(
@@ -25,9 +26,13 @@ def promotion_decision(test_metrics, self_play_report, thresholds=None):
         if row["strategy"] == "adaptive"
     )
     checks = {
+        "corrected_benchmark": self_play_report.get("benchmark_version", 0) >= 2,
+        "beats_adaptive": any(row.get("delta_category_wins_ci95", [0])[0] > 0 for row in self_play_report.get("comparisons_to_adaptive_heuristic", [])),
         "reward_mae": test_metrics["value"]["reward"]["mae"] <= thresholds["reward_mae_max"],
-        "policy_top1": test_metrics["policy"]["top1_accuracy"] >= thresholds["policy_top1_min"],
-        "policy_regret": test_metrics["policy"]["mean_regret"] <= thresholds["policy_regret_max"],
+        # Gate the exact blended ranker used live. Older checkpoints fall back
+        # to their policy metrics for backward-compatible evaluation.
+        "policy_top1": live_ranker["top1_accuracy"] >= thresholds["policy_top1_min"],
+        "policy_regret": live_ranker["mean_regret"] <= thresholds["policy_regret_max"],
         "self_play_ci": comparison["delta_category_wins_ci95"][0] > thresholds["self_play_ci_lower_min"],
         "downside": adaptive["worst_decile_category_wins"] + thresholds["worst_decile_drop_max"] >= champion["worst_decile_category_wins"],
     }

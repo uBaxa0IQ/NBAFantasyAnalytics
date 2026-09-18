@@ -17,6 +17,9 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
     const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
     const [filters, setFilters] = useState(savedState.filters || {});
     const [playerTrends, setPlayerTrends] = useState({});
+    const [maxTransactions, setMaxTransactions] = useState(savedState.maxTransactions || 2);
+    const [acquisitionsRemaining, setAcquisitionsRemaining] = useState(savedState.acquisitionsRemaining ?? 2);
+    const [waiverDelayDays, setWaiverDelayDays] = useState(savedState.waiverDelayDays || 0);
 
     useEffect(() => {
         setSortBy(personalized ? 'calendar_fit' : 'total_z');
@@ -29,6 +32,10 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
             period,
             position: position || undefined,
             punt_categories: puntCategories.join(','),
+            calculation_engine: calculationEngine,
+            max_transactions: maxTransactions,
+            acquisitions_remaining: acquisitionsRemaining,
+            waiver_delay_days: waiverDelayDays,
         } })
             .then(res => {
                 setData(res.data);
@@ -38,7 +45,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                 console.error(err);
                 setLoading(false);
             });
-    }, [period, position, mainTeam, puntCategories, personalized]);
+    }, [period, position, mainTeam, puntCategories, personalized, calculationEngine, maxTransactions, acquisitionsRemaining, waiverDelayDays]);
 
     // Загружаем тренды, если включена окраска по тренду
     useEffect(() => {
@@ -61,9 +68,12 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
     useEffect(() => {
         saveState(StorageKeys.FREE_AGENTS, {
             position,
-            filters
+            filters,
+            maxTransactions,
+            acquisitionsRemaining,
+            waiverDelayDays,
         });
-    }, [position, filters]);
+    }, [position, filters, maxTransactions, acquisitionsRemaining, waiverDelayDays]);
 
 
     const calculateTotalZ = (player) => {
@@ -97,8 +107,8 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
             valA = calculateTotalZ(a);
             valB = calculateTotalZ(b);
         } else if (sortBy === 'calendar_fit') {
-            valA = a.matchup_gain ?? a.lineup_gain ?? 0;
-            valB = b.matchup_gain ?? b.lineup_gain ?? 0;
+            valA = a.delta_p_win ?? a.matchup_gain ?? a.lineup_gain ?? 0;
+            valB = b.delta_p_win ?? b.matchup_gain ?? b.lineup_gain ?? 0;
         } else if (sortBy === 'lineup_gain' || sortBy === 'selected_games') {
             valA = a[sortBy] || 0;
             valB = b[sortBy] || 0;
@@ -171,11 +181,27 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                 >
                     Фильтры {hasActiveFilters && `(${Object.keys(filters).length})`}
                 </button>
+                {personalized && calculationEngine === 'probabilistic' && (<>
+                    <label className="text-xs text-gray-600">Макс. ходов
+                        <input className="block w-20 border p-2 rounded text-sm" type="number" min="1" max="3" value={maxTransactions} onChange={e => setMaxTransactions(Math.max(1, Math.min(3, Number(e.target.value) || 1)))} />
+                    </label>
+                    <label className="text-xs text-gray-600">Добавлений осталось
+                        <input className="block w-24 border p-2 rounded text-sm" type="number" min="0" max="10" value={acquisitionsRemaining} onChange={e => setAcquisitionsRemaining(Math.max(0, Math.min(10, Number(e.target.value) || 0)))} />
+                    </label>
+                    <label className="text-xs text-gray-600">Waiver, дней
+                        <input className="block w-20 border p-2 rounded text-sm" type="number" min="0" max="7" value={waiverDelayDays} onChange={e => setWaiverDelayDays(Math.max(0, Math.min(7, Number(e.target.value) || 0)))} />
+                    </label>
+                </>)}
             </div>
 
             {personalized && data && (
                 <div className="mb-4 p-3 rounded bg-blue-50 text-sm text-blue-900">
                     {data.note || 'Прирост после одиночной замены по оставшемуся календарю и слотам лиги.'}
+                    {data.transaction_plans?.[0] && (
+                        <div className="mt-2 font-semibold">
+                            Лучший план: {data.transaction_plans[0].actions.map(action => `${action.order}) +${action.add} / −${action.drop}`).join(' → ')}; ΔP(win) {data.transaction_plans[0].delta_p_win >= 0 ? '+' : ''}{(data.transaction_plans[0].delta_p_win * 100).toFixed(1)} п.п.
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -226,8 +252,12 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                     <td className="p-2 border text-center text-sm">{player.nba_team}</td>
                                     {personalized && (
                                         <>
-                                            <td className={`p-2 border text-center font-bold ${player.lineup_gain > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                <div>{player.matchup_gain > 0 ? '+' : ''}{(player.matchup_gain ?? player.lineup_gain).toFixed(3)} {data.method === 'opponent_category_utility' ? 'балла категорий' : 'Z'}</div>
+                                            <td className={`p-2 border text-center font-bold ${(player.delta_p_win ?? player.lineup_gain) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {player.delta_p_win !== undefined ? (
+                                                    <div>{player.delta_p_win >= 0 ? '+' : ''}{(player.delta_p_win * 100).toFixed(1)} п.п. P(win)</div>
+                                                ) : (
+                                                    <div>{player.matchup_gain > 0 ? '+' : ''}{(player.matchup_gain ?? player.lineup_gain).toFixed(3)} {data.method === 'opponent_category_utility' ? 'балла категорий' : 'Z'}</div>
+                                                )}
                                                 <div className="text-xs font-normal text-gray-500">
                                                     {player.player_games_delta > 0 ? '+' : ''}{player.player_games_delta} player-games
                                                 </div>

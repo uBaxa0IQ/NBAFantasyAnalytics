@@ -1,4 +1,4 @@
-"""Optional learned reranker. It is inert until a champion is promoted."""
+"""Live draft reranker: promoted sklearn champion, otherwise V8 frozen.pt."""
 
 from __future__ import annotations
 
@@ -16,9 +16,13 @@ _bundle_cache = {}
 
 
 def _champion_path(categories):
+    if os.getenv("DRAFT_DISABLE_LEARNED") == "1":
+        return None
     override = os.getenv("DRAFT_MODEL_CHECKPOINT")
     if override:
         path = Path(override)
+        if not path.exists() and os.getenv("DRAFT_ML_STRICT") == "1":
+            raise FileNotFoundError(f"Requested ML checkpoint missing: {path}")
         return path if path.exists() else None
     root = Path(os.getenv("DRAFT_MODEL_CHAMPIONS", "artifacts/draft_ml/champions"))
     configured = set(categories)
@@ -45,10 +49,51 @@ def _bundle(path):
 
 
 def maybe_apply_learned_rerank(players, context, limit=16):
+    if os.getenv("DRAFT_DISABLE_LEARNED") == "1":
+        return {"enabled": False, "reason": "no_promoted_checkpoint"}
     checkpoint = _champion_path(context.categories)
     if checkpoint is None or len(players) < 2:
+        from .v8_inference import maybe_apply_v8_rerank
+        neural = maybe_apply_v8_rerank(players, context, limit=limit)
+        if neural.get("enabled"):
+            return neural
         return {"enabled": False, "reason": "no_promoted_checkpoint"}
     try:
+        bundle = _bundle(checkpoint)
+        if bundle.market_free_genome is not None or bundle.market_free_genomes is not None:
+            from .evolution import (
+                rank_market_free_candidates, rank_market_free_ensemble_candidates,
+            )
+
+            candidate_limit = int(bundle.manifest.get("inference_candidate_limit", len(players)))
+            candidates = list(players[:candidate_limit])
+            if bundle.market_free_genomes is not None:
+                ranked = rank_market_free_ensemble_candidates(
+                    candidates, context, bundle.market_free_genomes,
+                )
+            else:
+                ranked = rank_market_free_candidates(candidates, context, bundle.market_free_genome)
+            candidates = [player for player, _ in ranked]
+            by_identity = {
+                player.get("player_id") or player.get("name"): score for player, score in ranked
+            }
+            candidate_ids = {id(player) for player in candidates}
+            score_floor = max(
+                (float(player.get("score", 0.0)) for player in players if id(player) not in candidate_ids),
+                default=-100.0,
+            )
+            for index, player in enumerate(candidates):
+                identity = player.get("player_id") or player.get("name")
+                player["learned_policy_score"] = round(by_identity[identity], 4)
+                player["score"] = round(score_floor + (len(candidates) - index) * 0.10, 4)
+            players[:] = candidates + [player for player in players if id(player) not in candidate_ids]
+            return {
+                "enabled": True,
+                "checkpoint": checkpoint.name,
+                "model_version": bundle.manifest.get("model_version"),
+                "policy_type": bundle.policy_type,
+                "uses_market_features": False,
+            }
         strategies = strategy_probabilities(
             context.roster, context.categories, context.rounds,
             fixed_punts=context.punt_categories,
@@ -74,8 +119,12 @@ def maybe_apply_learned_rerank(players, context, limit=16):
         predictions = _bundle(checkpoint).predict(records)
         rewards = [row["reward"] for row in predictions]
         mean, scale = fmean(rewards), pstdev(rewards) or 1.0
+        reward_weight = bundle.rerank_reward_weight
         by_identity = {
-            row["candidate_id"]: (row["reward"] - mean) / scale * 0.72 + row["policy_probability"] * 0.28
+            row["candidate_id"]: (
+                (row["reward"] - mean) / scale * reward_weight
+                + row["policy_probability"] * (1.0 - reward_weight)
+            )
             for row in predictions
         }
         candidates.sort(
@@ -93,11 +142,13 @@ def maybe_apply_learned_rerank(players, context, limit=16):
             )
             player["score"] = round(score_floor + (len(candidates) - index) * 0.10, 4)
         players[:] = candidates + [player for player in players if id(player) not in candidate_ids]
-        bundle = _bundle(checkpoint)
         return {
             "enabled": True,
             "checkpoint": checkpoint.name,
             "model_version": bundle.manifest.get("model_version"),
+            "rerank_reward_weight": reward_weight,
         }
     except Exception as error:
+        if os.getenv("DRAFT_ML_STRICT") == "1":
+            raise
         return {"enabled": False, "reason": "checkpoint_error", "detail": str(error)}

@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from itertools import combinations
 from datetime import datetime, timezone
 from time import monotonic
+import math
 
 from espn_api.basketball.player import Player
 
@@ -24,6 +25,10 @@ from .draft_live import overlay_live_draft
 _previous_stats_cache = {}
 _PREVIOUS_STATS_TTL_SECONDS = 6 * 60 * 60
 _roster_slots_cache = {}
+_PROJECTED_REQUIRED_STATS = ("GP", "PTS", "REB", "AST", "FGM", "FGA", "FTM", "FTA")
+_PROJECTED_SPARSE_ZERO_STATS = ("STL", "BLK", "3PM", "3PA", "TO")
+_DD_FEATURES = ("PTS", "REB", "AST", "STL", "BLK")
+_DD_SCALES = (6.0, 2.5, 2.5, 1.0, 1.0)
 _LINEUP_SLOT_MAP = {
     0: "PG", 1: "SG", 2: "SF", 3: "PF", 4: "C", 5: "G", 6: "F",
     7: "SG/SF", 8: "G/F", 9: "PF/C", 10: "F/C", 11: "UT", 12: "BE",
@@ -143,6 +148,99 @@ def _raw_average(player, period):
         for key, value in stats.items()
         if isinstance(value, (int, float)) or value is None
     }
+
+
+def normalize_projected_stats(stats):
+    """Validate projections and restore ESPN fields omitted when equal to zero."""
+    if not isinstance(stats, dict):
+        return None
+    normalized = {}
+    for key, value in stats.items():
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            number = float(value)
+            if not math.isfinite(number) or number < 0:
+                return None
+            normalized[key] = number
+    if any(key not in normalized for key in _PROJECTED_REQUIRED_STATS):
+        return None
+    if normalized["GP"] <= 0:
+        return None
+    for key in _PROJECTED_SPARSE_ZERO_STATS:
+        normalized.setdefault(key, 0.0)
+    for made, attempted in (("FGM", "FGA"), ("FTM", "FTA"), ("3PM", "3PA")):
+        if normalized[made] > normalized[attempted] + 1e-9:
+            return None
+    normalized["FG%"] = normalized["FGM"] / normalized["FGA"] if normalized["FGA"] else 0.0
+    normalized["FT%"] = normalized["FTM"] / normalized["FTA"] if normalized["FTA"] else 0.0
+    normalized["3PT%"] = normalized["3PM"] / normalized["3PA"] if normalized["3PA"] else 0.0
+    normalized["A/TO"] = normalized["AST"] / normalized["TO"] if normalized["TO"] else normalized["AST"]
+    return normalized
+
+
+def _fallback_double_double_rate(stats):
+    """Approximate P(at least two categories reach 10) from per-game means."""
+    probabilities = []
+    for key, scale in (("PTS", 3.0), ("REB", 1.8), ("AST", 1.8), ("STL", .8), ("BLK", .8)):
+        mean = float(stats.get(key, 0.0) or 0.0)
+        probabilities.append(1.0 / (1.0 + math.exp(max(-30.0, min(30.0, (10.0 - mean) / scale)))))
+    zero = math.prod(1.0 - probability for probability in probabilities)
+    exactly_one = sum(probabilities[index] * math.prod(
+        1.0 - other for other_index, other in enumerate(probabilities) if other_index != index
+    ) for index in range(len(probabilities)))
+    return max(0.0, min(1.0, 1.0 - zero - exactly_one))
+
+
+def estimate_projected_double_doubles(projected, historical):
+    """Fill missing projected DD rates from prior results and peer calibration.
+
+    ``DD`` remains a per-game expected rate, matching ESPN's historical ``avg``
+    representation and the projected-volume evaluator (rate × projected GP).
+    Explicit future DD projections, if ESPN adds them, always win.
+    """
+    training = []
+    for player_id, stats in historical.items():
+        if not isinstance(stats, dict) or "DD" not in stats or float(stats.get("GP", 0) or 0) < 5:
+            continue
+        features = tuple(float(stats.get(key, 0.0) or 0.0) for key in _DD_FEATURES)
+        training.append((int(player_id), features, max(0.0, min(1.0, float(stats["DD"])))))
+
+    def peer_rate(stats):
+        if not training:
+            return _fallback_double_double_rate(stats)
+        target = tuple(float(stats.get(key, 0.0) or 0.0) for key in _DD_FEATURES)
+        nearest = []
+        for _, features, rate in training:
+            distance = math.sqrt(sum(((left - right) / scale) ** 2
+                                     for left, right, scale in zip(target, features, _DD_SCALES)))
+            nearest.append((distance, rate))
+        nearest.sort(key=lambda row: row[0]); nearest = nearest[:12]
+        weights = [math.exp(-distance) for distance, _ in nearest]
+        if sum(weights) <= 1e-12:
+            return _fallback_double_double_rate(stats)
+        return sum(weight * row[1] for weight, row in zip(weights, nearest)) / sum(weights)
+
+    result = {}; sources = {}
+    for player_id, stats in projected.items():
+        row = dict(stats)
+        if "DD" in row:
+            sources[player_id] = "espn_projected"
+            result[player_id] = row
+            continue
+        current_peer = peer_rate(row)
+        prior = historical.get(player_id) or {}
+        if "DD" in prior and float(prior.get("GP", 0) or 0) >= 5:
+            prior_rate = max(0.0, min(1.0, float(prior["DD"])))
+            prior_peer = max(.01, peer_rate(prior))
+            role_factor = max(.4, min(2.5, current_peer / prior_peer))
+            adjusted_prior = max(0.0, min(1.0, prior_rate * role_factor))
+            reliability = min(.8, float(prior.get("GP", 0) or 0) / 82.0)
+            row["DD"] = reliability * adjusted_prior + (1.0 - reliability) * current_peer
+            sources[player_id] = "derived_prior_and_peers"
+        else:
+            row["DD"] = current_peer
+            sources[player_id] = "derived_peers"
+        result[player_id] = row
+    return result, sources
 
 
 def _previous_season_stats(league_metadata, player_ids):
@@ -444,18 +542,31 @@ def get_draft_recommendations(
             continue
         seen_free_agents.add(identity)
         free_agents.append(player)
-    current_stats = {
-        int(player.playerId): stats
-        for player in free_agents
-        if getattr(player, "playerId", None) is not None
-        if (stats := league_metadata.get_player_stats(player, period, "avg"))
-    }
-    use_previous_season = len(current_stats) < max(10, len(free_agents) // 2)
-    previous_stats = _previous_season_stats(
+    projected_period = str(period).endswith("_projected")
+    stat_players = list(free_agents) + [player for player in drafted_by_id.values()
+                                        if getattr(player, "playerId", None) not in seen_free_agents]
+    current_stats = {}
+    for player in stat_players:
+        if getattr(player, "playerId", None) is None:
+            continue
+        stats = league_metadata.get_player_stats(player, period, "avg")
+        if projected_period:
+            stats = normalize_projected_stats(stats)
+        if stats:
+            current_stats[int(player.playerId)] = stats
+    current_free_count = sum(int(player.playerId) in current_stats for player in free_agents
+                             if getattr(player, "playerId", None) is not None)
+    use_previous_season = current_free_count < max(10, len(free_agents) // 2)
+    need_dd_history = projected_period and any("DD" not in stats for stats in current_stats.values())
+    historical_stats = _previous_season_stats(
         league_metadata,
         [getattr(player, "playerId", None) for player in free_agents]
         + all_drafted_ids,
-    ) if use_previous_season else {}
+    ) if use_previous_season or need_dd_history else {}
+    dd_sources = {}
+    if projected_period and current_stats:
+        current_stats, dd_sources = estimate_projected_double_doubles(current_stats, historical_stats)
+    previous_stats = historical_stats if use_previous_season else {}
     ensure_current()
 
     resolved_stats_sources = {}
@@ -467,8 +578,11 @@ def get_draft_recommendations(
         normalized_id = int(player_id)
         # Prefer the requested ESPN projection whenever it exists. Previous
         # season data is only a per-player fallback, never a global replacement.
-        selected = current_stats.get(normalized_id) \
-            or league_metadata.get_player_stats(player, period, "avg")
+        selected = current_stats.get(normalized_id)
+        if not selected:
+            selected = league_metadata.get_player_stats(player, period, "avg")
+            if projected_period:
+                selected = normalize_projected_stats(selected)
         if selected:
             resolved_stats_sources[normalized_id] = "selected_period"
             return selected
@@ -480,6 +594,10 @@ def get_draft_recommendations(
     def stats_source_for(player):
         player_id = getattr(player, "playerId", None)
         return resolved_stats_sources.get(int(player_id), "unavailable") if player_id is not None else "unavailable"
+
+    def dd_source_for(player):
+        player_id = getattr(player, "playerId", None)
+        return dd_sources.get(int(player_id), "unavailable") if player_id is not None else "unavailable"
 
     score_population = []
     candidate_objects = {}
@@ -580,6 +698,7 @@ def get_draft_recommendations(
             "games_played": int(stats.get("GP", 0) or 0),
             "analysis_context": "draft",
             "stats_source": stats_source_for(roster_player),
+            "dd_source": dd_source_for(roster_player),
             "stats_available": bool(stats),
         }
         attach_market(roster_record, market, player_id=player_id, name=roster_player.name)
@@ -660,6 +779,7 @@ def get_draft_recommendations(
             "games_played": int(source_stats.get("GP", 0) or 0) if source_stats else 0,
             "analysis_context": "draft",
             "stats_source": stats_source_for(source),
+            "dd_source": dd_source_for(source),
             "reason": "лучшая доступная ценность стратегии",
         }
         attach_market(
@@ -822,11 +942,13 @@ def get_draft_recommendations(
         "team_id": team_id,
         "period": period,
         "stats_source": "selected_period_with_previous_season_fallback" if previous_stats else "selected_period",
+        "projected_dd_source_counts": dict(Counter(dd_sources.values())),
         "stats_season": league_metadata.year,
         "analysis_context": "draft",
         "market_source": market.get("source"),
         "market_available": market.get("available", False),
         "market_stale": market.get("stale", False),
+        "market_note": "Рынок: более ранняя оценка из draft ROTO и Player Rater лиги + ADP. Период Player Rater — по умолчанию API, не подтверждён по интерфейсу ESPN. Доступность — консервативная оценка, не гарантия.",
         "availability_model": "uncalibrated_gaussian_estimate",
         "punt_categories": list(punt_categories),
         "weak_categories": weakest,
@@ -886,3 +1008,72 @@ def get_draft_recommendations(
             # Telemetry must never interrupt live advice.
             pass
     return response
+
+
+_MOCK_POOL = {}
+
+
+def run_human_mock_draft(
+    league_metadata,
+    team_id: int,
+    period: str = PERIODS["projected"],
+    human_picks=(),
+    seed: int = 9105,
+    opponent_field: str = "strong",
+    advisor: str = "heuristic",
+    punt_categories=(),
+):
+    from .draft_mock import MockDraftError, play_mock_draft
+
+    cache_key = (
+        int(getattr(league_metadata, "league_id", 0) or 0),
+        int(getattr(league_metadata, "year", 0) or 0),
+        int(team_id),
+        str(period),
+        str(getattr(league_metadata, "last_refresh_time", "")),
+    )
+    cached = _MOCK_POOL.get(cache_key)
+    if cached is None:
+        recs = get_draft_recommendations(
+            league_metadata,
+            team_id,
+            period,
+            (),
+            300,
+            (),
+            None,
+            run_simulation=False,
+        )
+        state = get_draft_state(league_metadata)
+        pick_order = list(state.get("settings", {}).get("pick_order") or ())
+        if team_id not in pick_order:
+            raise MockDraftError("Порядок драфта неизвестен")
+        names = _team_names(league_metadata)
+        cached = {
+            "players": recs["players"],
+            "slot": pick_order.index(team_id) + 1,
+            "team_count": max(1, int(state.get("team_count") or len(pick_order))),
+            "rounds": int(recs.get("draft_rounds") or recs.get("roster_limit") or 14),
+            "roster_slots": tuple(recs.get("roster_slots") or ()),
+            "slot_names": {
+                index + 1: names.get(order_team_id, f"Team {order_team_id}")
+                for index, order_team_id in enumerate(pick_order)
+            },
+            "categories": list(league_metadata.get_categories()),
+        }
+        _MOCK_POOL[cache_key] = cached
+    return play_mock_draft(
+        cached["players"],
+        slot=cached["slot"],
+        team_count=cached["team_count"],
+        rounds=cached["rounds"],
+        human_picks=human_picks,
+        seed=int(seed),
+        roster_slots=cached["roster_slots"],
+        categories=cached["categories"],
+        opponent_field=opponent_field,
+        slot_names=cached["slot_names"],
+        advisor=advisor,
+        punt_categories=punt_categories,
+    )
+

@@ -407,15 +407,25 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
                                 ].map(([teamId, name]) => {
                                     const impact = result.calendar_impact.teams[teamId];
                                     if (!impact) return null;
+                                    const probabilityImpact = impact.current_matchup_delta;
                                     return (
                                         <div key={teamId} className="bg-white rounded p-4 border">
                                             <div className="font-semibold">{name}</div>
-                                            <div className={`text-2xl font-bold mt-1 ${impact.delta > 0 ? 'text-green-600' : impact.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                                {impact.delta > 0 ? '+' : ''}{impact.delta}
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                Полезных player-games: {impact.selected_games_before} → {impact.selected_games_after}
-                                            </div>
+                                            {probabilityImpact ? (<>
+                                                <div className={`text-2xl font-bold mt-1 ${probabilityImpact.p_win > 0 ? 'text-green-600' : probabilityImpact.p_win < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                    {probabilityImpact.p_win > 0 ? '+' : ''}{(probabilityImpact.p_win * 100).toFixed(1)} п.п. P(win)
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    P(playoff): {(impact.season.delta_p_playoff * 100).toFixed(1)} п.п.; P(title): {(impact.season.delta_p_title * 100).toFixed(1)} п.п.
+                                                </div>
+                                            </>) : (<>
+                                                <div className={`text-2xl font-bold mt-1 ${impact.delta > 0 ? 'text-green-600' : impact.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                    {impact.delta > 0 ? '+' : ''}{impact.delta}
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    Полезных player-games: {impact.selected_games_before} → {impact.selected_games_after}
+                                                </div>
+                                            </>)}
                                         </div>
                                     );
                                 })}

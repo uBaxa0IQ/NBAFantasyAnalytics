@@ -464,12 +464,21 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                                     {calendarImpact && (
                                         <div className="mb-4 p-3 rounded bg-blue-50 border border-blue-100">
                                             <div className="text-xs text-gray-600">По оставшемуся календарю</div>
-                                            <div className={`text-lg font-bold ${calendarImpact.delta > 0 ? 'text-green-600' : calendarImpact.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                                {calendarImpact.delta > 0 ? '+' : ''}{calendarImpact.delta}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                Player-games: {calendarImpact.selected_games_before} → {calendarImpact.selected_games_after}
-                                            </div>
+                                            {calendarImpact.current_matchup_delta ? (<>
+                                                <div className={`text-lg font-bold ${calendarImpact.current_matchup_delta.p_win > 0 ? 'text-green-600' : calendarImpact.current_matchup_delta.p_win < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                    {calendarImpact.current_matchup_delta.p_win > 0 ? '+' : ''}{(calendarImpact.current_matchup_delta.p_win * 100).toFixed(1)} п.п. P(win)
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    Playoff: {(calendarImpact.season.delta_p_playoff * 100).toFixed(1)} п.п.; title: {(calendarImpact.season.delta_p_title * 100).toFixed(1)} п.п.
+                                                </div>
+                                            </>) : (<>
+                                                <div className={`text-lg font-bold ${calendarImpact.delta > 0 ? 'text-green-600' : calendarImpact.delta < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                    {calendarImpact.delta > 0 ? '+' : ''}{calendarImpact.delta}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    Player-games: {calendarImpact.selected_games_before} → {calendarImpact.selected_games_after}
+                                                </div>
+                                            </>)}
                                         </div>
                                     )}
                                     {team.players_given.length > 0 && (

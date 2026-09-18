@@ -1,0 +1,53 @@
+{
+  "seed": 8220916,
+  "output": "artifacts/draft_ml/v822-format-routed",
+  "source_data": "artifacts/draft_ml/v82-auto-strategy/data",
+  "champion": "artifacts/draft_ml/v811-residual/frozen.pt",
+  "workers": 6,
+  "commit_round": 3,
+  "terminal_draws": 2,
+  "validation_cycles_per_seat": 2,
+  "holdout_cycles_per_seat": 4,
+  "max_punts": {"8": 2, "9": 2, "10": 3, "11": 3},
+  "training_seeds": [8220916, 8221916, 8222916],
+  "confidence_candidates": [
+    {"margin": 0.0, "minimum_votes": 1},
+    {"margin": 0.0, "minimum_votes": 2},
+    {"margin": 0.0, "minimum_votes": 3},
+    {"margin": 0.2, "minimum_votes": 1},
+    {"margin": 0.2, "minimum_votes": 2},
+    {"margin": 0.2, "minimum_votes": 3},
+    {"margin": 0.4, "minimum_votes": 1},
+    {"margin": 0.4, "minimum_votes": 2},
+    {"margin": 0.4, "minimum_votes": 3}
+  ],
+  "training": {
+    "epochs": 70,
+    "width": 72,
+    "heads": 4,
+    "layers": 2,
+    "experts": 4,
+    "learning_rate": 0.00012,
+    "weight_decay": 0.01,
+    "patience": 12,
+    "minimum_improvement": 0.0001,
+    "target_temperature": 0.65,
+    "prediction_temperature": 1.0,
+    "pairwise_margin": 0.45,
+    "listwise_weight": 1.0,
+    "pairwise_weight": 0.65,
+    "regression_weight": 0.15,
+    "validation_regret_weight": 2.0,
+    "balance_exponent": 0.5,
+    "maximum_sample_multiplier": 4.0,
+    "device": "auto"
+  },
+  "validation_gates": {
+    "normalized_delta_min": 0.003,
+    "interval_low_min": -0.002,
+    "standard8_delta_min": 0.0,
+    "family_delta_min": -0.003,
+    "maximum_profile_share": 0.7,
+    "minimum_unique_profiles": 5
+  }
+}

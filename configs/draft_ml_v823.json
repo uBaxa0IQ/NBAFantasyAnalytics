@@ -1,0 +1,34 @@
+{
+  "seed": 8230916,
+  "output": "artifacts/draft_ml/v823-family-calibrated",
+  "source_run": "artifacts/draft_ml/v822-format-routed",
+  "champion": "artifacts/draft_ml/v811-residual/frozen.pt",
+  "workers": 6,
+  "commit_round": 3,
+  "terminal_draws": 2,
+  "validation_cycles_per_seat": 2,
+  "holdout_cycles_per_seat": 4,
+  "max_punts": {"8": 2, "9": 2, "10": 3, "11": 3},
+  "training_seeds": [8220916, 8221916, 8222916],
+  "confidence_candidates": [
+    {"margin": 0.0, "minimum_votes": 1},
+    {"margin": 0.0, "minimum_votes": 2},
+    {"margin": 0.0, "minimum_votes": 3},
+    {"margin": 0.2, "minimum_votes": 1},
+    {"margin": 0.2, "minimum_votes": 2},
+    {"margin": 0.2, "minimum_votes": 3},
+    {"margin": 0.4, "minimum_votes": 1},
+    {"margin": 0.4, "minimum_votes": 2},
+    {"margin": 0.4, "minimum_votes": 3}
+  ],
+  "development_evidence_gates": {
+    "normalized_delta_min": 0.003,
+    "interval_low_min": 0.0
+  },
+  "calibration_gates": {
+    "normalized_delta_min": 0.003,
+    "interval_low_min": -0.003,
+    "maximum_profile_share": 0.85,
+    "minimum_unique_profiles": 3
+  }
+}

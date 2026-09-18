@@ -20,6 +20,10 @@ class TrainingConfig:
     projection_stat_stddev: float = 0.08
     output_dir: str = "artifacts/draft_ml"
     policy_checkpoint: str | None = None
+    market_models: tuple[str, ...] = ("snapshot",)
+    opponent_fields: tuple[str, ...] = ("mixed",)
+    candidate_pool: str = "market"
+    experiment_id: str = ""
     behavior_policies: tuple[str, ...] = (
         "adaptive", "legacy_balanced", "legacy_fixed", "roto", "adp",
     )
@@ -44,6 +48,14 @@ class TrainingConfig:
             raise ValueError("workers must be positive")
         if not self.behavior_policies:
             raise ValueError("at least one behavior policy is required")
+        if not self.market_models or set(self.market_models) - {"snapshot", "conservative", "espn_draft", "league_rater", "category_z"}:
+            raise ValueError("Unsupported market_models")
+        if not self.opponent_fields or set(self.opponent_fields) - {"mixed", "market", "human", "heuristic_mixed"}:
+            raise ValueError("Unsupported opponent_fields")
+        if self.candidate_pool not in {"market", "balanced"}:
+            raise ValueError("Unsupported candidate_pool")
+        if self.experiment_id and not self.experiment_id.replace('-', '').replace('_', '').isalnum():
+            raise ValueError("Invalid experiment_id")
         supported = {"adaptive", "legacy_balanced", "legacy_fixed", "roto", "adp"}
         unknown = set(self.behavior_policies) - supported
         if unknown:

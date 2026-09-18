@@ -43,6 +43,8 @@ docker-compose*.yml
 .env.*.local
 
 # Build outputs
+artifacts/
+.cache/
 dist/
 build/
 *.egg-info/

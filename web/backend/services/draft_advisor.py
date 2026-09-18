@@ -672,6 +672,8 @@ def _candidate_profile(player):
         "espn_adp": player.get("espn_adp"),
         "espn_market_pick": player.get("espn_market_pick"),
         "espn_roto_rank": player.get("espn_roto_rank"),
+        "market_roto_rank": player.get("market_roto_rank", player.get("espn_roto_rank")),
+        "market_rank_source": player.get("market_rank_source"),
     }
 
 
@@ -728,7 +730,7 @@ def lookahead_rerank(
                 "projected_volume",
                 categories,
                 True,
-                "adaptive",
+                "adaptive_heuristic",
                 cancel_check,
             )
         except Exception:

@@ -51,6 +51,30 @@ def test_matchup_mc_is_seeded_bounded_and_favors_stronger_team():
         assert category["p_win"] + category["p_tie"] + category["p_loss"] == pytest.approx(1)
 
 
+def test_sampled_box_scores_keep_points_and_shooting_coherent():
+    result = simulate_matchup_odds(
+        [player("scorer", 24)], [player("opponent", 12)], [1, 2],
+        categories=["PTS", "FG%", "3PT%"], slots=("PG",), trials=200, seed=18,
+    )
+    stats = result["expected_stats"][0]
+    assert stats["3PM"] <= stats["FGM"] <= stats["FGA"]
+    assert stats["PTS"] == pytest.approx(2 * stats["FGM"] + stats["3PM"] + stats["FTM"])
+
+
+def test_forced_daily_lineup_measures_the_actual_starter_swap():
+    strong = player("strong", 34)
+    weak = player("weak", 5)
+    opponent = player("opponent", 18)
+    args = dict(categories=["PTS"], slots=("PG",), trials=200, seed=24)
+    strong_lineup = simulate_matchup_odds(
+        [strong, weak], [opponent], [1, 2], forced_lineups1={1: ["strong"], 2: ["strong"]}, **args,
+    )
+    weak_lineup = simulate_matchup_odds(
+        [strong, weak], [opponent], [1, 2], forced_lineups1={1: ["weak"], 2: ["weak"]}, **args,
+    )
+    assert strong_lineup["p_win"] > weak_lineup["p_win"]
+
+
 def test_out_player_can_return_on_documented_date():
     returning = player("returning", 30, p_play=0.0)
     returning["expected_return_date"] = "2030-01-02"
@@ -78,6 +102,12 @@ def test_season_mc_returns_seed_distribution_and_playoff_probabilities():
     assert all(sum(row["p_seed"].values()) == pytest.approx(1) for row in result)
     assert sum(row["p_playoff"] for row in result) == pytest.approx(2)
     assert result[0]["team_id"] in {1, 2}
+    title_result = simulate_season(
+        teams, odds, 2, trials=300, seed=9,
+        team_strengths={1: .8, 2: .6, 3: .3, 4: .2},
+    )
+    assert sum(row["p_title"] for row in title_result) == pytest.approx(1)
+    assert next(row for row in title_result if row["team_id"] == 1)["p_title"] > next(row for row in title_result if row["team_id"] == 4)["p_title"]
 
 
 def test_forecast_database_migrates_legacy_schema(tmp_path, monkeypatch):

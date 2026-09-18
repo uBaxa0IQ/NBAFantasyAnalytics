@@ -1,0 +1,32 @@
+{
+  "seed": 8110914,
+  "output": "artifacts/draft_ml/v811-residual",
+  "v81_output": "artifacts/draft_ml/v81-multiformat",
+  "warm_start": "artifacts/draft_ml/standard8-v80-universal/checkpoint/best.pt",
+  "search_states_per_episode": 4,
+  "workers": 6,
+  "training_seeds": [8110914, 8111914, 8112914],
+  "adapter_scales": [0.125, 0.25, 0.5, 0.75, 1.0],
+  "training": {
+    "epochs": 16,
+    "batch_size": 32,
+    "learning_rate": 0.0001,
+    "weight_decay": 0.01,
+    "patience": 5,
+    "minimum_improvement": 0.0001,
+    "adapter_width": 32,
+    "distillation_temperature": 1.5,
+    "distillation_weight": 1.0,
+    "improvement_weight": 1.0,
+    "trust_weight": 0.05,
+    "value_weight": 0.15,
+    "device": "auto"
+  },
+  "validation_gates": {
+    "standard8_delta_min": -0.01,
+    "standard8_interval_low_min": -0.04,
+    "universal_v80_delta_min": 0.005,
+    "universal_v80_interval_low_min": -0.005,
+    "universal_heuristic_delta_min": 0.0
+  }
+}

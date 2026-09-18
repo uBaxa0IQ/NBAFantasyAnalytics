@@ -11,6 +11,13 @@ from ..draft_simulation import unfilled_roster_slots
 
 
 RATIO_CATEGORIES = {"FG%", "FT%", "3PT%", "A/TO"}
+MARKET_SOURCE_FEATURES = {
+    "espn_conservative_boards": "conservative",
+    "espn_draft": "draft",
+    "espn_league_rater_default": "league_rater",
+    "espn_draft_fallback": "fallback",
+    "synthetic_category_z": "synthetic",
+}
 
 
 def _number(value, default=0.0):
@@ -42,8 +49,9 @@ def extract_candidate_features(
     before = projected_team_totals(roster, categories)
     after = projected_team_totals([*roster, candidate], categories)
     missing = tuple(unfilled_roster_slots(roster, roster_slots))
+    market_source = MARKET_SOURCE_FEATURES.get(candidate.get("market_rank_source"), "unknown")
     features = {
-        "schema_version": 1.0,
+        "schema_version": 2.0,
         "overall_pick": float(overall_pick),
         "round": float((overall_pick - 1) // max(1, team_count) + 1),
         "roster_size": float(len(roster)),
@@ -58,7 +66,10 @@ def extract_candidate_features(
         "missing_constrained_slots": float(len(missing)),
         "strategy_entropy": 0.0,
         "strategy_count": float(len(strategy_rows or ())),
+        "market_category_match": float(bool(candidate.get("market_category_match"))),
     }
+    for source in (*MARKET_SOURCE_FEATURES.values(), "unknown"):
+        features[f"market_source::{source}"] = float(source == market_source)
     probabilities = [_number(row.get("probability")) for row in strategy_rows or ()]
     if probabilities:
         import math
@@ -83,4 +94,3 @@ def extract_candidate_features(
 
 def feature_names(records):
     return sorted({name for record in records for name in record.get("features", {})})
-

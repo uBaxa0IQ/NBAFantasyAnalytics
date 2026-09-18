@@ -21,6 +21,8 @@ def get_cors_origins():
         allowed_origins = [
             "http://localhost:5173",  # Vite dev server
             "http://127.0.0.1:5173",  # Vite dev server alternative
+            "http://localhost:4173",  # Vite when 5173 is blocked on Windows
+            "http://127.0.0.1:4173",
             "http://localhost:3000",  # Docker frontend (old port)
             "http://localhost:3001",  # Docker frontend (new port)
             "http://127.0.0.1:3000",  # Docker frontend alternative

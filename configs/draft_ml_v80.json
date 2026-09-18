@@ -1,0 +1,11 @@
+{
+  "seed": 800913,
+  "output": "artifacts/draft_ml/standard8-v80-universal",
+  "source_checkpoint": "artifacts/draft_ml/standard8-v76-distillation/training/best.pt",
+  "numeric_parity_drafts": 20,
+  "evaluation_per_condition": 50,
+  "workers": 6,
+  "terminal_draws": 8,
+  "parity_logit_tolerance": 0.00005,
+  "parity_value_tolerance": 0.00001
+}

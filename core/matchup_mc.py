@@ -7,13 +7,14 @@ from datetime import date, datetime
 import hashlib
 import math
 import random
+from statistics import NormalDist
 from typing import Any, Iterable, Mapping, Sequence
 
 from .projection import DEFAULT_LINEUP_SLOTS, optimize_daily_lineup
 from .simulation import compare_category_stats
 
 
-ENGINE_VERSION = "matchup-mc-v1"
+ENGINE_VERSION = "matchup-mc-v2"
 COMPONENTS = ("PTS", "REB", "AST", "STL", "BLK", "DD", "TO", "FGM", "FGA", "FTM", "FTA", "3PM", "3PA")
 
 
@@ -56,17 +57,30 @@ def _sample_game(player: Mapping[str, Any], rng: random.Random) -> dict[str, flo
 
     fga = int(count("FGA"))
     fta = int(count("FTA"))
-    tpa = int(count("3PA"))
-    fg_pct = float(mean.get("FGM", 0.0) or 0.0) / max(float(mean.get("FGA", 0.0) or 0.0), 1e-9)
+    # Shooting components must describe one possible box score.  The old model
+    # sampled PTS, FGM and 3PM independently, which could produce 3PM > FGM and
+    # points that did not equal made shots plus free throws.
+    tpa = min(fga, int(count("3PA")))
+    two_pa = max(0, fga - tpa)
+    mean_fga = max(float(mean.get("FGA", 0.0) or 0.0), 1e-9)
+    mean_tpa = min(mean_fga, max(0.0, float(mean.get("3PA", 0.0) or 0.0)))
+    mean_fgm = max(0.0, float(mean.get("FGM", 0.0) or 0.0))
+    mean_tpm = min(mean_fgm, max(0.0, float(mean.get("3PM", 0.0) or 0.0)))
+    two_pct = (mean_fgm - mean_tpm) / max(mean_fga - mean_tpa, 1e-9)
     ft_pct = float(mean.get("FTM", 0.0) or 0.0) / max(float(mean.get("FTA", 0.0) or 0.0), 1e-9)
     tp_pct = float(mean.get("3PM", 0.0) or 0.0) / max(float(mean.get("3PA", 0.0) or 0.0), 1e-9)
-    result = {key: count(key) for key in ("PTS", "REB", "AST", "STL", "BLK", "TO")}
+    tpm = _binomial(rng, tpa, tp_pct)
+    two_pm = _binomial(rng, two_pa, two_pct)
+    ftm = _binomial(rng, fta, ft_pct)
+    fgm = two_pm + tpm
+    result = {key: count(key) for key in ("REB", "AST", "STL", "BLK", "TO")}
     result.update({
-        "FGA": float(fga), "FGM": float(_binomial(rng, fga, fg_pct)),
-        "FTA": float(fta), "FTM": float(_binomial(rng, fta, ft_pct)),
-        "3PA": float(tpa), "3PM": float(_binomial(rng, tpa, tp_pct)),
-        "DD": float(rng.random() < min(1.0, max(0.0, float(mean.get("DD", 0.0) or 0.0)))),
+        "FGA": float(fga), "FGM": float(fgm),
+        "FTA": float(fta), "FTM": float(ftm),
+        "3PA": float(tpa), "3PM": float(tpm),
+        "PTS": float(2 * two_pm + 3 * tpm + ftm),
     })
+    result["DD"] = float(sum(result.get(key, 0.0) >= 10 for key in ("PTS", "REB", "AST", "STL", "BLK")) >= 2)
     return result
 
 
@@ -74,6 +88,17 @@ def _has_game(player: Mapping[str, Any], scoring_period: int) -> bool:
     schedule = player.get("schedule") or {}
     game = schedule.get(str(scoring_period), schedule.get(scoring_period))
     if game is None:
+        return False
+    available_from = player.get("available_from")
+    if isinstance(available_from, str):
+        try:
+            available_from = date.fromisoformat(available_from[:10])
+        except ValueError:
+            available_from = None
+    if isinstance(available_from, datetime):
+        available_from = available_from.date()
+    game_date = (game or {}).get("date")
+    if isinstance(game_date, datetime) and isinstance(available_from, date) and game_date.date() < available_from:
         return False
     if player.get("future_only"):
         game_date = (game or {}).get("date")
@@ -89,13 +114,14 @@ def _simulate_team(
     rng: random.Random,
     lineup_cache: dict[tuple[Any, ...], list[Mapping[str, Any]]],
     availability_overrides: Mapping[Any, float] | None = None,
+    forced_lineups: Mapping[int, Sequence[Any]] | None = None,
 ) -> dict[str, float]:
     overrides = availability_overrides or {}
-    week_available: dict[Any, bool] = {}
+    forced_lineups = forced_lineups or {}
+    health_latent: dict[Any, float] = {}
     for player in players:
         identity = player.get("player_id") or player.get("name")
-        p_play = float(overrides.get(identity, player.get("p_play", (player.get("rate") or {}).get("p_play", 1.0))))
-        week_available[identity] = rng.random() < min(1.0, max(0.0, p_play))
+        health_latent[identity] = rng.gauss(0.0, 1.0)
 
     games = []
     for scoring_period in scoring_periods:
@@ -104,7 +130,17 @@ def _simulate_team(
             if not _has_game(player, scoring_period):
                 continue
             identity = player.get("player_id") or player.get("name")
-            is_available = week_available[identity]
+            p_play = min(1.0, max(0.0, float(overrides.get(identity, player.get("p_play", (player.get("rate") or {}).get("p_play", 1.0))))))
+            if p_play <= 0.0:
+                is_available = False
+            elif p_play >= 1.0:
+                is_available = True
+            else:
+                # Correlated game-level availability: injuries persist across a
+                # week, while a player can still miss/return on a specific day.
+                threshold = NormalDist().inv_cdf(p_play)
+                health_score = 0.78 * health_latent[identity] + math.sqrt(1 - 0.78**2) * rng.gauss(0.0, 1.0)
+                is_available = health_score <= threshold
             if not is_available and str(player.get("lineup_slot") or "").upper() != "IR":
                 return_date = player.get("expected_return_date")
                 if isinstance(return_date, str):
@@ -121,11 +157,20 @@ def _simulate_team(
             if is_available:
                 available.append(player)
         mask = tuple(sorted(str(p.get("player_id") or p.get("name")) for p in available))
-        key = (scoring_period, mask)
+        forced_ids = tuple(str(value) for value in forced_lineups.get(scoring_period, ()))
+        key = (scoring_period, mask, forced_ids)
         starters = lineup_cache.get(key)
         if starters is None:
             lineup_players = [{**p, "available": True} for p in available]
-            optimized = optimize_daily_lineup(lineup_players, slots=slots, fill_slots=True)
+            if forced_ids:
+                forced_set = set(forced_ids)
+                forced_players = [p for p in lineup_players if str(p.get("player_id") or p.get("name")) in forced_set]
+                # If a forced starter is unexpectedly out, fall back to the
+                # best legal replacement just as a manager would.
+                pool = forced_players if len(forced_players) == len(forced_set) else lineup_players
+            else:
+                pool = lineup_players
+            optimized = optimize_daily_lineup(pool, slots=slots, fill_slots=True)
             starters = [item["player"] for item in optimized["starters"]]
             lineup_cache[key] = starters
         games.extend(_sample_game(player, rng) for player in starters)
@@ -148,6 +193,8 @@ def simulate_matchup_odds(
     team2_id: int | None = None,
     availability_overrides1: Mapping[Any, float] | None = None,
     availability_overrides2: Mapping[Any, float] | None = None,
+    forced_lineups1: Mapping[int, Sequence[Any]] | None = None,
+    forced_lineups2: Mapping[int, Sequence[Any]] | None = None,
 ) -> dict[str, Any]:
     trials = max(100, min(int(trials), 5000))
     categories = tuple(categories)
@@ -164,8 +211,8 @@ def simulate_matchup_odds(
     cache2: dict[tuple[Any, ...], list[Mapping[str, Any]]] = {}
 
     for _ in range(trials):
-        future1 = _simulate_team(players1, scoring_periods, slots, rng, cache1, availability_overrides1)
-        future2 = _simulate_team(players2, scoring_periods, slots, rng, cache2, availability_overrides2)
+        future1 = _simulate_team(players1, scoring_periods, slots, rng, cache1, availability_overrides1, forced_lineups1)
+        future2 = _simulate_team(players2, scoring_periods, slots, rng, cache2, availability_overrides2, forced_lineups2)
         stats1 = aggregate_stats(actual1 or {}, future1)
         stats2 = aggregate_stats(actual2 or {}, future2)
         result = compare_category_stats(stats1, stats2, categories, reverse_categories)
@@ -210,7 +257,7 @@ def simulate_matchup_odds(
         "monte_carlo_se": math.sqrt(max(p_win * (1 - p_win), 0.0) / trials),
         "assumptions": [
             "H2H most categories", "current rosters remain unchanged",
-            "injury statuses use weekly availability scenarios", "lineups are re-optimized for sampled availability",
+            "injury statuses use correlated game-level availability scenarios", "lineups are re-optimized for sampled availability",
         ],
         "quality_flags": (["team1_has_no_scheduled_games"] if not scheduled_games1 else []) + (["team2_has_no_scheduled_games"] if not scheduled_games2 else []),
     }

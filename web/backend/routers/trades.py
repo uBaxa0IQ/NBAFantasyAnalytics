@@ -16,7 +16,7 @@ from utils.calculations import (
     select_top_n_players
 )
 from trade_log_db import log_trade
-from services.trades import analyze_calendar_trade
+from services.trades import analyze_calendar_trade, analyze_probabilistic_trade
 import math
 import json
 
@@ -397,15 +397,19 @@ def analyze_trade(
         # Не прерываем выполнение, если логирование не удалось
         print(f"Error logging trade: {e}")
     
-    calendar_impact = analyze_calendar_trade(
+    trade_moves = {
+        request.my_team_id: {"give": request.i_give, "receive": request.i_receive},
+        request.their_team_id: {"give": request.i_receive, "receive": request.i_give},
+    }
+    calendar_impact = (analyze_probabilistic_trade(
+        league_meta, request.period, trade_moves, request.punt_categories,
+        request.processing_delay_days,
+    ) if request.calculation_engine == "probabilistic" else analyze_calendar_trade(
         league_meta,
         request.period,
-        {
-            request.my_team_id: {"give": request.i_give, "receive": request.i_receive},
-            request.their_team_id: {"give": request.i_receive, "receive": request.i_give},
-        },
+        trade_moves,
         request.punt_categories,
-    ) if request.calculation_engine in {"calendar", "probabilistic"} else None
+    )) if request.calculation_engine in {"calendar", "probabilistic"} else None
 
     return {
         "my_team": {
@@ -789,15 +793,19 @@ def analyze_multi_team_trade(
         # Не прерываем выполнение, если логирование не удалось
         print(f"Error logging trade: {e}")
     
-    calendar_impact = analyze_calendar_trade(
+    trade_moves = {
+        trade.team_id: {"give": trade.give, "receive": trade.receive}
+        for trade in request.trades
+    }
+    calendar_impact = (analyze_probabilistic_trade(
+        league_meta, request.period, trade_moves, request.punt_categories,
+        request.processing_delay_days,
+    ) if request.calculation_engine == "probabilistic" else analyze_calendar_trade(
         league_meta,
         request.period,
-        {
-            trade.team_id: {"give": trade.give, "receive": trade.receive}
-            for trade in request.trades
-        },
+        trade_moves,
         request.punt_categories,
-    ) if request.calculation_engine in {"calendar", "probabilistic"} else None
+    )) if request.calculation_engine in {"calendar", "probabilistic"} else None
 
     return {
         "teams": teams_results,

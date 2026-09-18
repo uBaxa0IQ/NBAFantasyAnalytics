@@ -3,7 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from dependencies import get_league_meta
 from core.config import CATEGORIES, PERIODS
-from services.draft import get_draft_recommendations, get_draft_state
+from models import MockDraftRequest
+from services.draft import get_draft_recommendations, get_draft_state, run_human_mock_draft
 from services.draft_calculation import StaleDraftCalculation, draft_calculations
 from services.draft_benchmark import benchmark_adaptive_vs_legacy, benchmark_draft_strategies, benchmark_punt_strategies
 from services.draft_learning import learning_dataset_stats
@@ -56,6 +57,30 @@ def draft_learning_stats():
 @router.get("/state")
 def draft_state(league_meta=Depends(get_league_meta)):
     return get_draft_state(league_meta)
+
+
+@router.post("/mock/{team_id}")
+def draft_mock(team_id: int, body: MockDraftRequest, league_meta=Depends(get_league_meta)):
+    if league_meta.get_team_by_id(team_id) is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    if body.opponent_field not in {"mixed", "heuristic_mixed", "human", "market", "strong"}:
+        raise HTTPException(status_code=400, detail="Unknown opponent field")
+    if body.advisor not in {"heuristic", "v8"}:
+        raise HTTPException(status_code=400, detail="Unknown mock advisor")
+    from services.draft_mock import MockDraftError
+    try:
+        return run_human_mock_draft(
+            league_meta,
+            team_id,
+            body.period,
+            tuple(body.picks),
+            body.seed,
+            body.opponent_field,
+            advisor=body.advisor,
+            punt_categories=tuple(body.punt_categories or ()),
+        )
+    except MockDraftError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @router.get("/recommendations/{team_id}")

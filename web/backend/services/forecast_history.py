@@ -2,9 +2,43 @@
 import json
 import os
 import sqlite3
+import math
 from pathlib import Path
 from datetime import datetime, timezone
 from core.simulation import compare_category_stats
+
+
+def _temperature_scale(probabilities, temperature):
+    powered = [max(1e-9, float(value)) ** (1.0 / temperature) for value in probabilities]
+    total = sum(powered) or 1.0
+    return tuple(value / total for value in powered)
+
+
+def calibration_temperature(league, season, minimum_samples=20):
+    """Fit a bounded temperature on resolved historical multiclass forecasts."""
+    with connect() as db:
+        rows = db.execute(
+            'SELECT categories,reverse_cats,actual,p_win,p_tie,p_loss FROM forecasts WHERE league=? AND season=? AND actual IS NOT NULL AND p_win IS NOT NULL',
+            (league, season),
+        ).fetchall()
+    if len(rows) < minimum_samples:
+        return {"temperature": 1.0, "sample_size": len(rows), "applied": False}
+    observations = []
+    for raw_cats, raw_reverse, actual, p_win, p_tie, p_loss in rows:
+        observed = json.loads(actual)
+        result = compare_category_stats(*observed, json.loads(raw_cats), json.loads(raw_reverse))
+        outcome = 0 if result['team1_wins'] > result['team2_wins'] else 2 if result['team2_wins'] > result['team1_wins'] else 1
+        observations.append(((float(p_win), float(p_tie or 0.0), float(p_loss or 0.0)), outcome))
+    best = (float('inf'), 1.0)
+    for step in range(13):
+        temperature = 0.6 + step * 0.1
+        loss = 0.0
+        for probabilities, outcome in observations:
+            calibrated = _temperature_scale(probabilities, temperature)
+            loss -= math.log(max(calibrated[outcome], 1e-9))
+        if loss < best[0]:
+            best = (loss, temperature)
+    return {"temperature": best[1], "sample_size": len(rows), "applied": True}
 
 
 def connect():
@@ -39,7 +73,7 @@ def validate(league_metadata):
         rows = db.execute('SELECT week,team1,team2,period,categories,reverse_cats,prediction,actual,p_win,p_tie,p_loss FROM forecasts WHERE league=? AND season=?',
                           (league_metadata.league_id, league_metadata.year)).fetchall()
         actual_weeks = {}
-        errors, matches, point_matches, correct, brier_values = {}, 0, 0, 0, []
+        errors, matches, point_matches, correct, brier_values, log_losses, reliability = {}, 0, 0, 0, [], [], [[] for _ in range(5)]
         for week, left, right, period, raw_cats, raw_reverse, prediction, actual, p_win, p_tie, p_loss in rows:
             if actual is None and week < league_metadata.league.currentMatchupPeriod:
                 if week not in actual_weeks:
@@ -69,9 +103,26 @@ def validate(league_metadata):
                 targets = (1.0 if observed_outcome > 0 else 0.0, 1.0 if observed_outcome == 0 else 0.0, 1.0 if observed_outcome < 0 else 0.0)
                 probabilities = (float(p_win), float(p_tie or 0.0), float(p_loss or 0.0))
                 brier_values.append(sum((probability - target) ** 2 for probability, target in zip(probabilities, targets)) / 3.0)
+                target_index = targets.index(1.0)
+                log_losses.append(-math.log(max(probabilities[target_index], 1e-9)))
+                bucket = min(4, int(probabilities[0] * 5))
+                reliability[bucket].append((probabilities[0], targets[0]))
             matches += 1
+        calibration_bins = [{
+            'lower': index / 5, 'upper': (index + 1) / 5,
+            'count': len(values),
+            'predicted': sum(value[0] for value in values) / len(values),
+            'observed': sum(value[1] for value in values) / len(values),
+        } for index, values in enumerate(reliability) if values]
+        total_calibrated = sum(item['count'] for item in calibration_bins)
+        ece = sum(item['count'] * abs(item['predicted'] - item['observed']) for item in calibration_bins) / total_calibrated if total_calibrated else None
+        profile = calibration_temperature(league_metadata.league_id, league_metadata.year)
         return {'recorded': len(rows), 'resolved': matches, 'matchup_accuracy': correct / point_matches if point_matches else None,
                 'category_mae': {cat: sum(values) / len(values) for cat, values in errors.items()},
                 'brier_score': sum(brier_values) / len(brier_values) if brier_values else None,
+                'log_loss': sum(log_losses) / len(log_losses) if log_losses else None,
+                'expected_calibration_error': ece,
+                'calibration_bins': calibration_bins,
+                'calibration_profile': profile,
                 'probabilistic_resolved': len(brier_values),
                 'note': 'Первые сохранённые прогнозы до начала недели. При нулевой выборке точность неизвестна.'}

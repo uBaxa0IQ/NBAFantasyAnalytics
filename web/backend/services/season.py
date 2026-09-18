@@ -139,7 +139,15 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
     }
 
 
-def project_regular_season_probabilistic(league_metadata, period: str) -> Dict[str, Any]:
+def project_regular_season_probabilistic(
+    league_metadata,
+    period: str,
+    *,
+    roster_overrides=None,
+    pair_trials: int | None = None,
+    season_trials: int | None = None,
+    persist_forecasts: bool = True,
+) -> Dict[str, Any]:
     """Propagate calibrated matchup uncertainty through the remaining schedule."""
     from .matchup_engine import build_engine_inputs, simulate_pair
 
@@ -158,18 +166,19 @@ def project_regular_season_probabilistic(league_metadata, period: str) -> Dict[s
     inputs = build_engine_inputs(league_metadata, period)
     odds_rows = []
     per_team = defaultdict(list)
-    pair_trials = max(100, min(180, MATCHUP_MC_TRIALS // 2))
+    pair_trials = max(100, min(500, int(pair_trials or max(100, min(180, MATCHUP_MC_TRIALS // 2)))))
     for matchup in schedule:
         week = int(matchup["matchup_period"])
         left, right = int(matchup["team1_id"]), int(matchup["team2_id"])
         odds = simulate_pair(
             league_metadata, inputs, left, right, week,
             remaining_only=week == current_period, trials=pair_trials,
+            roster_overrides=roster_overrides,
         )
         odds_rows.append(odds)
         per_team[left].append({"week": week, "opponent_id": right, "p_win": odds["p_win"], "p_tie": odds["p_tie"], "p_loss": odds["p_loss"]})
         per_team[right].append({"week": week, "opponent_id": left, "p_win": odds["p_loss"], "p_tie": odds["p_tie"], "p_loss": odds["p_win"]})
-        if week > current_period:
+        if week > current_period and persist_forecasts and not roster_overrides:
             try:
                 expected = odds.get("expected_stats") or [{}, {}]
                 record(league_metadata.league_id, league_metadata.year, week, left, right, period, expected[0], expected[1], inputs["categories"], inputs["reverse_categories"], odds)
@@ -177,7 +186,15 @@ def project_regular_season_probabilistic(league_metadata, period: str) -> Dict[s
                 logging.getLogger(__name__).warning("Не удалось сохранить вероятностный прогноз")
 
     seed = stable_seed(league_metadata.league_id, league_metadata.year, current_period, period, "season-v1")
-    simulations = simulate_season(base_teams, odds_rows, playoff_count, trials=SEASON_MC_TRIALS, seed=seed)
+    season_trials = max(100, min(5000, int(season_trials or SEASON_MC_TRIALS)))
+    strengths = {}
+    for team in teams:
+        rows = per_team[team.team_id]
+        strengths[team.team_id] = sum(row["p_win"] + .5 * row["p_tie"] for row in rows) / len(rows) if rows else .5
+    simulations = simulate_season(
+        base_teams, odds_rows, playoff_count, trials=season_trials, seed=seed,
+        team_strengths=strengths,
+    )
     standings = []
     for position, row in enumerate(simulations, 1):
         expected = row["expected_record"]
@@ -187,10 +204,11 @@ def project_regular_season_probabilistic(league_metadata, period: str) -> Dict[s
             "wins": round(expected["wins"], 1), "losses": round(expected["losses"], 1), "ties": round(expected["ties"], 1),
             "win_rate": round((expected["wins"] + .5 * expected["ties"]) / max(sum(expected.values()), 1) * 100, 1),
             "projected_matchups": per_team[row["team_id"]],
+            "p_title": row["p_title"],
         })
     return {
         "period": period, "current_matchup_period": current_period, "regular_season_end": regular_season_end,
-        "standings": standings, "method": "probabilistic_season_mc", "trials": SEASON_MC_TRIALS, "seed": seed,
+        "standings": standings, "method": "probabilistic_season_mc", "trials": season_trials, "seed": seed,
         "tie_break_note": "При равных результатах ESPN tie-break может изменить порядок посева.",
-        "assumptions": "Вероятностный сценарий H2H Most Categories с текущими составами, календарём и статусами травм.",
+        "assumptions": "Вероятностный сценарий H2H Most Categories с текущими составами, календарём и статусами травм. P(title) симулируется поверх каждого случайного посева; сила playoff-пары оценена будущими matchup odds.",
     }

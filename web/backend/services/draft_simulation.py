@@ -195,15 +195,17 @@ def _select_player(
         roster_slots=roster_slots,
         categories=categories,
     )
+    if policy_mode == "v8":
+        from .draft_ml.v8_inference import select_v8_player
+        selected = select_v8_player([player for _, player in window], context)
+        if selected is not None:
+            return selected
+        policy_mode = "adaptive_heuristic"
     if policy_mode in {"adaptive", "adaptive_heuristic"}:
         from .draft_strategy import adaptive_rank_window
         ranked, _ = adaptive_rank_window(window, context)
         if ranked:
-            adaptive_players = [player for _, player, _ in ranked]
-            if policy_mode == "adaptive":
-                from .draft_ml.inference import maybe_apply_learned_rerank
-                maybe_apply_learned_rerank(adaptive_players, context, limit=len(adaptive_players))
-            return adaptive_players[0]
+            return ranked[0][1]
     return max(window, key=lambda item: score_draft_pick(item[1], context, market_pick=item[0])["score"])[1]
 
 

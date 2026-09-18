@@ -1,0 +1,18 @@
+{
+  "seed": 760910,
+  "output": "artifacts/draft_ml/standard8-v76-distillation",
+  "episodes": {"train": 400, "validation": 80},
+  "evaluation": {"validation": 100, "holdout": 200},
+  "workers": 6,
+  "late_picks": 4,
+  "large_candidates": 12,
+  "large_rollouts": 8,
+  "audit_rollouts": 4,
+  "audit_min_utility_gain": 0.02,
+  "minimum_accepted_training_picks": 20,
+  "teacher_temperature": 0.5,
+  "search_temperature": 0.15,
+  "old_policy_blend": 0.25,
+  "terminal_draws": 8,
+  "training": {"epochs": 12, "batch_size": 24, "learning_rate": 0.00003, "patience": 3, "device": "auto"}
+}

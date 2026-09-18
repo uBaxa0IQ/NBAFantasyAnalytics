@@ -19,6 +19,16 @@ class TradeAnalysisRequest(BaseModel):
     top_n_players: int = 13
     custom_team_players: Optional[Dict[int, List[str]]] = None
     calculation_engine: str = "calendar"
+    processing_delay_days: int = 0
+
+
+class MockDraftRequest(BaseModel):
+    picks: List[int] = []
+    seed: int = 9105
+    period: str = DEFAULT_PERIOD
+    opponent_field: str = "strong"
+    advisor: str = "heuristic"
+    punt_categories: List[str] = []
 
 
 class TeamTrade(BaseModel):
@@ -37,6 +47,6 @@ class MultiTeamTradeRequest(BaseModel):
     top_n_players: int = 13
     custom_team_players: Optional[Dict[int, List[str]]] = None
     calculation_engine: str = "calendar"
-
+    processing_delay_days: int = 0
 
 

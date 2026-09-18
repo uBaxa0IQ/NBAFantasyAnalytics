@@ -1,0 +1,18 @@
+{
+  "seed": 780912,
+  "output": "artifacts/draft_ml/standard8-v78-generalization",
+  "episodes": {"train": 600, "validation": 120},
+  "evaluation": {"validation_per_condition": 60, "holdout_per_condition": 80},
+  "workers": 6,
+  "late_picks": 4,
+  "large_candidates": 12,
+  "large_rollouts": 8,
+  "audit_rollouts": 4,
+  "audit_min_utility_gain": 0.02,
+  "minimum_accepted_training_picks": 30,
+  "teacher_temperature": 0.5,
+  "search_temperature": 0.15,
+  "baseline_policy_blend": 0.25,
+  "terminal_draws": 8,
+  "training": {"epochs": 14, "batch_size": 24, "learning_rate": 0.00002, "patience": 4, "device": "auto"}
+}

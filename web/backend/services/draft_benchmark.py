@@ -7,6 +7,7 @@ policy drafts, but every finished roster is scored under every league category.
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from itertools import combinations
 import math
 import random
@@ -17,6 +18,7 @@ from core.projection import can_play_slot
 from core.z_score import calculate_z_scores_from_players
 
 from .draft_evaluation import evaluate_projected_rosters
+from .espn_market import apply_league_market, blended_market_pick
 
 from .draft_simulation import (
     _market_position,
@@ -39,7 +41,7 @@ def _identity(player):
 
 
 def _rank_value(player, field):
-    value = player.get(field)
+    value = player.get("benchmark_roto_rank", player.get("market_roto_rank", player.get(field))) if field == "espn_roto_rank" else player.get(field)
     if value is None and field == "espn_roto_rank":
         value = _market_position(player)
     if value is None:
@@ -75,8 +77,14 @@ def _draft_once(
     players, hero_slot, team_count, rounds, strategy, market, opponent_rank,
     roster_slots=None, categories=None, include_roster=False, opponent_profiles=None,
     evaluation_noise_seed=None,
+    hero_market_players=None,
+    hero_market=None,
 ):
-    remaining = {_identity(player): player for player in players}
+    policy_modes = {"model": "legacy", "adaptive": "adaptive", "adaptive_heuristic": "adaptive_heuristic"}
+    if strategy["policy"] not in {*policy_modes, "roto", "adp"}:
+        raise ValueError(f"Unknown draft policy: {strategy['policy']}")
+    remaining = {_identity(player): player for player in deepcopy(players)}
+    perceived = {_identity(player): player for player in deepcopy(hero_market_players)} if hero_market_players is not None else None
     rosters = {slot: [] for slot in range(1, team_count + 1)}
     hero_picks = snake_pick_numbers(hero_slot, team_count, rounds)
 
@@ -84,9 +92,10 @@ def _draft_once(
         if not remaining:
             break
         drafting_slot = _slot_at_pick(overall, team_count)
-        if drafting_slot == hero_slot and strategy["policy"] in {"model", "adaptive"}:
+        if drafting_slot == hero_slot and strategy["policy"] in policy_modes:
             market_order = sorted(
-                ([market[identity], player] for identity, player in remaining.items()),
+                ([(hero_market or market)[identity], perceived[identity] if perceived is not None else player]
+                 for identity, player in remaining.items()),
                 key=lambda item: item[0],
             )
             pick_index = hero_picks.index(overall)
@@ -102,17 +111,17 @@ def _draft_once(
                 team_count=team_count,
                 roster_slots=roster_slots,
                 categories=categories,
-                policy_mode="adaptive" if strategy["policy"] == "adaptive" else "legacy",
+                policy_mode=policy_modes[strategy["policy"]],
             )
         elif drafting_slot == hero_slot:
             candidates = _feasible_pool(remaining.values(), rosters[hero_slot], rounds - len(rosters[hero_slot]), roster_slots)
             selected = min(
                 candidates,
-                key=lambda player: (_rank_value(player, "espn_roto_rank"), market[_identity(player)]),
+                key=lambda player: (_rank_value(player, "espn_adp" if strategy["policy"] == "adp" else "espn_roto_rank"), market[_identity(player)]),
             )
         else:
             profile = (opponent_profiles or {}).get(drafting_slot)
-            if profile and profile.get("policy") in {"model", "adaptive"}:
+            if profile and profile.get("policy") in policy_modes:
                 slot_picks = [
                     pick for pick in snake_pick_numbers(drafting_slot, team_count, rounds)
                     if pick >= overall
@@ -133,7 +142,7 @@ def _draft_once(
                     team_count=team_count,
                     roster_slots=roster_slots,
                     categories=categories,
-                    policy_mode="adaptive" if profile["policy"] == "adaptive" else "legacy",
+                    policy_mode=policy_modes[profile["policy"]],
                 )
             else:
                 candidates = _feasible_pool(remaining.values(), rosters[drafting_slot], rounds - len(rosters[drafting_slot]), roster_slots)
@@ -190,7 +199,11 @@ def _population_profiles(team_count, categories, mode="mixed"):
         {"policy": "model", "punts": ()},
         {"policy": "model", "punts": best_punt},
     ]
-    if mode == "mixed":
+    if mode == "human":
+        templates = templates[:2]
+    elif mode == "heuristic_mixed":
+        templates.append({"policy": "adaptive_heuristic", "punts": ()})
+    elif mode == "mixed":
         templates.append({"policy": "adaptive", "punts": ()})
     elif mode != "market":
         raise ValueError(f"Unknown opponent population mode: {mode}")
@@ -339,10 +352,43 @@ def prepare_players_for_categories(players, categories):
     ]
     scored = calculate_z_scores_from_players(population, categories=list(categories))["players"]
     by_name = {row["name"]: row["z_scores"] for row in scored}
-    return [
+    prepared = [
         {**player, "z_scores": by_name.get(player["name"], {}), "total_z": sum(by_name.get(player["name"], {}).values())}
         for player in players if player["name"] in by_name
     ]
+    # Old frozen snapshots retain their original market; enriched snapshots
+    # cannot carry a league rater into a different hypothetical category set.
+    apply_league_market([row for row in prepared if "espn_rater_categories" in row], categories)
+    return prepared
+
+
+def prepare_benchmark_market(players, categories, market_model="espn_draft"):
+    """Explicit market sensitivity scenario; never label our Z ranking as ESPN."""
+    prepared = prepare_players_for_categories(players, categories)
+    if market_model == "league_rater" and not any(row.get("market_category_match") for row in prepared):
+        raise ValueError("League Player Rater missing or category mismatch")
+    ordered = sorted(prepared, key=lambda row: (-row["total_z"], str(_identity(row))))
+    ranks = {_identity(row): rank for rank, row in enumerate(ordered, 1)}
+    for row in prepared:
+        row["category_roto_rank"] = ranks[_identity(row)]
+        if market_model == "category_z":
+            row["benchmark_roto_rank"] = row["category_roto_rank"]
+            row["espn_market_pick"] = float(row["category_roto_rank"])
+            row["market_rank_source"] = "synthetic_category_z"
+        elif market_model == "league_rater":
+            rank = row.get("espn_league_rater_rank") if row.get("market_category_match") else row.get("espn_roto_rank")
+            row["benchmark_roto_rank"] = rank
+            row["espn_market_pick"] = blended_market_pick(row.get("espn_adp"), rank)
+            row["market_rank_source"] = "espn_league_rater_default" if row.get("market_category_match") else "espn_draft_fallback"
+        elif market_model == "conservative":
+            row.pop("benchmark_roto_rank", None)
+        elif market_model == "espn_draft":
+            row["benchmark_roto_rank"] = row.get("espn_roto_rank")
+            row["espn_market_pick"] = blended_market_pick(row.get("espn_adp"), row.get("espn_roto_rank"))
+            row["market_rank_source"] = "espn_draft"
+        elif market_model != "espn_draft":
+            raise ValueError(f"Unknown market model: {market_model}")
+    return prepared
 
 
 def benchmark_punt_strategies(
@@ -452,12 +498,13 @@ def benchmark_adaptive_vs_legacy(
     slots=None,
     seed=1_204_907,
     opponent_field="mixed",
+    market_model="espn_draft",
 ):
     """Paired old/new policy benchmark against a diverse self-play field."""
     from .draft_strategy import strategy_library
 
     categories = tuple(categories)
-    prepared = prepare_players_for_categories(players, categories)
+    prepared = prepare_benchmark_market(players, categories, market_model)
     usable = [
         player for player in prepared
         if _market_position(player) is not None or player.get("espn_roto_rank") is not None
@@ -470,6 +517,7 @@ def benchmark_adaptive_vs_legacy(
         default={"punt_categories": ()},
     )["punt_categories"]
     strategies = (
+        {"id": "roto", "label": {"espn_draft": "ESPN draft ROTO", "league_rater": "ESPN league Player Rater (default bucket; draft fallback)", "conservative": "Conservative ESPN boards", "category_z": "Category Z ranking (synthetic)"}[market_model], "policy": "roto", "punts": ()},
         {"id": "legacy_balanced", "label": "Прошлая модель · balanced", "policy": "model", "punts": ()},
         {"id": "legacy_best_fixed", "label": "Прошлая модель · лучший фиксированный punt", "policy": "model", "punts": best_fixed},
         {"id": "adaptive_heuristic", "label": "Adaptive projected · без ML", "policy": "adaptive_heuristic", "punts": ()},
@@ -505,6 +553,11 @@ def benchmark_adaptive_vs_legacy(
     scenario_count = len(selected_slots) * max(1, int(runs_per_slot))
     return {
         "method": "paired_population_self_play",
+        "benchmark_version": 2,
+        "market_model": market_model,
+        "market_note": {"espn_draft": "ESPN draft rank, not season Player Rater", "league_rater": "League-response ratings.0.totalRanking; default bucket, missing ranks fall back to draft; UI period not verified", "conservative": "Earlier price across league rater and draft board; conservative uncalibrated estimate", "category_z": "Synthetic ranking recalculated for categories; not ESPN Player Rater"}[market_model],
+        "league_rater_coverage": sum(bool(row.get("market_category_match")) for row in prepared),
+        "market_player_count": len(prepared),
         "evaluation": "held-out projection stress: GP stddev 12%, per-game components stddev 8%",
         "categories": list(categories),
         "team_count": team_count,
@@ -541,6 +594,7 @@ def benchmark_adaptive_vs_legacy(
         "comparisons_to_adaptive_heuristic": [
             _comparison("adaptive", "adaptive_heuristic", outcomes)
         ],
+        "paired_outcomes": {key: [{"category_wins": row["category_wins"], "league_rank": row["league_rank"]} for row in values] for key, values in outcomes.items()},
         "limitations": [
             "Self-play is population-based but still synthetic.",
             "Projection and market quality bound the result.",

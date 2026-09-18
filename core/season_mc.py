@@ -14,12 +14,14 @@ def simulate_season(
     *,
     trials: int = 400,
     seed: int = 0,
+    team_strengths: Mapping[int, float] | None = None,
 ) -> list[dict[str, Any]]:
     teams = list(teams)
     trials = max(100, min(int(trials), 5000))
     rng = random.Random(seed)
     seed_counts = defaultdict(Counter)
     record_sums = defaultdict(lambda: [0.0, 0.0, 0.0])
+    champions = Counter()
 
     for _ in range(trials):
         records = {
@@ -43,6 +45,30 @@ def simulate_season(
             seed_counts[team_id][position] += 1
             for index in range(3):
                 record_sums[team_id][index] += records[team_id][index]
+        if team_strengths and playoff_team_count:
+            playoff_order = order[:playoff_team_count]
+            size = 2
+            while size < playoff_team_count:
+                size *= 2
+            seed_order = [1, 2]
+            bracket_size = 2
+            while bracket_size < size:
+                bracket_size *= 2
+                seed_order = [value for placed in seed_order for value in (placed, bracket_size + 1 - placed)]
+            bracket = [playoff_order[position - 1] if position <= len(playoff_order) else None for position in seed_order]
+            while len(bracket) > 1:
+                advanced = []
+                for index in range(0, len(bracket), 2):
+                    left, right = bracket[index], bracket[index + 1]
+                    if left is None or right is None:
+                        advanced.append(left if right is None else right)
+                        continue
+                    left_strength = max(.01, float(team_strengths.get(left, .5)))
+                    right_strength = max(.01, float(team_strengths.get(right, .5)))
+                    advanced.append(left if rng.random() < left_strength / (left_strength + right_strength) else right)
+                bracket = advanced
+            if bracket and bracket[0] is not None:
+                champions[bracket[0]] += 1
 
     names = {int(team["team_id"]): team.get("team_name") or team.get("name") for team in teams}
     result = []
@@ -53,6 +79,7 @@ def simulate_season(
         result.append({
             "team_id": team_id, "team_name": names[team_id],
             "p_playoff": sum(seed_counts[team_id][seed] for seed in range(1, playoff_team_count + 1)) / trials,
+            "p_title": champions[team_id] / trials if team_strengths else None,
             "p_seed": distribution, "expected_seed": expected_seed,
             "expected_record": {"wins": sums[0] / trials, "losses": sums[1] / trials, "ties": sums[2] / trials},
         })
