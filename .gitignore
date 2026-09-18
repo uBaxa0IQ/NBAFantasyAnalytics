@@ -139,6 +139,9 @@ public
 tmp/
 temp/
 
+# Local portable tools
+.tools/
+
 # Database files
 *.db
 *.sqlite

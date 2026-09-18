@@ -231,7 +231,10 @@ function App() {
         <header className="bg-blue-900 p-4 text-white shadow-md">
           <h1 className="text-center text-2xl font-bold">Мок-драфт</h1>
         </header>
-        <main className="container mx-auto max-w-7xl p-4">
+        <main
+          className="container mx-auto max-w-7xl p-4"
+          style={{ paddingBottom: comparisonPlayers.length >= 2 ? '120px' : undefined }}
+        >
           <MockDraftPage
             mainTeam={mainTeam}
             projectedPeriod={seasonConfig.periods.projected}
@@ -248,6 +251,20 @@ function App() {
             onAddToComparison={addToComparison}
             onRemoveFromComparison={removeFromComparison}
             isInComparison={comparisonPlayers.some(player => player.name === selectedPlayer.name)}
+          />
+        )}
+        {comparisonPlayers.length >= 2 && (
+          <ComparisonBar
+            players={comparisonPlayers}
+            onCompare={() => setShowComparisonModal(true)}
+            onClear={clearComparison}
+            onRemove={removeFromComparison}
+          />
+        )}
+        {showComparisonModal && (
+          <PlayerComparisonModal
+            players={comparisonPlayers}
+            onClose={() => setShowComparisonModal(false)}
           />
         )}
         <SettingsModal

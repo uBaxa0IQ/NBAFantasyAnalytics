@@ -5,11 +5,17 @@ import { getSeasonConfig } from '../utils/periods';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
 
+const radarFromZScores = player => CATEGORIES.map(category => ({
+    category,
+    value: Number(player?.z_scores?.[category] || 0),
+}));
+
 const PlayerComparisonModal = ({ players, onClose }) => {
     const periods = getSeasonConfig().periods;
+    const draftComparison = (players || []).some(player => player?.analysis_context === 'draft');
     const [comparisonData, setComparisonData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState(periods.total);
+    const [period, setPeriod] = useState(draftComparison ? (periods.projected || periods.total) : periods.total);
     const [statsView, setStatsView] = useState('z-scores'); // 'z-scores' или 'raw'
 
     useEffect(() => {
@@ -21,6 +27,16 @@ const PlayerComparisonModal = ({ players, onClose }) => {
         const fetchComparisonData = async () => {
             setLoading(true);
             try {
+                if (draftComparison && players.every(player => player?.z_scores)) {
+                    setComparisonData(players.map(player => ({
+                        ...player,
+                        radarData: radarFromZScores(player),
+                        z_scores: player.z_scores,
+                        stats: player.stats || {},
+                    })));
+                    return;
+                }
+
                 // Загружаем данные для каждого игрока (радар и статистику)
                 const balancePromises = players.map(player =>
                     api.get(`/player/${encodeURIComponent(player.name)}/balance`, {
@@ -37,18 +53,19 @@ const PlayerComparisonModal = ({ players, onClose }) => {
 
                 const balanceResponses = await Promise.all(balancePromises);
                 const data = balanceResponses.map((res, idx) => {
-                    const radarData = res.data.data || [];
+                    const player = players[idx];
+                    const radarData = (res.data.data || []).length ? res.data.data : radarFromZScores(player);
                     // Преобразуем radarData в объект z_scores для использования в таблице
                     const z_scores = radarData.reduce((acc, item) => {
                         acc[item.category] = item.value;
                         return acc;
-                    }, {});
+                    }, { ...(player.z_scores || {}) });
                     
                     return {
-                        ...players[idx],
+                        ...player,
                         radarData: radarData,
                         z_scores: z_scores,
-                        stats: allPlayersMap[players[idx].name] || players[idx].stats || {}
+                        stats: allPlayersMap[player.name] || player.stats || {}
                     };
                 });
 
@@ -61,7 +78,7 @@ const PlayerComparisonModal = ({ players, onClose }) => {
         };
 
         fetchComparisonData();
-    }, [players, period]);
+    }, [players, period, draftComparison]);
 
     // Подготовка данных для радара (объединение всех игроков)
     const getRadarData = () => {
@@ -118,7 +135,7 @@ const PlayerComparisonModal = ({ players, onClose }) => {
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
-                            <div>
+                            {!draftComparison && <div>
                                 <label className="mr-2 text-sm text-gray-600">Период:</label>
                                 <select 
                                     className="border p-2 rounded text-sm" 
@@ -131,7 +148,8 @@ const PlayerComparisonModal = ({ players, onClose }) => {
                                     <option value={periods.last_7}>Последние 7 дней</option>
                                     <option value={periods.weighted}>Взвешенный (Универсальный)</option>
                                 </select>
-                            </div>
+                            </div>}
+                            {draftComparison && <div className="text-sm text-gray-500">Проекции драфта</div>}
                             <button
                                 onClick={onClose}
                                 className="text-gray-500 hover:text-gray-700 text-2xl font-bold"

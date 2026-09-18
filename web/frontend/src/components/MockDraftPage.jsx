@@ -63,6 +63,7 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
     const [sortDir, setSortDir] = useState('desc');
     const [inspectedSlot, setInspectedSlot] = useState(null);
     const [viewRound, setViewRound] = useState(null);
+    const [picksExpanded, setPicksExpanded] = useState(false);
     const requestId = useRef(0);
 
     const persist = next => {
@@ -144,7 +145,18 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
     const selectedReport = reports.find(report => report.round === viewRound) || reports[reports.length - 1];
     const standings = result?.status === 'complete' ? result.standings : selectedReport?.standings;
     const you = (standings || []).find(row => row.is_you);
-    const recent = (result?.pick_log || []).slice(-8).reverse();
+    const pickLog = result?.pick_log || [];
+    const recent = [...pickLog].slice(-8).reverse();
+    const picksByRound = useMemo(() => {
+        const rounds = [];
+        pickLog.forEach(pick => {
+            const round = pick.round || 1;
+            const last = rounds[rounds.length - 1];
+            if (!last || last.round !== round) rounds.push({ round, picks: [pick] });
+            else last.picks.push(pick);
+        });
+        return rounds;
+    }, [pickLog]);
     const onClock = result?.status === 'on_the_clock';
     const complete = result?.status === 'complete';
     const modelPick = result?.model_pick;
@@ -202,15 +214,41 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
                 </section>
             )}
 
-            {!!recent.length && <section className="overflow-hidden rounded-xl border bg-white">
-                <div className="border-b p-3 font-bold">Последние пики</div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4">{recent.map(pick => (
-                    <div key={pick.overall} className={`border-b p-3 text-sm sm:border-r ${pick.is_you ? 'bg-blue-50' : ''}`}>
-                        <span className="mr-2 text-gray-400">#{pick.overall}</span>
-                        <button onClick={() => onPlayerClick?.(pick.player)} className="font-medium hover:text-blue-700">{pick.player.name}</button>
-                        <div className="ml-8 text-xs text-gray-400">{pick.team_name} · {pick.policy_label}</div>
+            {!!pickLog.length && <section className="overflow-hidden rounded-xl border bg-white">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
+                    <h2 className="font-bold">{picksExpanded ? 'Все пики' : 'Последние пики'}</h2>
+                    {pickLog.length > 8 && (
+                        <button type="button" onClick={() => setPicksExpanded(open => !open)} className="text-sm text-blue-700 hover:underline">
+                            {picksExpanded ? 'Свернуть' : `Показать все · ${pickLog.length}`}
+                        </button>
+                    )}
+                </div>
+                {picksExpanded ? (
+                    <div className="max-h-[32rem] overflow-y-auto">
+                        {picksByRound.map(group => (
+                            <div key={group.round} className="border-b last:border-b-0">
+                                <div className="sticky top-0 bg-gray-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Раунд {group.round}</div>
+                                <div className="grid sm:grid-cols-2 lg:grid-cols-4">
+                                    {group.picks.map(pick => (
+                                        <div key={pick.overall} className={`border-b p-3 text-sm sm:border-r ${pick.is_you ? 'bg-blue-50' : ''}`}>
+                                            <span className="mr-2 text-gray-400">#{pick.overall}</span>
+                                            <button onClick={() => onPlayerClick?.(pick.player)} className="font-medium hover:text-blue-700">{pick.player.name}</button>
+                                            <div className="ml-8 text-xs text-gray-400">{pick.team_name} · {pick.policy_label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                ))}</div>
+                ) : (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4">{recent.map(pick => (
+                        <div key={pick.overall} className={`border-b p-3 text-sm sm:border-r ${pick.is_you ? 'bg-blue-50' : ''}`}>
+                            <span className="mr-2 text-gray-400">#{pick.overall}</span>
+                            <button onClick={() => onPlayerClick?.(pick.player)} className="font-medium hover:text-blue-700">{pick.player.name}</button>
+                            <div className="ml-8 text-xs text-gray-400">{pick.team_name} · {pick.policy_label}</div>
+                        </div>
+                    ))}</div>
+                )}
             </section>}
 
             {onClock && <section className="overflow-hidden rounded-xl border bg-white">
