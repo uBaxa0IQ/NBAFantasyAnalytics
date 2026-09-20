@@ -487,6 +487,20 @@ def get_draft_state(league_metadata):
     }
 
 
+def _known_order_simulation(pick_order, team_id, planned_pick, following_pick):
+    """Slot metadata without running Monte Carlo. Used before the first pick."""
+    if not pick_order or team_id not in pick_order:
+        return None
+    return {
+        "mode": "known_order",
+        "runs": 0,
+        "slot": list(pick_order).index(team_id) + 1,
+        "next_pick": planned_pick,
+        "following_pick": following_pick,
+        "slot_result": None,
+    }
+
+
 def get_draft_recommendations(
     league_metadata,
     team_id: int,
@@ -885,6 +899,8 @@ def get_draft_recommendations(
             runs_override=32 if live_fast and pick_order else None,
             cancel_check=ensure_current,
         )
+    elif not active_picks:
+        simulation = _known_order_simulation(pick_order, team_id, planned_pick, following_pick)
 
     team_names = _team_names(league_metadata)
     roster_comparison = _roster_comparison(drafted_profiles_by_team, team_names, team_id, punt_categories)

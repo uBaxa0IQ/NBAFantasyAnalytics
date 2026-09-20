@@ -105,6 +105,7 @@ def draft_recommendations(
     def calculate(cancel_check=None):
         return get_draft_recommendations(
             league_meta, team_id, period, punts, limit, mock_ids, simulation_slot,
+            run_simulation=not (trigger == "upcoming" and simulation_slot is None),
             expected_pick_count=expected_pick_count,
             cancel_check=cancel_check,
             live_fast=expected_pick_count is not None,

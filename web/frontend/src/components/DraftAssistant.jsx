@@ -20,15 +20,11 @@ const formatStat = (category, value) => {
     return number.toFixed(category === 'A/TO' ? 2 : 1);
 };
 
-const zScoreTone = value => {
+const zTextTone = value => {
     const zScore = Number(value || 0);
-    if (zScore >= 2) return 'bg-emerald-200 text-emerald-950';
-    if (zScore >= 1) return 'bg-green-100 text-green-800';
-    if (zScore >= 0.35) return 'bg-green-50 text-green-700';
-    if (zScore <= -2) return 'bg-rose-200 text-rose-950';
-    if (zScore <= -1) return 'bg-red-100 text-red-800';
-    if (zScore <= -0.35) return 'bg-red-50 text-red-700';
-    return 'text-gray-600';
+    if (zScore > 0) return 'text-green-600';
+    if (zScore < 0) return 'text-red-600';
+    return 'text-gray-400';
 };
 
 const calculateStrategyZ = (player, puntCategories = []) => CATEGORIES.reduce((total, category) => (
@@ -168,9 +164,9 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     }, [mainTeam, recommendationContextKey]);
 
     useEffect(() => {
-        if (!mainTeam || pickCount === undefined || !recommendationTrigger) return;
+        if (!mainTeam || pickCount === undefined || !recommendationTrigger) return undefined;
         const requestKey = `${recommendationContextKey}|${recommendationTrigger}`;
-        if (lastRequestedRecommendation.current === requestKey) return;
+        if (lastRequestedRecommendation.current === requestKey) return undefined;
         lastRequestedRecommendation.current = requestKey;
         recommendationAbort.current?.abort();
         const controller = new AbortController();
@@ -185,7 +181,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         if (cached && Date.now() - cached.savedAt < CACHE_TTL) {
             setRecommendations(cached.data);
             setRecommendationsLoading(false);
-            return;
+            return undefined;
         }
         api.get(`/draft/recommendations/${mainTeam}`, {
             params: {
@@ -207,22 +203,30 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                 setRecommendations(response.data);
             })
             .catch(requestError => {
-                if (requestId !== recommendationRequestId.current || requestError.code === 'ERR_CANCELED') return;
+                if (requestError.code === 'ERR_CANCELED') {
+                    if (lastRequestedRecommendation.current === requestKey) lastRequestedRecommendation.current = null;
+                    return;
+                }
+                if (requestId !== recommendationRequestId.current) return;
                 if (requestError.response?.status !== 409) setError(requestError.response?.data?.detail || 'Не удалось загрузить данные драфта');
             })
             .finally(() => {
                 if (requestId === recommendationRequestId.current) setRecommendationsLoading(false);
             });
+        return () => {
+            controller.abort();
+            if (lastRequestedRecommendation.current === requestKey) lastRequestedRecommendation.current = null;
+        };
     }, [mainTeam, pickCount, recommendationContextKey, recommendationTrigger, recommendationTriggerKind, isLive, leagueId, projectedPeriod, puntCategories, mockIds]);
 
-    useEffect(() => () => recommendationAbort.current?.abort(), []);
-
     useEffect(() => {
-        if (activeTab !== 'simulation' || !mainTeam || recommendations?.simulation?.mode !== 'all_slots' || detailedSimulations[simulationSlot]) return;
+        const mode = recommendations?.simulation?.mode;
+        const needsSim = mode === 'all_slots' || (mode === 'known_order' && !recommendations?.simulation?.slot_result);
+        if (activeTab !== 'simulation' || !mainTeam || !needsSim || detailedSimulations[simulationSlot]) return;
         let active = true;
         setSimulationLoading(true);
         api.get(`/draft/recommendations/${mainTeam}`, {
-            params: { period: projectedPeriod, punt_categories: puntCategories.join(','), mock_player_ids: mockIds, simulation_slot: simulationSlot, limit: 300 },
+            params: { period: projectedPeriod, punt_categories: puntCategories.join(','), mock_player_ids: mockIds, simulation_slot: simulationSlot, trigger: 'manual', limit: 300 },
         })
             .then(response => active && setDetailedSimulations(current => ({ ...current, [simulationSlot]: response.data.simulation })))
             .catch(requestError => active && setError(requestError.response?.data?.detail || 'Не удалось уточнить симуляцию'))
@@ -253,7 +257,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         players.sort((a, b) => {
             if (sortBy === 'name') return sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
             const readValue = player => {
-                if (sortBy === 'total_z') return player.total_z;
+                if (sortBy === 'total_z') return calculateStrategyZ(player, puntCategories);
                 if (sortBy === 'espn_adp') return player.espn_adp ?? Number.POSITIVE_INFINITY;
                 if (sortBy === 'espn_market_pick') return player.espn_market_pick ?? player.espn_adp ?? Number.POSITIVE_INFINITY;
                 if (sortBy === 'games_played') return player.games_played || 0;
@@ -264,7 +268,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
             return sortDir === 'asc' ? valueA - valueB : valueB - valueA;
         });
         return players;
-    }, [availablePlayers, search, position, sortBy, sortDir, effectivePlayersView]);
+    }, [availablePlayers, search, position, sortBy, sortDir, effectivePlayersView, puntCategories]);
 
     const simulationResults = recommendations?.simulation?.mode === 'all_slots'
         ? (recommendations.simulation.slot_results || [])
@@ -348,6 +352,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     };
 
     if (!draftState) return <div className="p-6 text-center text-gray-500">Загрузка…</div>;
+    const snakeSlot = (draftState.settings?.pick_order || []).findIndex(id => String(id) === String(mainTeam)) + 1 || null;
     const tabs = isPostDraft
         ? [['players', 'Свободные агенты'], ['draft', 'Анализ состава']]
         : [['players', 'Игроки'], ['draft', 'Драфт'], ['simulation', 'Симуляция']];
@@ -392,11 +397,14 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
             {recommendationsAreStale && !recommendationsLoading && <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">Снимок #{calculatedPickCount}, сейчас #{pickCount}</div>}
             {!mainTeam ? (
                 <div className="rounded border bg-white p-6 text-center"><button onClick={onOpenSettings} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Выбрать команду</button></div>
-            ) : !recommendations ? (
-                <div className="rounded border bg-white p-10 text-center text-gray-500">
-                    {error ? 'Данные драфта сейчас недоступны' : waitingForScheduledCalculation ? 'Ждём ваш ход' : 'Загрузка…'}
-                </div>
-            ) : <>
+            ) : (
+            <>
+                {isUpcoming && activeTab === 'draft' && <DraftPrepInfo draftState={draftState} recommendations={recommendations} mainTeam={mainTeam} snakeSlot={snakeSlot} />}
+                {!recommendations ? (
+                    <div className="rounded border bg-white p-10 text-center text-gray-500">
+                        {error ? 'Данные драфта сейчас недоступны' : waitingForScheduledCalculation ? 'Ждём ваш ход' : 'Собираем доску игроков…'}
+                    </div>
+                ) : <>
                 {(activeTab === 'draft' || activeTab === 'players') && officialDraftMode && !hasLiveSnapshot && <section className="rounded-xl border bg-white p-6 text-center"><h1 className="text-xl font-bold">Нет live-снимка</h1><button disabled={modeSwitching} onClick={() => switchDraftMode('analytics')} className="mt-4 rounded bg-blue-600 px-5 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{modeSwitching ? 'Подключение…' : 'Подключить аналитику'}</button></section>}
 
                 {(activeTab === 'draft' || activeTab === 'players') && officialDraftMode && hasLiveSnapshot && <section className="mb-4 flex items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 text-sm"><span>Снимок #{pickCount}{snapshotTime ? ` · ${snapshotTime}` : ''}</span><button disabled={modeSwitching} onClick={() => switchDraftMode('analytics')} className="rounded bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700 disabled:opacity-60">Обновить</button></section>}
@@ -419,20 +427,18 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                         </div>
                         <div className="overflow-x-auto"><table className="min-w-full border-collapse bg-white text-sm"><thead><tr className="bg-gray-100">
                             <th onClick={() => handleSort('name')} className="cursor-pointer whitespace-nowrap border p-2">Игрок<SortIcon column="name" /></th><th className="border p-2">Поз.</th><th className="border p-2">NBA</th><th onClick={() => handleSort('games_played')} className="cursor-pointer border p-2">GP<SortIcon column="games_played" /></th>
-                            {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2">Оценка рынка<SortIcon column="espn_market_pick" /></th>}<th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2">Total Z<SortIcon column="total_z" /></th>
-                            {CATEGORIES.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 ${effectivePlayersView === 'draft' && puntCategories.includes(category) ? 'opacity-40' : ''}`}>{category}<SortIcon column={category} /></th>)}
-                        </tr></thead><tbody>{visiblePlayers.map(player => <tr key={player.player_id || player.name} className="hover:bg-gray-50">
-                            <td className="cursor-pointer whitespace-nowrap border p-2 font-medium text-blue-600 hover:underline" onClick={() => onPlayerClick?.(player)}>{player.name}<div className="mt-1 flex gap-2 text-xs" onClick={event => event.stopPropagation()}>
-                {!isPostDraft && <button disabled={!player.player_id || plan.queue.some(p => p.player_id === player.player_id)} className="rounded border px-2 disabled:opacity-40" onClick={() => updatePlan({ queue: [...plan.queue, player] })}>В очередь</button>}
-                {isUpcoming && <button disabled={!player.player_id || recommendationsLoading || roster.length >= rosterLimit || plan.mock.some(p => p.player_id === player.player_id)} className="rounded border px-2 disabled:opacity-40" onClick={() => updatePlan({ mock: [...plan.mock, player] })}>В состав</button>}
-                </div></td><td className="border p-2 text-center">{player.position}</td><td className="border p-2 text-center">{player.nba_team}</td><td className="border p-2 text-center">{player.games_played || '—'}</td>
-                            {effectivePlayersView === 'draft' && <td className="border p-2 text-center">{player.espn_market_pick?.toFixed(1) || '—'}</td>}<td className={`border p-2 text-center font-bold ${zScoreTone(player.total_z)}`}>{Number(player.total_z || 0).toFixed(2)}</td>
-                            {CATEGORIES.map(category => { const value = effectivePlayersView === 'stats' ? player.stats?.[category] : player.z_scores?.[category]; const zScore = Number(player.z_scores?.[category] || 0); const tone = effectivePlayersView === 'stats' ? zScoreTone(zScore) : (value > 0 ? 'text-green-600' : value < 0 ? 'text-red-600' : 'text-gray-400'); return <td key={category} className={`border p-2 text-center ${tone} ${effectivePlayersView === 'draft' && puntCategories.includes(category) ? 'opacity-30' : ''}`}>{effectivePlayersView === 'stats' ? formatStat(category, value) : Number(value || 0).toFixed(2)}</td>; })}
-                        </tr>)}</tbody></table></div>
+                            {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2">Оценка рынка<SortIcon column="espn_market_pick" /></th>}<th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
+                            {CATEGORIES.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
+                        </tr></thead><tbody>{visiblePlayers.map(player => {
+                            const strategyZ = calculateStrategyZ(player, puntCategories);
+                            return <tr key={player.player_id || player.name} className="hover:bg-gray-50">
+                            <td className="cursor-pointer whitespace-nowrap border p-2 font-medium text-blue-600 hover:underline" onClick={() => onPlayerClick?.(player)}>{player.name}</td><td className="border p-2 text-center">{player.position}</td><td className="border p-2 text-center">{player.nba_team}</td><td className="border p-2 text-center">{player.games_played || '—'}</td>
+                            {effectivePlayersView === 'draft' && <td className="border p-2 text-center">{player.espn_market_pick?.toFixed(1) || '—'}</td>}<td className={`border p-2 text-center font-bold ${zTextTone(strategyZ)}`}>{strategyZ.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>}</td>
+                            {CATEGORIES.map(category => { const value = effectivePlayersView === 'stats' ? player.stats?.[category] : player.z_scores?.[category]; const zScore = Number(player.z_scores?.[category] || 0); return <td key={category} className={`border p-2 text-center ${zTextTone(zScore)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{effectivePlayersView === 'stats' ? formatStat(category, value) : zScore.toFixed(2)}</td>; })}
+                        </tr>;
+                        })}</tbody></table></div>
                     </section>
                 )}
-
-                {activeTab === 'draft' && isUpcoming && <DraftPrepInfo draftState={draftState} recommendations={recommendations} onOpenSettings={onOpenSettings} />}
 
                 {activeTab === 'draft' && !isUpcoming && !waitingForFirstLiveSnapshot && (!officialDraftMode || hasLiveSnapshot) && (
                     <div className="space-y-4">
@@ -448,13 +454,23 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                     </div>
                 )}
 
+                {activeTab === 'simulation' && recommendations.simulation && !selectedSimulation && (
+                    <div className="rounded border bg-white p-10 text-center text-gray-500">{simulationLoading ? 'Считаем симуляцию слота…' : 'Нет данных симуляции'}</div>
+                )}
                 {activeTab === 'simulation' && recommendations.simulation && selectedSimulation && <SimulationView recommendations={recommendations} selectedSimulation={selectedSimulation} simulationResults={simulationResults} rankedSimulationSlots={rankedSimulationSlots} selectedSlotRank={selectedSlotRank} effectiveSimulationRuns={effectiveSimulationRuns} simulationLoading={simulationLoading} simulationSlot={simulationSlot} setSimulationSlot={setSimulationSlot} puntCategories={puntCategories} teamCount={teamCount} onPlayerClick={onPlayerClick} isPostDraft={isPostDraft} benchmark={benchmark} benchmarkLoading={benchmarkLoading} benchmarkError={benchmarkError} runBenchmark={runBenchmark} />}
             </>}
+            </>
+            )}
         </div>
     );
 };
 
-const DraftPrepInfo = ({ draftState, recommendations }) => <div className="space-y-4"><section className="rounded-2xl bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-800 p-6 text-white shadow-lg"><div className="text-sm font-medium text-blue-200">DRAFT PREP</div><h1 className="mt-2 text-3xl font-bold">{draftState.settings?.order_known ? `Слот ${recommendations.simulation?.slot || '—'}` : 'Порядок не известен'}</h1></section><section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"><MetricCard label="Тип" value={draftState.settings?.type || '—'} /><MetricCard label="Пик" value={draftState.settings?.order_known ? `#${recommendations.planned_pick || '—'}` : '—'} /><MetricCard label="Таймер" value={draftState.settings?.time_per_selection ? `${draftState.settings.time_per_selection} сек` : '—'} /><MetricCard label="Команд" value={draftState.team_count || '—'} /></section></div>;
+const DraftPrepInfo = ({ draftState, recommendations, snakeSlot }) => {
+    const slot = recommendations?.simulation?.slot || snakeSlot;
+    const firstPick = recommendations?.planned_pick || (slot && (draftState.settings?.pick_order || []).length ? slot : null);
+    const orderKnown = Boolean(draftState.settings?.order_known || slot);
+    return <div className="space-y-4"><section className="rounded-2xl bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-800 p-6 text-white shadow-lg"><div className="text-sm font-medium text-blue-200">DRAFT PREP</div><h1 className="mt-2 text-3xl font-bold">{orderKnown ? `Слот ${slot || '—'}` : 'Порядок не известен'}</h1></section><section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"><MetricCard label="Тип" value={draftState.settings?.type || '—'} /><MetricCard label="Пик" value={orderKnown ? `#${firstPick || '—'}` : '—'} /><MetricCard label="Таймер" value={draftState.settings?.time_per_selection ? `${draftState.settings.time_per_selection} сек` : '—'} /><MetricCard label="Команд" value={draftState.team_count || '—'} /></section></div>;
+};
 
 const AdaptiveStrategyPanel = ({ strategy }) => {
     const rows = strategy?.strategies || [];
@@ -608,8 +624,8 @@ const RosterZTable = ({ roster, puntCategories, onPlayerClick }) => {
                 return <tr key={player.player_id || player.name} onClick={() => onPlayerClick?.(player)} className="cursor-pointer hover:bg-gray-50">
                     <td className="whitespace-nowrap border p-2 font-medium text-blue-600 hover:underline">{player.name} <span className="text-xs font-normal text-gray-500">({player.position || '—'})</span></td>
                     <td className="border p-2 text-center">{player.nba_team || '—'}</td><td className="border p-2 text-center">{player.games_played || '—'}</td><td className="border p-2 text-center">{player.draft_pick ? `#${player.draft_pick}` : '—'}</td>
-                    <td className={`border p-2 text-center font-bold ${zScoreTone(total)}`}>{total.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal opacity-70">общий {calculateGeneralZ(player).toFixed(2)}</div>}</td>
-                    {CATEGORIES.map(category => { const value = Number(player.z_scores?.[category] || 0); return <td key={category} className={`border p-2 text-center ${zScoreTone(value)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{value.toFixed(2)}</td>; })}
+                    <td className={`border p-2 text-center font-bold ${zTextTone(total)}`}>{total.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>}</td>
+                    {CATEGORIES.map(category => { const value = Number(player.z_scores?.[category] || 0); return <td key={category} className={`border p-2 text-center ${zTextTone(value)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{value.toFixed(2)}</td>; })}
                 </tr>;
             })}</tbody>
         </table></div>

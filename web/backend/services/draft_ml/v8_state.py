@@ -218,5 +218,25 @@ class UniversalState:
                              for other, values in totals.items() if other != slot) / (self.team_count - 1)
             scores[slot] = score
         rank = 1 + sum(value > scores[hero] + 1e-12 for slot, value in scores.items() if slot != hero)
+        midpoint = len(self.categories) / 2.0
+        minimum_win = len(self.categories) // 2 + 1
+        matchup_scores = []
+        for opponent, values in totals.items():
+            if opponent == hero:
+                continue
+            score = 0.0
+            for category in self.categories:
+                direction = -1.0 if category in self.reverse_categories else 1.0
+                own_value = direction * totals[hero][category]
+                other_value = direction * values[category]
+                score += (1.0 if own_value > other_value + 1e-12 else
+                          .5 if abs(own_value - other_value) <= 1e-12 else 0.0)
+            matchup_scores.append(score)
+        denominator = max(1, len(matchup_scores))
+        matchup_win_rate = sum(score > midpoint + 1e-12 for score in matchup_scores) / denominator
+        matchup_tie_rate = sum(abs(score - midpoint) <= 1e-12 for score in matchup_scores) / denominator
+        decisive_win_rate = sum(score >= minimum_win + 1 - 1e-12 for score in matchup_scores) / denominator
+        normalized_matchup_margin = sum(score - midpoint for score in matchup_scores) / denominator / len(self.categories)
         return np.asarray([*category_results, (rank - 1) / (self.team_count - 1),
-            float(rank <= min(4, self.team_count)), float(rank == 1)], dtype=np.float32)
+            float(rank <= min(4, self.team_count)), float(rank == 1),
+            matchup_win_rate, matchup_tie_rate, decisive_win_rate, normalized_matchup_margin], dtype=np.float32)

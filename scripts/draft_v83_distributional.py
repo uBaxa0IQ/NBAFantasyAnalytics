@@ -84,8 +84,27 @@ def rollout_utilities(state, hero, opponents, key, case, profile, start, count):
     rows = []
     for rollout in range(start, start + count):
         draws = audit.finish_draws(state.clone(), hero, opponents, key, tuple(profile), rollout)
-        rows.append(np.mean([v82.outcome_utility(draw, len(case["categories"])) for draw in draws]))
+        rows.append(np.mean([outcome_utility(draw, len(case["categories"])) for draw in draws]))
     return np.asarray(rows, dtype=np.float32)
+
+
+def outcome_utility(target, count):
+    """Optimize H2H majority first; category volume is supporting evidence."""
+    settings, _ = configuration()
+    weights = settings["objective"]
+    if len(target) < count + 7:
+        raise ValueError("V8.3 requires H2H-aware terminal targets")
+    rank, top_four, top_one = target[count:count + 3]
+    win_rate, tie_rate, decisive_rate, normalized_margin = target[count + 3:count + 7]
+    return float(
+        weights["h2h_result"] * (win_rate + .5 * tie_rate)
+        + weights["decisive_win"] * decisive_rate
+        + weights["category_strength"] * np.mean(target[:count])
+        + weights["matchup_margin"] * (.5 + normalized_margin)
+        + weights["league_rank"] * (1.0 - rank)
+        + weights["top_four"] * top_four
+        + weights["top_one"] * top_one
+    )
 
 
 def label_state(job):
@@ -251,10 +270,13 @@ def eligible(summary, gates):
     metric = summary["primary"]["auto_vs_balanced"]["normalized_categories"]
     if metric["delta"] < gates["normalized_delta_min"] or metric["interval"][0] < gates["interval_low_min"]:
         return False
+    h2h = summary["primary"]["auto_vs_balanced"]["h2h_result"]
+    if h2h["delta"] < gates["h2h_delta_min"] or h2h["interval"][0] < gates["h2h_interval_low_min"]:
+        return False
     if summary["maximum_profile_share"] > gates["maximum_profile_share"] or \
             summary["unique_profiles"] < gates["minimum_unique_profiles"]:
         return False
-    return all(value["normalized_categories"]["delta"] >= gates["family_delta_min"]
+    return all(value["h2h_result"]["delta"] >= gates["family_h2h_delta_min"]
                for value in summary["by_category_count"].values())
 
 
@@ -265,12 +287,15 @@ def calibrate(settings, out, expected):
     compact = [{"confidence": row["confidence"],
         "delta": row["primary"]["auto_vs_balanced"]["normalized_categories"]["delta"],
         "interval": row["primary"]["auto_vs_balanced"]["normalized_categories"]["interval"],
+        "h2h_delta": row["primary"]["auto_vs_balanced"]["h2h_result"]["delta"],
+        "h2h_interval": row["primary"]["auto_vs_balanced"]["h2h_result"]["interval"],
         "family_delta": {key: value["normalized_categories"]["delta"] for key, value in row["by_category_count"].items()},
+        "family_h2h_delta": {key: value["h2h_result"]["delta"] for key, value in row["by_category_count"].items()},
         "unique_profiles": row["unique_profiles"], "maximum_profile_share": row["maximum_profile_share"]} for row in summaries]
     if not passing:
         save(out / "selection.json", {"passed": False, "candidates": compact,
              "gates": settings["validation_gates"], "provenance": expected}); return
-    chosen = max(passing, key=lambda row: row["primary"]["auto_vs_balanced"]["normalized_categories"]["interval"][0])
+    chosen = max(passing, key=lambda row: row["primary"]["auto_vs_balanced"]["h2h_result"]["interval"][0])
     save(out / "selection.json", {"passed": True, "confidence": chosen["confidence"],
          "validation": chosen["primary"], "family_validation": chosen["by_category_count"],
          "candidates": compact, "gates": settings["validation_gates"], "provenance": expected})

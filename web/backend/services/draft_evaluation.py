@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import math
 
 from core.config import CATEGORIES, REVERSE_CATEGORIES
 
@@ -48,6 +49,8 @@ def evaluate_projected_rosters(team_rosters, own_slot, categories=None):
     categories = list(categories or CATEGORIES)
     totals = {slot: projected_team_totals(roster, categories) for slot, roster in team_rosters.items()}
     scores = {slot: 0.0 for slot in totals}
+    own_matchup_scores = []
+    own_category_points = defaultdict(float)
     category_ranks = {}
     for category in categories:
         reverse = category in REVERSE_CATEGORIES
@@ -56,6 +59,8 @@ def evaluate_projected_rosters(team_rosters, own_slot, categories=None):
     slots = list(totals)
     for left_index, left in enumerate(slots):
         for right in slots[left_index + 1:]:
+            left_matchup_score = 0.0
+            right_matchup_score = 0.0
             for category in categories:
                 left_value = totals[left][category]
                 right_value = totals[right][category]
@@ -63,11 +68,19 @@ def evaluate_projected_rosters(team_rosters, own_slot, categories=None):
                     left_value, right_value = -left_value, -right_value
                 if left_value > right_value + 1e-12:
                     scores[left] += 1
+                    left_matchup_score += 1
                 elif right_value > left_value + 1e-12:
                     scores[right] += 1
+                    right_matchup_score += 1
                 else:
                     scores[left] += 0.5
                     scores[right] += 0.5
+                    left_matchup_score += 0.5
+                    right_matchup_score += 0.5
+            if left == own_slot:
+                own_matchup_scores.append(left_matchup_score)
+            elif right == own_slot:
+                own_matchup_scores.append(right_matchup_score)
     opponent_count = max(1, len(slots) - 1)
     scores = {slot: value / opponent_count for slot, value in scores.items()}
     own_score = scores[own_slot]
@@ -77,6 +90,36 @@ def evaluate_projected_rosters(team_rosters, own_slot, categories=None):
         category: sum(values[category] for values in opponent_totals) / max(1, len(opponent_totals))
         for category in categories
     }
+    for category in categories:
+        own_value = totals[own_slot][category]
+        reverse = category in REVERSE_CATEGORIES
+        for values in opponent_totals:
+            left_value, right_value = own_value, values[category]
+            if reverse:
+                left_value, right_value = -left_value, -right_value
+            own_category_points[category] += (
+                1.0 if left_value > right_value + 1e-12
+                else 0.5 if abs(left_value - right_value) <= 1e-12
+                else 0.0
+            )
+    category_win_rate = {
+        category: own_category_points[category] / opponent_count
+        for category in categories
+    }
+    category_margin_z = {}
+    for category in categories:
+        values = [row[category] for row in opponent_totals]
+        mean = sum(values) / max(1, len(values))
+        variance = sum((value - mean) ** 2 for value in values) / max(1, len(values))
+        scale = math.sqrt(variance)
+        direction = -1.0 if category in REVERSE_CATEGORIES else 1.0
+        category_margin_z[category] = direction * (totals[own_slot][category] - mean) / max(scale, 1e-12)
+    midpoint = len(categories) / 2.0
+    minimum_win = len(categories) // 2 + 1
+    matchup_wins = sum(score > midpoint + 1e-12 for score in own_matchup_scores)
+    matchup_ties = sum(abs(score - midpoint) <= 1e-12 for score in own_matchup_scores)
+    decisive_wins = sum(score >= minimum_win + 1 - 1e-12 for score in own_matchup_scores)
+    narrow_wins = sum(minimum_win - 1e-12 <= score < minimum_win + 1 - 1e-12 for score in own_matchup_scores)
     return {
         "category_wins": own_score,
         "league_rank": rank,
@@ -86,4 +129,14 @@ def evaluate_projected_rosters(team_rosters, own_slot, categories=None):
             category: totals[own_slot][category] - opponent_average[category]
             for category in categories
         },
+        "category_win_rate": category_win_rate,
+        "category_margin_z": category_margin_z,
+        "matchup_win_rate": matchup_wins / opponent_count,
+        "matchup_tie_rate": matchup_ties / opponent_count,
+        "matchup_loss_rate": (opponent_count - matchup_wins - matchup_ties) / opponent_count,
+        "decisive_matchup_win_rate": decisive_wins / opponent_count,
+        "narrow_matchup_win_rate": narrow_wins / opponent_count,
+        "average_matchup_score": sum(own_matchup_scores) / opponent_count,
+        "average_matchup_margin": sum(score - midpoint for score in own_matchup_scores) / opponent_count,
+        "minimum_matchup_score": min(own_matchup_scores, default=midpoint),
     }

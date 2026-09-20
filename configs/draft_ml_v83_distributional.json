@@ -8,14 +8,14 @@
     "league_id": 203950642,
     "team_id": 12,
     "draft_slot": 5,
-    "draft_picks": [5, 24, 33, 52, 61, 80, 89, 108, 117, 136, 145, 164, 173, 192]
+    "draft_picks": [5, 24, 33, 52, 61, 80, 89, 108, 117, 136, 145, 164, 173]
   },
   "target_format": {
-    "id": "main-c11-t14-r14",
+    "id": "main-c11-t14-r13",
     "categories": ["FG%", "FT%", "3PM", "3PT%", "REB", "AST", "A/TO", "STL", "BLK", "DD", "PTS"],
     "reverse": [],
     "team_count": 14,
-    "slots": ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL", "UTIL", "UTIL", "BE", "BE", "BE", "BE"]
+    "slots": ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL", "UTIL", "UTIL", "BE", "BE", "BE"]
   },
   "workers": 6,
   "commit_round": 3,
@@ -30,6 +30,15 @@
   "bootstrap_samples": 1000,
   "max_punts": {"8": 2, "9": 2, "10": 3, "11": 3},
   "decision": {"probability_over_no_punt": 0.8, "confidence_z": 1.96},
+  "objective": {
+    "h2h_result": 0.60,
+    "decisive_win": 0.14,
+    "category_strength": 0.12,
+    "matchup_margin": 0.05,
+    "league_rank": 0.04,
+    "top_four": 0.03,
+    "top_one": 0.02
+  },
   "training_seeds": [830917, 831917, 832917],
   "warm_starts": [
     "artifacts/draft_ml/v822-format-routed/training/seed-8220916/best.pt",
@@ -69,9 +78,11 @@
   "validation_cycles_per_seat": 1,
   "holdout_cycles_per_seat": 4,
   "validation_gates": {
-    "normalized_delta_min": 0.0,
-    "interval_low_min": -0.002,
-    "family_delta_min": -0.003,
+    "normalized_delta_min": -0.015,
+    "interval_low_min": -0.02,
+    "h2h_delta_min": 0.0,
+    "h2h_interval_low_min": -0.01,
+    "family_h2h_delta_min": -0.015,
     "maximum_profile_share": 0.75,
     "minimum_unique_profiles": 5
   }

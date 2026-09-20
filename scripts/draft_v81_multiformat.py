@@ -277,6 +277,11 @@ def metric(rows, left, right, z=1.96):
         delta = sum(a[:count]) - sum(b[:count]); values['category_wins'].append(delta)
         values['normalized_categories'].append(delta / count); values['rank_gain'].append((b[count] - a[count]) * (teams - 1))
         values['top4'].append(a[count + 1] - b[count + 1]); values['top1'].append(a[count + 2] - b[count + 2])
+        if len(a) >= count + 7 and len(b) >= count + 7:
+            values.setdefault('h2h_result', []).append(
+                (a[count + 3] + .5 * a[count + 4]) - (b[count + 3] + .5 * b[count + 4]))
+            values.setdefault('decisive_h2h', []).append(a[count + 5] - b[count + 5])
+            values.setdefault('matchup_margin', []).append(a[count + 6] - b[count + 6])
     result = {}
     for name, raw in values.items():
         array = np.asarray(raw); mean = float(array.mean()); margin = float(z * array.std(ddof=1) / np.sqrt(len(array))) if len(array) > 1 else 0.0

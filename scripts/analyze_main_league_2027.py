@@ -24,7 +24,7 @@ LEAGUE_ID = 203950642
 SEASON = 2027
 TEAM_ID = 12
 HERO_SLOT = 5
-ROUNDS = 14
+ROUNDS = 13
 CATEGORIES = ("FG%", "FT%", "3PM", "3PT%", "REB", "AST", "A/TO", "STL", "BLK", "DD", "PTS")
 OUTPUT = ROOT / "artifacts/analysis/main-league-2027-slot5-punts.json"
 
@@ -79,7 +79,13 @@ def run(screening_runs=4, deep_runs=80, sensitivity_runs=40, finalists=14):
         raise ValueError("Main league draft order changed")
     recommendations = get_draft_recommendations(metadata, TEAM_ID, "2027_projected", (), 300, (), None, False, True)
     if recommendations.get("stats_source") != "selected_period": raise ValueError("Projection fallback detected")
+    # ESPN still exposes the temporary four-bench setup.  The confirmed draft
+    # format has 13 rounds, so model the final roster as three bench slots.
     roster_slots = tuple(_draft_roster_slots(metadata))
+    if len(roster_slots) > ROUNDS:
+        roster_slots = roster_slots[:ROUNDS]
+    if len(roster_slots) != ROUNDS:
+        raise ValueError(f"Expected {ROUNDS} draftable roster slots, got {len(roster_slots)}")
     primary = prepare_benchmark_market(recommendations["players"], CATEGORIES, "espn_draft")
     primary = [player for player in primary if _market_position(player) is not None or player.get("espn_roto_rank") is not None]
     synthetic = prepare_benchmark_market(recommendations["players"], CATEGORIES, "category_z")
@@ -96,7 +102,7 @@ def run(screening_runs=4, deep_runs=80, sensitivity_runs=40, finalists=14):
     selected.append(roto)
     deep = simulate(primary, selected, deep_runs, 2_027_500, roster_slots)
     sensitivity = simulate(synthetic, selected, sensitivity_runs, 2_027_900, roster_slots)
-    picks = [5, 24, 33, 52, 61, 80, 89, 108, 117, 136, 145, 164, 173, 192]
+    picks = [5, 24, 33, 52, 61, 80, 89, 108, 117, 136, 145, 164, 173]
     rows = []
     for strategy in selected:
         row = {"id": strategy["id"], "label": strategy["label"], "punt_categories": list(strategy["punts"]),

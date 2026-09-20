@@ -46,5 +46,15 @@ def test_v83_plan_uses_fresh_projection_and_validated_method():
     assert plan["formats"] == 17
     assert plan["label_states"] == 323
     assert plan["target_league"]["draft_slot"] == 5
-    assert plan["target_format"] == "main-c11-t14-r14"
+    assert plan["target_format"] == "main-c11-t14-r13"
+    assert len(plan["target_league"]["draft_picks"]) == 13
+    assert plan["target_league"]["draft_picks"][-1] == 173
     assert plan["auto_promote"] is False
+
+
+def test_v83_utility_prioritizes_h2h_majority_over_extra_category_volume():
+    count = 11
+    stable_winner = np.asarray([.60] * count + [.20, 1., 0., .85, 0., .59, .10], dtype=np.float32)
+    volatile_volume = np.asarray([.66] * count + [.15, 1., 0., .80, 0., .66, .16], dtype=np.float32)
+
+    assert v83.outcome_utility(stable_winner, count) > v83.outcome_utility(volatile_volume, count)

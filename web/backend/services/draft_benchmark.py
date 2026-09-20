@@ -226,7 +226,7 @@ def _ci95(values):
 def _summarize(outcomes, team_count, categories=None):
     categories = list(categories or CATEGORIES)
     category_wins = [row["category_wins"] for row in outcomes]
-    return {
+    summary = {
         "average_category_wins": round(_mean(category_wins), 3),
         "average_league_rank": round(_mean([row["league_rank"] for row in outcomes]), 3),
         "top_four_rate": round(_mean([row["league_rank"] <= min(4, team_count) for row in outcomes]) * 100, 1),
@@ -236,6 +236,33 @@ def _summarize(outcomes, team_count, categories=None):
             for category in categories
         },
     }
+    if outcomes and "matchup_win_rate" in outcomes[0]:
+        summary.update({
+            "matchup_win_rate": round(_mean([row["matchup_win_rate"] for row in outcomes]) * 100, 1),
+            "matchup_tie_rate": round(_mean([row["matchup_tie_rate"] for row in outcomes]) * 100, 1),
+            "matchup_loss_rate": round(_mean([row["matchup_loss_rate"] for row in outcomes]) * 100, 1),
+            "decisive_matchup_win_rate": round(
+                _mean([row["decisive_matchup_win_rate"] for row in outcomes]) * 100, 1
+            ),
+            "narrow_matchup_win_rate": round(
+                _mean([row["narrow_matchup_win_rate"] for row in outcomes]) * 100, 1
+            ),
+            "average_matchup_score": round(_mean([row["average_matchup_score"] for row in outcomes]), 3),
+            "average_matchup_margin": round(_mean([row["average_matchup_margin"] for row in outcomes]), 3),
+            "worst_decile_matchup_win_rate": round(
+                sorted(row["matchup_win_rate"] for row in outcomes)[max(0, int(len(outcomes) * .1) - 1)] * 100,
+                1,
+            ),
+            "category_win_rates": {
+                category: round(_mean([row["category_win_rate"][category] for row in outcomes]) * 100, 1)
+                for category in categories
+            },
+            "category_margin_z": {
+                category: round(_mean([row["category_margin_z"][category] for row in outcomes]), 2)
+                for category in categories
+            },
+        })
+    return summary
 
 
 def _comparison(candidate_id, baseline_id, outcomes):

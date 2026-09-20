@@ -1,0 +1,597 @@
+{
+  "created_at": "2026-09-20T21:49:23.688661+00:00",
+  "runs_per_variant": 600,
+  "team_count": 14,
+  "roster_size": 13,
+  "draft_slot": 5,
+  "picks": [
+    5,
+    24,
+    33,
+    52,
+    61,
+    80,
+    89,
+    108,
+    117,
+    136,
+    145,
+    164,
+    173
+  ],
+  "categories": [
+    "FG%",
+    "FT%",
+    "3PM",
+    "3PT%",
+    "REB",
+    "AST",
+    "A/TO",
+    "STL",
+    "BLK",
+    "DD",
+    "PTS"
+  ],
+  "projection_source": "selected_period",
+  "market_source": "espn_league_rater_with_draft_fallback",
+  "core": [
+    "Josh Giddey",
+    "Chet Holmgren",
+    "Rudy Gobert",
+    "Josh Hart",
+    "Ausar Thompson",
+    "Nic Claxton",
+    "Cason Wallace",
+    "Isaiah Hartenstein",
+    "Jalen Suggs",
+    "Davion Mitchell",
+    "Tari Eason",
+    "Tre Jones"
+  ],
+  "variants": {
+    "Cade Cunningham": {
+      "average_league_rank": 3.352,
+      "first_place_rate": 15.5,
+      "top_two_rate": 38.5,
+      "top_four_rate": 77.7,
+      "playoff_top_six_rate": 92.3,
+      "matchup_win_rate": 80.8,
+      "title_proxy_top6": 58.7,
+      "average_category_score": 6.428,
+      "category_win_rates": {
+        "FG%": 79.2,
+        "FT%": 4.6,
+        "3PM": 0.5,
+        "3PT%": 35.8,
+        "REB": 77.0,
+        "AST": 79.7,
+        "A/TO": 95.7,
+        "STL": 94.5,
+        "BLK": 82.0,
+        "DD": 94.0,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 3.71,
+        "FT%": 13.4,
+        "3PM": 13.94,
+        "3PT%": 9.35,
+        "REB": 3.99,
+        "AST": 3.64,
+        "A/TO": 1.56,
+        "STL": 1.72,
+        "BLK": 3.34,
+        "DD": 1.78,
+        "PTS": 14.0
+      }
+    },
+    "Jalen Johnson": {
+      "average_league_rank": 3.07,
+      "first_place_rate": 20.2,
+      "top_two_rate": 43.8,
+      "top_four_rate": 80.5,
+      "playoff_top_six_rate": 95.5,
+      "matchup_win_rate": 84.5,
+      "title_proxy_top6": 66.6,
+      "average_category_score": 6.514,
+      "category_win_rates": {
+        "FG%": 84.1,
+        "FT%": 3.5,
+        "3PM": 0.4,
+        "3PT%": 37.6,
+        "REB": 91.2,
+        "AST": 72.8,
+        "A/TO": 93.9,
+        "STL": 93.9,
+        "BLK": 77.2,
+        "DD": 96.8,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 3.07,
+        "FT%": 13.55,
+        "3PM": 13.95,
+        "3PT%": 9.11,
+        "REB": 2.15,
+        "AST": 4.53,
+        "A/TO": 1.8,
+        "STL": 1.79,
+        "BLK": 3.96,
+        "DD": 1.42,
+        "PTS": 14.0
+      }
+    },
+    "Scottie Barnes": {
+      "average_league_rank": 3.915,
+      "first_place_rate": 9.7,
+      "top_two_rate": 27.5,
+      "top_four_rate": 68.0,
+      "playoff_top_six_rate": 88.2,
+      "matchup_win_rate": 78.1,
+      "title_proxy_top6": 52.6,
+      "average_category_score": 6.266,
+      "category_win_rates": {
+        "FG%": 83.7,
+        "FT%": 2.9,
+        "3PM": 0.2,
+        "3PT%": 27.0,
+        "REB": 84.8,
+        "AST": 61.6,
+        "A/TO": 92.9,
+        "STL": 94.7,
+        "BLK": 88.7,
+        "DD": 90.2,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 3.12,
+        "FT%": 13.62,
+        "3PM": 13.98,
+        "3PT%": 10.49,
+        "REB": 2.98,
+        "AST": 5.99,
+        "A/TO": 1.92,
+        "STL": 1.69,
+        "BLK": 2.48,
+        "DD": 2.27,
+        "PTS": 14.0
+      }
+    },
+    "Tyrese Haliburton": {
+      "average_league_rank": 3.585,
+      "first_place_rate": 16.3,
+      "top_two_rate": 38.7,
+      "top_four_rate": 73.2,
+      "playoff_top_six_rate": 89.5,
+      "matchup_win_rate": 78.5,
+      "title_proxy_top6": 54.8,
+      "average_category_score": 6.381,
+      "category_win_rates": {
+        "FG%": 83.2,
+        "FT%": 3.3,
+        "3PM": 0.7,
+        "3PT%": 47.5,
+        "REB": 68.8,
+        "AST": 77.6,
+        "A/TO": 99.6,
+        "STL": 92.3,
+        "BLK": 79.8,
+        "DD": 85.4,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 3.18,
+        "FT%": 13.57,
+        "3PM": 13.9,
+        "3PT%": 7.83,
+        "REB": 5.05,
+        "AST": 3.92,
+        "A/TO": 1.05,
+        "STL": 2.0,
+        "BLK": 3.63,
+        "DD": 2.9,
+        "PTS": 14.0
+      }
+    },
+    "Giannis Antetokounmpo": {
+      "average_league_rank": 3.373,
+      "first_place_rate": 13.8,
+      "top_two_rate": 37.2,
+      "top_four_rate": 77.3,
+      "playoff_top_six_rate": 93.2,
+      "matchup_win_rate": 81.0,
+      "title_proxy_top6": 59.3,
+      "average_category_score": 6.405,
+      "category_win_rates": {
+        "FG%": 96.1,
+        "FT%": 0.7,
+        "3PM": 0.1,
+        "3PT%": 37.1,
+        "REB": 91.4,
+        "AST": 61.7,
+        "A/TO": 86.4,
+        "STL": 90.4,
+        "BLK": 81.8,
+        "DD": 94.8,
+        "PTS": 0.1
+      },
+      "category_ranks": {
+        "FG%": 1.51,
+        "FT%": 13.91,
+        "3PM": 13.99,
+        "3PT%": 9.18,
+        "REB": 2.12,
+        "AST": 5.98,
+        "A/TO": 2.76,
+        "STL": 2.25,
+        "BLK": 3.37,
+        "DD": 1.68,
+        "PTS": 13.99
+      }
+    }
+  },
+  "recommended_first_pick": "Jalen Johnson",
+  "feasibility": {
+    "runs": 1800,
+    "exact_roster_rate": 8.89,
+    "availability_by_pick": [
+      {
+        "pick": 5,
+        "name": "Jalen Johnson",
+        "rate": 95.1
+      },
+      {
+        "pick": 24,
+        "name": "Josh Giddey",
+        "rate": 95.9
+      },
+      {
+        "pick": 33,
+        "name": "Chet Holmgren",
+        "rate": 99.2
+      },
+      {
+        "pick": 52,
+        "name": "Rudy Gobert",
+        "rate": 90.6
+      },
+      {
+        "pick": 61,
+        "name": "Josh Hart",
+        "rate": 98.0
+      },
+      {
+        "pick": 80,
+        "name": "Ausar Thompson",
+        "rate": 70.5
+      },
+      {
+        "pick": 89,
+        "name": "Nic Claxton",
+        "rate": 96.2
+      },
+      {
+        "pick": 108,
+        "name": "Cason Wallace",
+        "rate": 79.3
+      },
+      {
+        "pick": 117,
+        "name": "Isaiah Hartenstein",
+        "rate": 80.3
+      },
+      {
+        "pick": 136,
+        "name": "Jalen Suggs",
+        "rate": 60.7
+      },
+      {
+        "pick": 145,
+        "name": "Davion Mitchell",
+        "rate": 83.5
+      },
+      {
+        "pick": 164,
+        "name": "Tari Eason",
+        "rate": 49.1
+      },
+      {
+        "pick": 173,
+        "name": "Tre Jones",
+        "rate": 99.7
+      }
+    ]
+  },
+  "representative_mock_for_jalen": [
+    {
+      "slot": 3,
+      "rank": 1,
+      "category_score": 6.77,
+      "roster": [
+        "Nikola Jokic",
+        "Kevin Durant",
+        "Desmond Bane",
+        "LeBron James",
+        "Brandin Podziemski",
+        "Dejounte Murray",
+        "Julius Randle",
+        "Mitchell Robinson",
+        "Tobias Harris",
+        "Bennedict Mathurin",
+        "Jrue Holiday",
+        "Dennis Schroder",
+        "Morez Johnson Jr."
+      ]
+    },
+    {
+      "slot": 5,
+      "rank": 2,
+      "category_score": 6.38,
+      "roster": [
+        "Jalen Johnson",
+        "Josh Giddey",
+        "Chet Holmgren",
+        "Rudy Gobert",
+        "Josh Hart",
+        "Ausar Thompson",
+        "Nic Claxton",
+        "Cason Wallace",
+        "Isaiah Hartenstein",
+        "Jalen Suggs",
+        "Davion Mitchell",
+        "Tari Eason",
+        "Tre Jones"
+      ]
+    },
+    {
+      "slot": 12,
+      "rank": 3,
+      "category_score": 6.15,
+      "roster": [
+        "Tyrese Maxey",
+        "Tyrese Haliburton",
+        "Lauri Markkanen",
+        "Jalen Williams",
+        "Miles Bridges",
+        "Jaren Jackson Jr.",
+        "Derik Queen",
+        "DeMar DeRozan",
+        "Scotty Pippen Jr.",
+        "Zach LaVine",
+        "Devin Vassell",
+        "Malik Monk",
+        "Collin Sexton"
+      ]
+    },
+    {
+      "slot": 13,
+      "rank": 3,
+      "category_score": 6.15,
+      "roster": [
+        "Jayson Tatum",
+        "Cooper Flagg",
+        "Kon Knueppel",
+        "Trae Young",
+        "AJ Dybantsa",
+        "Dylan Harper",
+        "Egor Demin",
+        "Collin Gillespie",
+        "Ja Morant",
+        "Ayo Dosunmu",
+        "Saddiq Bey",
+        "Anfernee Simons",
+        "Dereck Lively II"
+      ]
+    },
+    {
+      "slot": 4,
+      "rank": 5,
+      "category_score": 5.69,
+      "roster": [
+        "Luka Doncic",
+        "Jamal Murray",
+        "Mikal Bridges",
+        "Jarrett Allen",
+        "Ivica Zubac",
+        "OG Anunoby",
+        "Nikola Vucevic",
+        "Jakob Poeltl",
+        "Zach Edey",
+        "Draymond Green",
+        "Cedric Coward",
+        "Klay Thompson",
+        "Mikel Brown Jr."
+      ]
+    },
+    {
+      "slot": 9,
+      "rank": 5,
+      "category_score": 5.69,
+      "roster": [
+        "Bam Adebayo",
+        "Kawhi Leonard",
+        "Devin Booker",
+        "Kyrie Irving",
+        "Brandon Miller",
+        "Cameron Boozer",
+        "Joel Embiid",
+        "Paul George",
+        "Jaden McDaniels",
+        "Anthony Black",
+        "Jalen Green",
+        "Neemias Queta",
+        "Deandre Ayton"
+      ]
+    },
+    {
+      "slot": 14,
+      "rank": 5,
+      "category_score": 5.69,
+      "roster": [
+        "Karl-Anthony Towns",
+        "Giannis Antetokounmpo",
+        "Naz Reid",
+        "Trey Murphy III",
+        "Andrew Wiggins",
+        "Reed Sheppard",
+        "Tim Hardaway Jr.",
+        "Alex Sarr",
+        "Darryn Peterson",
+        "Toumani Camara",
+        "Darius Acuff Jr.",
+        "Dillon Brooks",
+        "Luguentz Dort"
+      ]
+    },
+    {
+      "slot": 7,
+      "rank": 8,
+      "category_score": 5.23,
+      "roster": [
+        "Cade Cunningham",
+        "Anthony Davis",
+        "Domantas Sabonis",
+        "Onyeka Okongwu",
+        "Tyler Herro",
+        "Coby White",
+        "Jeremiah Fears",
+        "Daniel Gafford",
+        "Keyonte George",
+        "Kyle Filipowski",
+        "Brook Lopez",
+        "Rui Hachimura",
+        "Jordan Poole"
+      ]
+    },
+    {
+      "slot": 1,
+      "rank": 9,
+      "category_score": 5.0,
+      "roster": [
+        "Shai Gilgeous-Alexander",
+        "Jalen Brunson",
+        "Nickeil Alexander-Walker",
+        "Walker Kessler",
+        "Franz Wagner",
+        "Kel'el Ware",
+        "Ryan Rollins",
+        "Keegan Murray",
+        "Quentin Grimes",
+        "Jerami Grant",
+        "Kelly Oubre Jr.",
+        "Jarace Walker",
+        "Jusuf Nurkic"
+      ]
+    },
+    {
+      "slot": 10,
+      "rank": 9,
+      "category_score": 5.0,
+      "roster": [
+        "Scottie Barnes",
+        "James Harden",
+        "Stephen Curry",
+        "De'Aaron Fox",
+        "Paolo Banchero",
+        "Kristaps Porzingis",
+        "Damian Lillard",
+        "Immanuel Quickley",
+        "RJ Barrett",
+        "Julian Champagnie",
+        "Moussa Diabate",
+        "Hugo Gonzalez",
+        "P.J. Washington"
+      ]
+    },
+    {
+      "slot": 6,
+      "rank": 11,
+      "category_score": 4.92,
+      "roster": [
+        "Anthony Edwards",
+        "Derrick White",
+        "Dyson Daniels",
+        "Jaylen Brown",
+        "VJ Edgecombe",
+        "Norman Powell",
+        "Ty Jerome",
+        "Peyton Watson",
+        "Ace Bailey",
+        "Jaime Jaquez Jr.",
+        "Kyshawn George",
+        "Wendell Carter Jr.",
+        "Santi Aldama"
+      ]
+    },
+    {
+      "slot": 11,
+      "rank": 12,
+      "category_score": 4.85,
+      "roster": [
+        "Amen Thompson",
+        "LaMelo Ball",
+        "Michael Porter Jr.",
+        "Austin Reaves",
+        "Brandon Ingram",
+        "Stephon Castle",
+        "CJ McCollum",
+        "Fred VanVleet",
+        "Yaxel Lendeborg",
+        "Cameron Johnson",
+        "T.J. McConnell",
+        "Keldon Johnson",
+        "Isaiah Stewart"
+      ]
+    },
+    {
+      "slot": 8,
+      "rank": 13,
+      "category_score": 4.77,
+      "roster": [
+        "Donovan Mitchell",
+        "Pascal Siakam",
+        "Evan Mobley",
+        "Darius Garland",
+        "Caleb Wilson",
+        "Matas Buzelis",
+        "Myles Turner",
+        "Kevin Porter Jr.",
+        "Day'Ron Sharpe",
+        "Oso Ighodaro",
+        "Aaron Gordon",
+        "Christian Braun",
+        "Andrew Nembhard"
+      ]
+    },
+    {
+      "slot": 2,
+      "rank": 14,
+      "category_score": 4.69,
+      "roster": [
+        "Victor Wembanyama",
+        "Jalen Duren",
+        "Alperen Sengun",
+        "Donovan Clingan",
+        "Deni Avdija",
+        "John Collins",
+        "Zion Williamson",
+        "Jabari Smith Jr.",
+        "Payton Pritchard",
+        "Alex Caruso",
+        "Bobby Portis",
+        "Kyle Kuzma",
+        "Scoot Henderson"
+      ]
+    }
+  ],
+  "method": {
+    "power": "Exact fixed roster vs 13 stochastic ESPN-market opponent rosters; GP ±12%, per-game volume ±8%.",
+    "title_proxy": "Top-6 playoffs; seeds 1-2 receive a bye; round win probability approximated by simulated matchup win rate.",
+    "feasibility": "Live snake mock from slot 5; target selected only if still available at its planned pick."
+  },
+  "limitations": [
+    "Season-volume projections, not the exact weekly NBA schedule.",
+    "Opponent managers follow noisy ESPN market order and positional feasibility; trades, waivers and streaming are excluded.",
+    "Title probability is a playoff proxy, not a guarantee."
+  ]
+}

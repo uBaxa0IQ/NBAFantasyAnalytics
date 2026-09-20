@@ -13,15 +13,11 @@ const calculateStrategyZ = (player, puntCategories = [], categories = CATEGORIES
     puntCategories.includes(category) ? total : total + Number(player.z_scores?.[category] || 0)
 ), 0);
 
-const zScoreTone = value => {
+const zTextTone = value => {
     const zScore = Number(value || 0);
-    if (zScore >= 2) return 'bg-emerald-200 text-emerald-950';
-    if (zScore >= 1) return 'bg-green-100 text-green-800';
-    if (zScore >= 0.35) return 'bg-green-50 text-green-700';
-    if (zScore <= -2) return 'bg-rose-200 text-rose-950';
-    if (zScore <= -1) return 'bg-red-100 text-red-800';
-    if (zScore <= -0.35) return 'bg-red-50 text-red-700';
-    return 'text-gray-600';
+    if (zScore > 0) return 'text-green-600';
+    if (zScore < 0) return 'text-red-600';
+    return 'text-gray-400';
 };
 
 const errorMessage = error => {
@@ -165,9 +161,7 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
     const pickValue = (player, category) => (
         playersView === 'stats' ? formatStat(category, player.stats?.[category]) : Number(player.z_scores?.[category] || 0).toFixed(2)
     );
-    const pickTone = (player, category) => (
-        playersView === 'stats' ? zScoreTone(player.z_scores?.[category]) : zScoreTone(player.z_scores?.[category])
-    );
+    const pickTone = (player, category) => zTextTone(player.z_scores?.[category]);
 
     if (!mainTeam) {
         return (
@@ -268,8 +262,8 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
                         <th onClick={() => handleSort('name')} className="cursor-pointer border p-2 text-left">Игрок<SortIcon column="name" /></th>
                         <th className="border p-2">Поз.</th>
                         <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer border p-2">Рынок<SortIcon column="espn_market_pick" /></th>
-                        <th onClick={() => handleSort('total_z')} className="cursor-pointer border p-2">{puntCategories.length ? 'Z стратегии' : 'Z'}<SortIcon column="total_z" /></th>
-                        {categories.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer border p-2 ${puntCategories.includes(category) ? 'opacity-40' : ''}`}>{category}<SortIcon column={category} /></th>)}
+                        <th onClick={() => handleSort('total_z')} className="cursor-pointer border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
+                        {categories.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
                     </tr></thead>
                     <tbody>{visibleBoard.slice(0, 120).map(player => {
                         const strategyZ = calculateStrategyZ(player, puntCategories, categories);
@@ -280,7 +274,7 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
                             <td className="border p-2"><button onClick={() => onPlayerClick?.(player)} className="font-medium text-blue-600 hover:underline">{player.name}</button></td>
                             <td className="border p-2 text-center">{player.position}</td>
                             <td className="border p-2 text-center">{player.espn_market_pick?.toFixed?.(1) || '—'}</td>
-                            <td className={`border p-2 text-center font-bold ${zScoreTone(strategyZ)}`}>{strategyZ.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal opacity-70">общий {generalZ.toFixed(2)}</div>}</td>
+                            <td className={`border p-2 text-center font-bold ${zTextTone(strategyZ)}`}>{strategyZ.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {generalZ.toFixed(2)}</div>}</td>
                             {categories.map(category => (
                                 <td key={category} className={`border p-2 text-center ${pickTone(player, category)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{pickValue(player, category)}</td>
                             ))}

@@ -1,0 +1,699 @@
+{
+  "created_at": "2026-09-20T20:37:17.644368+00:00",
+  "league_id": 203950642,
+  "team_count": 14,
+  "rounds": 13,
+  "draft_slot": 5,
+  "categories": [
+    "FG%",
+    "FT%",
+    "3PM",
+    "3PT%",
+    "REB",
+    "AST",
+    "A/TO",
+    "STL",
+    "BLK",
+    "DD",
+    "PTS"
+  ],
+  "runs": 200,
+  "matchups_per_strategy": 2600,
+  "projection_source": "selected_period",
+  "market_source": "espn_league_rater_with_draft_fallback",
+  "results": {
+    "punt_ft_3pm_3pt": {
+      "label": "Punt FT% + 3PM + 3PT%",
+      "punts": [
+        "FT%",
+        "3PM",
+        "3PT%"
+      ],
+      "average_category_wins": 6.696,
+      "average_league_rank": 3.04,
+      "top_four_rate": 86.0,
+      "worst_decile_category_wins": 5.923,
+      "category_ranks": {
+        "FG%": 1.31,
+        "FT%": 13.44,
+        "3PM": 13.92,
+        "3PT%": 5.51,
+        "REB": 1.61,
+        "AST": 3.73,
+        "A/TO": 5.75,
+        "STL": 3.67,
+        "BLK": 4.29,
+        "DD": 1.02,
+        "PTS": 12.7
+      },
+      "matchup_win_rate": 85.4,
+      "matchup_tie_rate": 0.0,
+      "matchup_loss_rate": 14.6,
+      "decisive_matchup_win_rate": 59.0,
+      "narrow_matchup_win_rate": 26.4,
+      "average_matchup_score": 6.696,
+      "average_matchup_margin": 1.196,
+      "worst_decile_matchup_win_rate": 61.5,
+      "category_win_rates": {
+        "FG%": 97.6,
+        "FT%": 4.3,
+        "3PM": 0.6,
+        "3PT%": 65.3,
+        "REB": 95.3,
+        "AST": 79.0,
+        "A/TO": 63.4,
+        "STL": 79.5,
+        "BLK": 74.7,
+        "DD": 99.8,
+        "PTS": 10.0
+      },
+      "category_margin_z": {
+        "FG%": 3.13,
+        "FT%": -2.72,
+        "3PM": -2.83,
+        "3PT%": 0.7,
+        "REB": 2.01,
+        "AST": 0.93,
+        "A/TO": 0.43,
+        "STL": 1.08,
+        "BLK": 0.82,
+        "DD": 3.75,
+        "PTS": -1.82
+      },
+      "core_players": [
+        {
+          "name": "Josh Giddey",
+          "rate": 95.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 83.0
+        },
+        {
+          "name": "Giannis Antetokounmpo",
+          "rate": 79.0
+        },
+        {
+          "name": "Jalen Duren",
+          "rate": 77.0
+        },
+        {
+          "name": "Ausar Thompson",
+          "rate": 75.0
+        },
+        {
+          "name": "Walker Kessler",
+          "rate": 74.5
+        },
+        {
+          "name": "Ty Jerome",
+          "rate": 71.0
+        },
+        {
+          "name": "Derik Queen",
+          "rate": 70.0
+        },
+        {
+          "name": "Oso Ighodaro",
+          "rate": 65.0
+        },
+        {
+          "name": "Darius Garland",
+          "rate": 64.5
+        },
+        {
+          "name": "Scotty Pippen Jr.",
+          "rate": 64.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "rate": 59.5
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 47.5
+        },
+        {
+          "name": "Ayo Dosunmu",
+          "rate": 39.5
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 34.5
+        },
+        {
+          "name": "Jrue Holiday",
+          "rate": 23.0
+        },
+        {
+          "name": "Cason Wallace",
+          "rate": 19.0
+        },
+        {
+          "name": "Jakob Poeltl",
+          "rate": 17.5
+        }
+      ]
+    },
+    "punt_reb_blk": {
+      "label": "Punt REB + BLK",
+      "punts": [
+        "REB",
+        "BLK"
+      ],
+      "average_category_wins": 7.162,
+      "average_league_rank": 2.245,
+      "top_four_rate": 90.0,
+      "worst_decile_category_wins": 6.231,
+      "category_ranks": {
+        "FG%": 5.25,
+        "FT%": 5.67,
+        "3PM": 5.0,
+        "3PT%": 2.75,
+        "REB": 6.62,
+        "AST": 5.01,
+        "A/TO": 1.97,
+        "STL": 8.27,
+        "BLK": 8.55,
+        "DD": 2.74,
+        "PTS": 9.06
+      },
+      "matchup_win_rate": 83.1,
+      "matchup_tie_rate": 0.0,
+      "matchup_loss_rate": 16.9,
+      "decisive_matchup_win_rate": 64.3,
+      "narrow_matchup_win_rate": 18.7,
+      "average_matchup_score": 7.162,
+      "average_matchup_margin": 1.662,
+      "worst_decile_matchup_win_rate": 61.5,
+      "category_win_rates": {
+        "FG%": 67.3,
+        "FT%": 64.0,
+        "3PM": 69.2,
+        "3PT%": 86.6,
+        "REB": 56.7,
+        "AST": 69.2,
+        "A/TO": 92.6,
+        "STL": 44.1,
+        "BLK": 41.9,
+        "DD": 86.6,
+        "PTS": 38.0
+      },
+      "category_margin_z": {
+        "FG%": 0.64,
+        "FT%": 0.49,
+        "3PM": 0.55,
+        "3PT%": 1.74,
+        "REB": 0.11,
+        "AST": 0.52,
+        "A/TO": 1.89,
+        "STL": -0.21,
+        "BLK": -0.27,
+        "DD": 1.17,
+        "PTS": -0.41
+      },
+      "core_players": [
+        {
+          "name": "Jamal Murray",
+          "rate": 98.0
+        },
+        {
+          "name": "Josh Giddey",
+          "rate": 93.0
+        },
+        {
+          "name": "Tyrese Haliburton",
+          "rate": 92.5
+        },
+        {
+          "name": "Kyrie Irving",
+          "rate": 90.5
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 89.5
+        },
+        {
+          "name": "Norman Powell",
+          "rate": 82.5
+        },
+        {
+          "name": "John Collins",
+          "rate": 77.0
+        },
+        {
+          "name": "Paul George",
+          "rate": 71.0
+        },
+        {
+          "name": "Kyle Filipowski",
+          "rate": 63.0
+        },
+        {
+          "name": "Jabari Smith Jr.",
+          "rate": 47.5
+        },
+        {
+          "name": "Cameron Johnson",
+          "rate": 43.0
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 42.0
+        },
+        {
+          "name": "Bobby Portis",
+          "rate": 37.0
+        },
+        {
+          "name": "Al Horford",
+          "rate": 36.5
+        },
+        {
+          "name": "Day'Ron Sharpe",
+          "rate": 34.0
+        },
+        {
+          "name": "Collin Sexton",
+          "rate": 30.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "rate": 29.5
+        },
+        {
+          "name": "Kristaps Porzingis",
+          "rate": 28.5
+        }
+      ]
+    },
+    "punt_stl_blk": {
+      "label": "Punt STL + BLK",
+      "punts": [
+        "STL",
+        "BLK"
+      ],
+      "average_category_wins": 7.047,
+      "average_league_rank": 2.39,
+      "top_four_rate": 89.0,
+      "worst_decile_category_wins": 6.231,
+      "category_ranks": {
+        "FG%": 4.44,
+        "FT%": 5.98,
+        "3PM": 6.29,
+        "3PT%": 2.67,
+        "REB": 4.93,
+        "AST": 6.3,
+        "A/TO": 2.82,
+        "STL": 10.34,
+        "BLK": 7.7,
+        "DD": 1.9,
+        "PTS": 9.03
+      },
+      "matchup_win_rate": 84.3,
+      "matchup_tie_rate": 0.0,
+      "matchup_loss_rate": 15.7,
+      "decisive_matchup_win_rate": 65.2,
+      "narrow_matchup_win_rate": 19.1,
+      "average_matchup_score": 7.047,
+      "average_matchup_margin": 1.547,
+      "worst_decile_matchup_win_rate": 69.2,
+      "category_win_rates": {
+        "FG%": 73.5,
+        "FT%": 61.7,
+        "3PM": 59.3,
+        "3PT%": 87.2,
+        "REB": 69.7,
+        "AST": 59.2,
+        "A/TO": 86.0,
+        "STL": 28.2,
+        "BLK": 48.5,
+        "DD": 93.1,
+        "PTS": 38.3
+      },
+      "category_margin_z": {
+        "FG%": 0.91,
+        "FT%": 0.42,
+        "3PM": 0.34,
+        "3PT%": 1.81,
+        "REB": 0.58,
+        "AST": 0.22,
+        "A/TO": 1.5,
+        "STL": -0.75,
+        "BLK": 0.05,
+        "DD": 1.84,
+        "PTS": -0.39
+      },
+      "core_players": [
+        {
+          "name": "Josh Giddey",
+          "rate": 100.0
+        },
+        {
+          "name": "Kyrie Irving",
+          "rate": 98.5
+        },
+        {
+          "name": "Jamal Murray",
+          "rate": 98.0
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 95.0
+        },
+        {
+          "name": "John Collins",
+          "rate": 81.5
+        },
+        {
+          "name": "Kristaps Porzingis",
+          "rate": 74.0
+        },
+        {
+          "name": "Tyrese Haliburton",
+          "rate": 73.5
+        },
+        {
+          "name": "Norman Powell",
+          "rate": 70.5
+        },
+        {
+          "name": "Cedric Coward",
+          "rate": 55.0
+        },
+        {
+          "name": "Zach Edey",
+          "rate": 54.0
+        },
+        {
+          "name": "Cameron Johnson",
+          "rate": 52.0
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 52.0
+        },
+        {
+          "name": "Tim Hardaway Jr.",
+          "rate": 48.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 34.5
+        },
+        {
+          "name": "Paul George",
+          "rate": 29.0
+        },
+        {
+          "name": "Al Horford",
+          "rate": 29.0
+        },
+        {
+          "name": "Jabari Smith Jr.",
+          "rate": 27.5
+        },
+        {
+          "name": "Bobby Portis",
+          "rate": 25.5
+        }
+      ]
+    },
+    "balanced": {
+      "label": "No punt",
+      "punts": [],
+      "average_category_wins": 6.95,
+      "average_league_rank": 2.55,
+      "top_four_rate": 88.0,
+      "worst_decile_category_wins": 6.231,
+      "category_ranks": {
+        "FG%": 4.12,
+        "FT%": 6.54,
+        "3PM": 9.08,
+        "3PT%": 2.85,
+        "REB": 4.51,
+        "AST": 5.46,
+        "A/TO": 3.42,
+        "STL": 9.09,
+        "BLK": 5.81,
+        "DD": 1.76,
+        "PTS": 11.0
+      },
+      "matchup_win_rate": 81.3,
+      "matchup_tie_rate": 0.0,
+      "matchup_loss_rate": 18.7,
+      "decisive_matchup_win_rate": 61.4,
+      "narrow_matchup_win_rate": 20.0,
+      "average_matchup_score": 6.95,
+      "average_matchup_margin": 1.45,
+      "worst_decile_matchup_win_rate": 61.5,
+      "category_win_rates": {
+        "FG%": 76.0,
+        "FT%": 57.4,
+        "3PM": 37.8,
+        "3PT%": 85.7,
+        "REB": 73.0,
+        "AST": 65.7,
+        "A/TO": 81.4,
+        "STL": 37.8,
+        "BLK": 63.0,
+        "DD": 94.1,
+        "PTS": 23.1
+      },
+      "category_margin_z": {
+        "FG%": 1.04,
+        "FT%": 0.29,
+        "3PM": -0.21,
+        "3PT%": 1.7,
+        "REB": 0.68,
+        "AST": 0.39,
+        "A/TO": 1.26,
+        "STL": -0.45,
+        "BLK": 0.51,
+        "DD": 1.87,
+        "PTS": -0.96
+      },
+      "core_players": [
+        {
+          "name": "Josh Giddey",
+          "rate": 100.0
+        },
+        {
+          "name": "Jamal Murray",
+          "rate": 98.0
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 98.0
+        },
+        {
+          "name": "Kyrie Irving",
+          "rate": 97.5
+        },
+        {
+          "name": "Tyrese Haliburton",
+          "rate": 81.0
+        },
+        {
+          "name": "John Collins",
+          "rate": 76.5
+        },
+        {
+          "name": "Zach Edey",
+          "rate": 73.0
+        },
+        {
+          "name": "Kristaps Porzingis",
+          "rate": 69.0
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 65.5
+        },
+        {
+          "name": "Kyshawn George",
+          "rate": 64.5
+        },
+        {
+          "name": "Paul George",
+          "rate": 61.5
+        },
+        {
+          "name": "Cameron Johnson",
+          "rate": 48.5
+        },
+        {
+          "name": "Norman Powell",
+          "rate": 43.0
+        },
+        {
+          "name": "Al Horford",
+          "rate": 40.5
+        },
+        {
+          "name": "Cedric Coward",
+          "rate": 29.5
+        },
+        {
+          "name": "Davion Mitchell",
+          "rate": 29.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 28.0
+        },
+        {
+          "name": "Jerami Grant",
+          "rate": 25.0
+        }
+      ]
+    },
+    "espn_roto": {
+      "label": "ESPN draft ROTO",
+      "punts": [],
+      "average_category_wins": 5.808,
+      "average_league_rank": 6.355,
+      "top_four_rate": 32.0,
+      "worst_decile_category_wins": 4.692,
+      "category_ranks": {
+        "FG%": 5.24,
+        "FT%": 8.41,
+        "3PM": 8.52,
+        "3PT%": 5.19,
+        "REB": 5.04,
+        "AST": 11.7,
+        "A/TO": 9.93,
+        "STL": 3.73,
+        "BLK": 6.04,
+        "DD": 6.04,
+        "PTS": 8.66
+      },
+      "matchup_win_rate": 58.3,
+      "matchup_tie_rate": 0.0,
+      "matchup_loss_rate": 41.7,
+      "decisive_matchup_win_rate": 34.9,
+      "narrow_matchup_win_rate": 23.5,
+      "average_matchup_score": 5.808,
+      "average_matchup_margin": 0.308,
+      "worst_decile_matchup_win_rate": 30.8,
+      "category_win_rates": {
+        "FG%": 67.4,
+        "FT%": 43.0,
+        "3PM": 42.2,
+        "3PT%": 67.8,
+        "REB": 68.9,
+        "AST": 17.7,
+        "A/TO": 31.3,
+        "STL": 79.0,
+        "BLK": 61.3,
+        "DD": 61.2,
+        "PTS": 41.0
+      },
+      "category_margin_z": {
+        "FG%": 0.66,
+        "FT%": -0.22,
+        "3PM": -0.07,
+        "3PT%": 0.65,
+        "REB": 0.49,
+        "AST": -0.98,
+        "A/TO": -0.58,
+        "STL": 1.0,
+        "BLK": 0.48,
+        "DD": 0.07,
+        "PTS": -0.22
+      },
+      "core_players": [
+        {
+          "name": "Anthony Edwards",
+          "rate": 100.0
+        },
+        {
+          "name": "Kawhi Leonard",
+          "rate": 100.0
+        },
+        {
+          "name": "Mikal Bridges",
+          "rate": 100.0
+        },
+        {
+          "name": "Donovan Clingan",
+          "rate": 100.0
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 100.0
+        },
+        {
+          "name": "Norman Powell",
+          "rate": 100.0
+        },
+        {
+          "name": "Fred VanVleet",
+          "rate": 100.0
+        },
+        {
+          "name": "Derik Queen",
+          "rate": 100.0
+        },
+        {
+          "name": "Ayo Dosunmu",
+          "rate": 100.0
+        },
+        {
+          "name": "Quentin Grimes",
+          "rate": 100.0
+        },
+        {
+          "name": "Anthony Black",
+          "rate": 100.0
+        },
+        {
+          "name": "Kyle Filipowski",
+          "rate": 100.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 100.0
+        }
+      ]
+    }
+  },
+  "requested_vs_balanced": {
+    "delta_matchup_win_rate_pp": 4.04,
+    "delta_matchup_win_rate_ci95_pp": [
+      1.37,
+      6.71
+    ],
+    "delta_decisive_win_rate_pp": -2.38,
+    "delta_average_matchup_score": -0.254,
+    "better_scenario_rate": 51.0,
+    "worse_scenario_rate": 29.5
+  },
+  "requested_vs_reb_blk": {
+    "delta_matchup_win_rate_pp": 2.31,
+    "delta_matchup_win_rate_ci95_pp": [
+      -0.42,
+      5.04
+    ],
+    "delta_decisive_win_rate_pp": -5.35,
+    "delta_average_matchup_score": -0.466,
+    "better_scenario_rate": 47.5,
+    "worse_scenario_rate": 34.0
+  },
+  "reb_blk_vs_balanced": {
+    "delta_matchup_win_rate_pp": 1.73,
+    "delta_matchup_win_rate_ci95_pp": [
+      -0.24,
+      3.71
+    ],
+    "delta_decisive_win_rate_pp": 2.96,
+    "delta_average_matchup_score": 0.212,
+    "better_scenario_rate": 43.5,
+    "worse_scenario_rate": 31.0
+  },
+  "method": "Paired projected-roster H2H majority audit; a win requires at least 6 of 11 categories.",
+  "limitations": [
+    "Projected season-volume matchups with GP/stat uncertainty, not an NBA weekly schedule simulation.",
+    "Opponent draft behavior is a synthetic ESPN ROTO/ADP mixture."
+  ]
+}

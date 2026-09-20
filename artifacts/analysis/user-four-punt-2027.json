@@ -1,0 +1,1886 @@
+{
+  "created_at": "2026-09-20T15:01:41.897962+00:00",
+  "runs": 160,
+  "market_source": "espn_league_rater_with_draft_fallback",
+  "projection_source": "selected_period",
+  "roster_slots": [
+    "PG",
+    "SG",
+    "SF",
+    "PF",
+    "C",
+    "G",
+    "F",
+    "UT",
+    "UT",
+    "UT",
+    "BE",
+    "BE",
+    "BE",
+    "BE"
+  ],
+  "results": {
+    "requested_four_punt": {
+      "punts": [
+        "FT%",
+        "3PM",
+        "3PT%",
+        "PTS"
+      ],
+      "summary": {
+        "average_category_wins": 6.678,
+        "average_league_rank": 2.731,
+        "top_four_rate": 90.6,
+        "worst_decile_category_wins": 6.0,
+        "category_ranks": {
+          "FG%": 1.69,
+          "FT%": 13.69,
+          "3PM": 13.98,
+          "3PT%": 8.07,
+          "REB": 1.4,
+          "AST": 3.58,
+          "A/TO": 3.41,
+          "STL": 2.69,
+          "BLK": 4.06,
+          "DD": 1.0,
+          "PTS": 13.62
+        }
+      },
+      "core": [
+        {
+          "name": "Jarrett Allen",
+          "rate": 0.95
+        },
+        {
+          "name": "Josh Giddey",
+          "rate": 0.944
+        },
+        {
+          "name": "Walker Kessler",
+          "rate": 0.881
+        },
+        {
+          "name": "Ausar Thompson",
+          "rate": 0.869
+        },
+        {
+          "name": "Davion Mitchell",
+          "rate": 0.844
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 0.75
+        },
+        {
+          "name": "Oso Ighodaro",
+          "rate": 0.725
+        },
+        {
+          "name": "Jalen Johnson",
+          "rate": 0.713
+        },
+        {
+          "name": "Jalen Duren",
+          "rate": 0.681
+        },
+        {
+          "name": "Scotty Pippen Jr.",
+          "rate": 0.569
+        },
+        {
+          "name": "Derik Queen",
+          "rate": 0.556
+        },
+        {
+          "name": "Ty Jerome",
+          "rate": 0.438
+        },
+        {
+          "name": "Bradley Beal",
+          "rate": 0.425
+        },
+        {
+          "name": "Fred VanVleet",
+          "rate": 0.394
+        },
+        {
+          "name": "Cason Wallace",
+          "rate": 0.369
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 0.369
+        },
+        {
+          "name": "Dennis Schroder",
+          "rate": 0.325
+        },
+        {
+          "name": "Jakob Poeltl",
+          "rate": 0.25
+        },
+        {
+          "name": "Giannis Antetokounmpo",
+          "rate": 0.244
+        },
+        {
+          "name": "Jrue Holiday",
+          "rate": 0.231
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "pick": 5,
+          "targets": [
+            {
+              "name": "Jalen Johnson",
+              "rate": 0.713
+            },
+            {
+              "name": "Giannis Antetokounmpo",
+              "rate": 0.244
+            },
+            {
+              "name": "Cade Cunningham",
+              "rate": 0.044
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "pick": 24,
+          "targets": [
+            {
+              "name": "Jalen Duren",
+              "rate": 0.681
+            },
+            {
+              "name": "Evan Mobley",
+              "rate": 0.181
+            },
+            {
+              "name": "Alperen Sengun",
+              "rate": 0.119
+            },
+            {
+              "name": "Josh Giddey",
+              "rate": 0.019
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "pick": 33,
+          "targets": [
+            {
+              "name": "Josh Giddey",
+              "rate": 0.925
+            },
+            {
+              "name": "Evan Mobley",
+              "rate": 0.037
+            },
+            {
+              "name": "Alperen Sengun",
+              "rate": 0.037
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "pick": 52,
+          "targets": [
+            {
+              "name": "Walker Kessler",
+              "rate": 0.881
+            },
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.106
+            },
+            {
+              "name": "Donovan Clingan",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "pick": 61,
+          "targets": [
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.844
+            },
+            {
+              "name": "Darius Garland",
+              "rate": 0.131
+            },
+            {
+              "name": "Rudy Gobert",
+              "rate": 0.019
+            },
+            {
+              "name": "Kyrie Irving",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "pick": 80,
+          "targets": [
+            {
+              "name": "Ausar Thompson",
+              "rate": 0.475
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.281
+            },
+            {
+              "name": "VJ Edgecombe",
+              "rate": 0.15
+            },
+            {
+              "name": "Fred VanVleet",
+              "rate": 0.062
+            },
+            {
+              "name": "Cameron Boozer",
+              "rate": 0.019
+            },
+            {
+              "name": "Brandin Podziemski",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "pick": 89,
+          "targets": [
+            {
+              "name": "Ausar Thompson",
+              "rate": 0.394
+            },
+            {
+              "name": "Fred VanVleet",
+              "rate": 0.331
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.156
+            },
+            {
+              "name": "Kevin Porter Jr.",
+              "rate": 0.031
+            },
+            {
+              "name": "Immanuel Quickley",
+              "rate": 0.025
+            },
+            {
+              "name": "Derik Queen",
+              "rate": 0.019
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "pick": 108,
+          "targets": [
+            {
+              "name": "Derik Queen",
+              "rate": 0.537
+            },
+            {
+              "name": "Jakob Poeltl",
+              "rate": 0.25
+            },
+            {
+              "name": "Ryan Rollins",
+              "rate": 0.113
+            },
+            {
+              "name": "Collin Gillespie",
+              "rate": 0.037
+            },
+            {
+              "name": "John Collins",
+              "rate": 0.025
+            },
+            {
+              "name": "Nic Claxton",
+              "rate": 0.025
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "pick": 117,
+          "targets": [
+            {
+              "name": "Cason Wallace",
+              "rate": 0.369
+            },
+            {
+              "name": "Ayo Dosunmu",
+              "rate": 0.194
+            },
+            {
+              "name": "Oso Ighodaro",
+              "rate": 0.125
+            },
+            {
+              "name": "Mitchell Robinson",
+              "rate": 0.113
+            },
+            {
+              "name": "Jrue Holiday",
+              "rate": 0.05
+            },
+            {
+              "name": "Kyshawn George",
+              "rate": 0.037
+            }
+          ]
+        },
+        {
+          "round": 10,
+          "pick": 136,
+          "targets": [
+            {
+              "name": "Oso Ighodaro",
+              "rate": 0.6
+            },
+            {
+              "name": "Scotty Pippen Jr.",
+              "rate": 0.206
+            },
+            {
+              "name": "Jrue Holiday",
+              "rate": 0.062
+            },
+            {
+              "name": "Alex Caruso",
+              "rate": 0.044
+            },
+            {
+              "name": "Kyshawn George",
+              "rate": 0.044
+            },
+            {
+              "name": "Jaime Jaquez Jr.",
+              "rate": 0.019
+            }
+          ]
+        },
+        {
+          "round": 11,
+          "pick": 145,
+          "targets": [
+            {
+              "name": "Scotty Pippen Jr.",
+              "rate": 0.306
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.163
+            },
+            {
+              "name": "Jrue Holiday",
+              "rate": 0.119
+            },
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.106
+            },
+            {
+              "name": "Jaime Jaquez Jr.",
+              "rate": 0.075
+            },
+            {
+              "name": "Kyle Filipowski",
+              "rate": 0.069
+            }
+          ]
+        },
+        {
+          "round": 12,
+          "pick": 164,
+          "targets": [
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.4
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.287
+            },
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.181
+            },
+            {
+              "name": "Scotty Pippen Jr.",
+              "rate": 0.05
+            },
+            {
+              "name": "Collin Murray-Boyles",
+              "rate": 0.05
+            },
+            {
+              "name": "Kyle Filipowski",
+              "rate": 0.031
+            }
+          ]
+        },
+        {
+          "round": 13,
+          "pick": 173,
+          "targets": [
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.338
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.287
+            },
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.175
+            },
+            {
+              "name": "Collin Murray-Boyles",
+              "rate": 0.138
+            },
+            {
+              "name": "Al Horford",
+              "rate": 0.025
+            },
+            {
+              "name": "Isaiah Collier",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 14,
+          "pick": 192,
+          "targets": [
+            {
+              "name": "Bradley Beal",
+              "rate": 0.425
+            },
+            {
+              "name": "Dennis Schroder",
+              "rate": 0.312
+            },
+            {
+              "name": "Isaiah Collier",
+              "rate": 0.169
+            },
+            {
+              "name": "Khaman Maluach",
+              "rate": 0.031
+            },
+            {
+              "name": "Keaton Wagler",
+              "rate": 0.031
+            },
+            {
+              "name": "Gradey Dick",
+              "rate": 0.013
+            }
+          ]
+        }
+      ]
+    },
+    "punt_stl_blk": {
+      "punts": [
+        "STL",
+        "BLK"
+      ],
+      "summary": {
+        "average_category_wins": 6.968,
+        "average_league_rank": 2.431,
+        "top_four_rate": 88.1,
+        "worst_decile_category_wins": 5.923,
+        "category_ranks": {
+          "FG%": 4.57,
+          "FT%": 5.67,
+          "3PM": 6.56,
+          "3PT%": 2.55,
+          "REB": 5.91,
+          "AST": 5.94,
+          "A/TO": 2.59,
+          "STL": 10.31,
+          "BLK": 7.59,
+          "DD": 2.17,
+          "PTS": 9.56
+        }
+      },
+      "core": [
+        {
+          "name": "Jamal Murray",
+          "rate": 0.994
+        },
+        {
+          "name": "Josh Giddey",
+          "rate": 0.963
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 0.963
+        },
+        {
+          "name": "Kyrie Irving",
+          "rate": 0.938
+        },
+        {
+          "name": "John Collins",
+          "rate": 0.756
+        },
+        {
+          "name": "Bradley Beal",
+          "rate": 0.738
+        },
+        {
+          "name": "Kristaps Porzingis",
+          "rate": 0.731
+        },
+        {
+          "name": "Tyrese Haliburton",
+          "rate": 0.675
+        },
+        {
+          "name": "Norman Powell",
+          "rate": 0.637
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 0.512
+        },
+        {
+          "name": "Cameron Johnson",
+          "rate": 0.475
+        },
+        {
+          "name": "Zach Edey",
+          "rate": 0.45
+        },
+        {
+          "name": "Cedric Coward",
+          "rate": 0.438
+        },
+        {
+          "name": "Al Horford",
+          "rate": 0.431
+        },
+        {
+          "name": "Davion Mitchell",
+          "rate": 0.388
+        },
+        {
+          "name": "Tim Hardaway Jr.",
+          "rate": 0.381
+        },
+        {
+          "name": "Jalen Johnson",
+          "rate": 0.319
+        },
+        {
+          "name": "Paul George",
+          "rate": 0.287
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 0.263
+        },
+        {
+          "name": "Bobby Portis",
+          "rate": 0.244
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "pick": 5,
+          "targets": [
+            {
+              "name": "Tyrese Haliburton",
+              "rate": 0.675
+            },
+            {
+              "name": "Jalen Johnson",
+              "rate": 0.319
+            },
+            {
+              "name": "Cade Cunningham",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "pick": 24,
+          "targets": [
+            {
+              "name": "Jamal Murray",
+              "rate": 0.994
+            },
+            {
+              "name": "Stephen Curry",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "pick": 33,
+          "targets": [
+            {
+              "name": "Josh Giddey",
+              "rate": 0.963
+            },
+            {
+              "name": "Kon Knueppel",
+              "rate": 0.019
+            },
+            {
+              "name": "Evan Mobley",
+              "rate": 0.013
+            },
+            {
+              "name": "Alperen Sengun",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "pick": 52,
+          "targets": [
+            {
+              "name": "Kyrie Irving",
+              "rate": 0.863
+            },
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.081
+            },
+            {
+              "name": "Trey Murphy III",
+              "rate": 0.031
+            },
+            {
+              "name": "Darius Garland",
+              "rate": 0.025
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "pick": 61,
+          "targets": [
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.881
+            },
+            {
+              "name": "Kyrie Irving",
+              "rate": 0.075
+            },
+            {
+              "name": "Darius Garland",
+              "rate": 0.031
+            },
+            {
+              "name": "Brandon Miller",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "pick": 80,
+          "targets": [
+            {
+              "name": "Norman Powell",
+              "rate": 0.637
+            },
+            {
+              "name": "Kristaps Porzingis",
+              "rate": 0.113
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.113
+            },
+            {
+              "name": "Brandon Ingram",
+              "rate": 0.094
+            },
+            {
+              "name": "Kel'el Ware",
+              "rate": 0.044
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "pick": 89,
+          "targets": [
+            {
+              "name": "Kristaps Porzingis",
+              "rate": 0.619
+            },
+            {
+              "name": "Paul George",
+              "rate": 0.287
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.05
+            },
+            {
+              "name": "Cameron Boozer",
+              "rate": 0.025
+            },
+            {
+              "name": "John Collins",
+              "rate": 0.013
+            },
+            {
+              "name": "Keyonte George",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "pick": 108,
+          "targets": [
+            {
+              "name": "John Collins",
+              "rate": 0.744
+            },
+            {
+              "name": "Derik Queen",
+              "rate": 0.138
+            },
+            {
+              "name": "Jakob Poeltl",
+              "rate": 0.094
+            },
+            {
+              "name": "Zach Edey",
+              "rate": 0.013
+            },
+            {
+              "name": "Cedric Coward",
+              "rate": 0.006
+            },
+            {
+              "name": "Ayo Dosunmu",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "pick": 117,
+          "targets": [
+            {
+              "name": "Zach Edey",
+              "rate": 0.438
+            },
+            {
+              "name": "Jabari Smith Jr.",
+              "rate": 0.244
+            },
+            {
+              "name": "Ayo Dosunmu",
+              "rate": 0.125
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "rate": 0.081
+            },
+            {
+              "name": "Cedric Coward",
+              "rate": 0.05
+            },
+            {
+              "name": "Nic Claxton",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 10,
+          "pick": 136,
+          "targets": [
+            {
+              "name": "Cedric Coward",
+              "rate": 0.375
+            },
+            {
+              "name": "Cameron Johnson",
+              "rate": 0.212
+            },
+            {
+              "name": "Jrue Holiday",
+              "rate": 0.081
+            },
+            {
+              "name": "Neemias Queta",
+              "rate": 0.075
+            },
+            {
+              "name": "Day'Ron Sharpe",
+              "rate": 0.062
+            },
+            {
+              "name": "Bobby Portis",
+              "rate": 0.05
+            }
+          ]
+        },
+        {
+          "round": 11,
+          "pick": 145,
+          "targets": [
+            {
+              "name": "Cameron Johnson",
+              "rate": 0.256
+            },
+            {
+              "name": "Bobby Portis",
+              "rate": 0.194
+            },
+            {
+              "name": "Kyshawn George",
+              "rate": 0.131
+            },
+            {
+              "name": "Jrue Holiday",
+              "rate": 0.125
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.087
+            },
+            {
+              "name": "Day'Ron Sharpe",
+              "rate": 0.075
+            }
+          ]
+        },
+        {
+          "round": 12,
+          "pick": 164,
+          "targets": [
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.369
+            },
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.181
+            },
+            {
+              "name": "Tim Hardaway Jr.",
+              "rate": 0.181
+            },
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.1
+            },
+            {
+              "name": "Al Horford",
+              "rate": 0.044
+            },
+            {
+              "name": "Jerami Grant",
+              "rate": 0.044
+            }
+          ]
+        },
+        {
+          "round": 13,
+          "pick": 173,
+          "targets": [
+            {
+              "name": "Al Horford",
+              "rate": 0.388
+            },
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.287
+            },
+            {
+              "name": "Tim Hardaway Jr.",
+              "rate": 0.2
+            },
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.069
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.056
+            }
+          ]
+        },
+        {
+          "round": 14,
+          "pick": 192,
+          "targets": [
+            {
+              "name": "Bradley Beal",
+              "rate": 0.738
+            },
+            {
+              "name": "Dennis Schroder",
+              "rate": 0.138
+            },
+            {
+              "name": "De'Andre Hunter",
+              "rate": 0.075
+            },
+            {
+              "name": "Luke Kornet",
+              "rate": 0.037
+            },
+            {
+              "name": "Khaman Maluach",
+              "rate": 0.013
+            }
+          ]
+        }
+      ]
+    },
+    "punt_pts": {
+      "punts": [
+        "PTS"
+      ],
+      "summary": {
+        "average_category_wins": 6.813,
+        "average_league_rank": 2.612,
+        "top_four_rate": 87.5,
+        "worst_decile_category_wins": 5.923,
+        "category_ranks": {
+          "FG%": 4.34,
+          "FT%": 7.03,
+          "3PM": 9.56,
+          "3PT%": 2.71,
+          "REB": 5.18,
+          "AST": 5.37,
+          "A/TO": 2.02,
+          "STL": 9.12,
+          "BLK": 5.84,
+          "DD": 1.61,
+          "PTS": 12.64
+        }
+      },
+      "core": [
+        {
+          "name": "Jamal Murray",
+          "rate": 0.994
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 0.981
+        },
+        {
+          "name": "Josh Giddey",
+          "rate": 0.963
+        },
+        {
+          "name": "Kyrie Irving",
+          "rate": 0.931
+        },
+        {
+          "name": "Tyrese Haliburton",
+          "rate": 0.919
+        },
+        {
+          "name": "Bradley Beal",
+          "rate": 0.762
+        },
+        {
+          "name": "Kyshawn George",
+          "rate": 0.706
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 0.619
+        },
+        {
+          "name": "Paul George",
+          "rate": 0.613
+        },
+        {
+          "name": "Cameron Johnson",
+          "rate": 0.606
+        },
+        {
+          "name": "Kristaps Porzingis",
+          "rate": 0.594
+        },
+        {
+          "name": "Zach Edey",
+          "rate": 0.55
+        },
+        {
+          "name": "Davion Mitchell",
+          "rate": 0.525
+        },
+        {
+          "name": "Kel'el Ware",
+          "rate": 0.481
+        },
+        {
+          "name": "John Collins",
+          "rate": 0.45
+        },
+        {
+          "name": "Derik Queen",
+          "rate": 0.431
+        },
+        {
+          "name": "Al Horford",
+          "rate": 0.369
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 0.338
+        },
+        {
+          "name": "Day'Ron Sharpe",
+          "rate": 0.194
+        },
+        {
+          "name": "Jabari Smith Jr.",
+          "rate": 0.125
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "pick": 5,
+          "targets": [
+            {
+              "name": "Tyrese Haliburton",
+              "rate": 0.919
+            },
+            {
+              "name": "Jalen Johnson",
+              "rate": 0.075
+            },
+            {
+              "name": "Cade Cunningham",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "pick": 24,
+          "targets": [
+            {
+              "name": "Jamal Murray",
+              "rate": 0.994
+            },
+            {
+              "name": "Kawhi Leonard",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "pick": 33,
+          "targets": [
+            {
+              "name": "Josh Giddey",
+              "rate": 0.963
+            },
+            {
+              "name": "Evan Mobley",
+              "rate": 0.025
+            },
+            {
+              "name": "Alperen Sengun",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "pick": 52,
+          "targets": [
+            {
+              "name": "Kyrie Irving",
+              "rate": 0.694
+            },
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.25
+            },
+            {
+              "name": "Walker Kessler",
+              "rate": 0.044
+            },
+            {
+              "name": "Donovan Clingan",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "pick": 61,
+          "targets": [
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.731
+            },
+            {
+              "name": "Kyrie Irving",
+              "rate": 0.237
+            },
+            {
+              "name": "Darius Garland",
+              "rate": 0.031
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "pick": 80,
+          "targets": [
+            {
+              "name": "Kel'el Ware",
+              "rate": 0.481
+            },
+            {
+              "name": "Kristaps Porzingis",
+              "rate": 0.263
+            },
+            {
+              "name": "Norman Powell",
+              "rate": 0.1
+            },
+            {
+              "name": "Paul George",
+              "rate": 0.094
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.056
+            },
+            {
+              "name": "Cameron Boozer",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "pick": 89,
+          "targets": [
+            {
+              "name": "Paul George",
+              "rate": 0.519
+            },
+            {
+              "name": "Kristaps Porzingis",
+              "rate": 0.331
+            },
+            {
+              "name": "Andrew Wiggins",
+              "rate": 0.05
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.05
+            },
+            {
+              "name": "Cameron Boozer",
+              "rate": 0.05
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "pick": 108,
+          "targets": [
+            {
+              "name": "John Collins",
+              "rate": 0.45
+            },
+            {
+              "name": "Derik Queen",
+              "rate": 0.431
+            },
+            {
+              "name": "Jakob Poeltl",
+              "rate": 0.075
+            },
+            {
+              "name": "Zach Edey",
+              "rate": 0.025
+            },
+            {
+              "name": "Peyton Watson",
+              "rate": 0.006
+            },
+            {
+              "name": "Brook Lopez",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "pick": 117,
+          "targets": [
+            {
+              "name": "Zach Edey",
+              "rate": 0.525
+            },
+            {
+              "name": "Jabari Smith Jr.",
+              "rate": 0.125
+            },
+            {
+              "name": "Mitchell Robinson",
+              "rate": 0.125
+            },
+            {
+              "name": "Kyshawn George",
+              "rate": 0.044
+            },
+            {
+              "name": "Daniel Gafford",
+              "rate": 0.037
+            },
+            {
+              "name": "Neemias Queta",
+              "rate": 0.031
+            }
+          ]
+        },
+        {
+          "round": 10,
+          "pick": 136,
+          "targets": [
+            {
+              "name": "Kyshawn George",
+              "rate": 0.556
+            },
+            {
+              "name": "Cameron Johnson",
+              "rate": 0.237
+            },
+            {
+              "name": "Cedric Coward",
+              "rate": 0.106
+            },
+            {
+              "name": "Devin Vassell",
+              "rate": 0.031
+            },
+            {
+              "name": "Day'Ron Sharpe",
+              "rate": 0.031
+            },
+            {
+              "name": "Neemias Queta",
+              "rate": 0.019
+            }
+          ]
+        },
+        {
+          "round": 11,
+          "pick": 145,
+          "targets": [
+            {
+              "name": "Cameron Johnson",
+              "rate": 0.369
+            },
+            {
+              "name": "Day'Ron Sharpe",
+              "rate": 0.163
+            },
+            {
+              "name": "Jrue Holiday",
+              "rate": 0.125
+            },
+            {
+              "name": "Kyshawn George",
+              "rate": 0.106
+            },
+            {
+              "name": "Bobby Portis",
+              "rate": 0.087
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.05
+            }
+          ]
+        },
+        {
+          "round": 12,
+          "pick": 164,
+          "targets": [
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.45
+            },
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.25
+            },
+            {
+              "name": "Scotty Pippen Jr.",
+              "rate": 0.087
+            },
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.062
+            },
+            {
+              "name": "Al Horford",
+              "rate": 0.062
+            },
+            {
+              "name": "Kyle Filipowski",
+              "rate": 0.025
+            }
+          ]
+        },
+        {
+          "round": 13,
+          "pick": 173,
+          "targets": [
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.463
+            },
+            {
+              "name": "Al Horford",
+              "rate": 0.306
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.119
+            },
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.069
+            },
+            {
+              "name": "Bradley Beal",
+              "rate": 0.019
+            },
+            {
+              "name": "Luguentz Dort",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 14,
+          "pick": 192,
+          "targets": [
+            {
+              "name": "Bradley Beal",
+              "rate": 0.744
+            },
+            {
+              "name": "De'Andre Hunter",
+              "rate": 0.056
+            },
+            {
+              "name": "Khaman Maluach",
+              "rate": 0.05
+            },
+            {
+              "name": "Isaiah Collier",
+              "rate": 0.05
+            },
+            {
+              "name": "Dennis Schroder",
+              "rate": 0.044
+            },
+            {
+              "name": "Ajay Mitchell",
+              "rate": 0.044
+            }
+          ]
+        }
+      ]
+    },
+    "balanced": {
+      "punts": [],
+      "summary": {
+        "average_category_wins": 6.857,
+        "average_league_rank": 2.606,
+        "top_four_rate": 88.8,
+        "worst_decile_category_wins": 6.0,
+        "category_ranks": {
+          "FG%": 4.36,
+          "FT%": 6.56,
+          "3PM": 8.44,
+          "3PT%": 2.66,
+          "REB": 5.44,
+          "AST": 5.52,
+          "A/TO": 3.15,
+          "STL": 9.39,
+          "BLK": 6.23,
+          "DD": 2.03,
+          "PTS": 11.08
+        }
+      },
+      "core": [
+        {
+          "name": "Jamal Murray",
+          "rate": 0.994
+        },
+        {
+          "name": "Jarrett Allen",
+          "rate": 0.994
+        },
+        {
+          "name": "Josh Giddey",
+          "rate": 0.963
+        },
+        {
+          "name": "Kyrie Irving",
+          "rate": 0.95
+        },
+        {
+          "name": "Tyrese Haliburton",
+          "rate": 0.819
+        },
+        {
+          "name": "Bradley Beal",
+          "rate": 0.794
+        },
+        {
+          "name": "John Collins",
+          "rate": 0.725
+        },
+        {
+          "name": "Kristaps Porzingis",
+          "rate": 0.706
+        },
+        {
+          "name": "Kyshawn George",
+          "rate": 0.694
+        },
+        {
+          "name": "Zach Edey",
+          "rate": 0.662
+        },
+        {
+          "name": "Paul George",
+          "rate": 0.656
+        },
+        {
+          "name": "Jusuf Nurkic",
+          "rate": 0.637
+        },
+        {
+          "name": "Cameron Johnson",
+          "rate": 0.519
+        },
+        {
+          "name": "Al Horford",
+          "rate": 0.431
+        },
+        {
+          "name": "Davion Mitchell",
+          "rate": 0.35
+        },
+        {
+          "name": "Norman Powell",
+          "rate": 0.338
+        },
+        {
+          "name": "Moussa Diabate",
+          "rate": 0.294
+        },
+        {
+          "name": "Jerami Grant",
+          "rate": 0.212
+        },
+        {
+          "name": "Cedric Coward",
+          "rate": 0.206
+        },
+        {
+          "name": "Day'Ron Sharpe",
+          "rate": 0.194
+        }
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "pick": 5,
+          "targets": [
+            {
+              "name": "Tyrese Haliburton",
+              "rate": 0.819
+            },
+            {
+              "name": "Jalen Johnson",
+              "rate": 0.119
+            },
+            {
+              "name": "Cade Cunningham",
+              "rate": 0.062
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "pick": 24,
+          "targets": [
+            {
+              "name": "Jamal Murray",
+              "rate": 0.994
+            },
+            {
+              "name": "Kawhi Leonard",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "pick": 33,
+          "targets": [
+            {
+              "name": "Josh Giddey",
+              "rate": 0.963
+            },
+            {
+              "name": "Evan Mobley",
+              "rate": 0.025
+            },
+            {
+              "name": "Alperen Sengun",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "pick": 52,
+          "targets": [
+            {
+              "name": "Kyrie Irving",
+              "rate": 0.863
+            },
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.081
+            },
+            {
+              "name": "Trey Murphy III",
+              "rate": 0.044
+            },
+            {
+              "name": "Darius Garland",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "pick": 61,
+          "targets": [
+            {
+              "name": "Jarrett Allen",
+              "rate": 0.912
+            },
+            {
+              "name": "Kyrie Irving",
+              "rate": 0.087
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "pick": 80,
+          "targets": [
+            {
+              "name": "Kristaps Porzingis",
+              "rate": 0.412
+            },
+            {
+              "name": "Norman Powell",
+              "rate": 0.338
+            },
+            {
+              "name": "Paul George",
+              "rate": 0.106
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.075
+            },
+            {
+              "name": "Kel'el Ware",
+              "rate": 0.069
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "pick": 89,
+          "targets": [
+            {
+              "name": "Paul George",
+              "rate": 0.55
+            },
+            {
+              "name": "Kristaps Porzingis",
+              "rate": 0.294
+            },
+            {
+              "name": "Cameron Boozer",
+              "rate": 0.106
+            },
+            {
+              "name": "Ty Jerome",
+              "rate": 0.031
+            },
+            {
+              "name": "Andrew Wiggins",
+              "rate": 0.019
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "pick": 108,
+          "targets": [
+            {
+              "name": "John Collins",
+              "rate": 0.725
+            },
+            {
+              "name": "Derik Queen",
+              "rate": 0.15
+            },
+            {
+              "name": "Jakob Poeltl",
+              "rate": 0.087
+            },
+            {
+              "name": "Zach Edey",
+              "rate": 0.019
+            },
+            {
+              "name": "Peyton Watson",
+              "rate": 0.006
+            },
+            {
+              "name": "Brook Lopez",
+              "rate": 0.006
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "pick": 117,
+          "targets": [
+            {
+              "name": "Zach Edey",
+              "rate": 0.644
+            },
+            {
+              "name": "Mitchell Robinson",
+              "rate": 0.075
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "rate": 0.069
+            },
+            {
+              "name": "Daniel Gafford",
+              "rate": 0.056
+            },
+            {
+              "name": "Neemias Queta",
+              "rate": 0.031
+            },
+            {
+              "name": "Jabari Smith Jr.",
+              "rate": 0.031
+            }
+          ]
+        },
+        {
+          "round": 10,
+          "pick": 136,
+          "targets": [
+            {
+              "name": "Kyshawn George",
+              "rate": 0.575
+            },
+            {
+              "name": "Cedric Coward",
+              "rate": 0.169
+            },
+            {
+              "name": "Cameron Johnson",
+              "rate": 0.131
+            },
+            {
+              "name": "Day'Ron Sharpe",
+              "rate": 0.031
+            },
+            {
+              "name": "Neemias Queta",
+              "rate": 0.025
+            },
+            {
+              "name": "Quentin Grimes",
+              "rate": 0.025
+            }
+          ]
+        },
+        {
+          "round": 11,
+          "pick": 145,
+          "targets": [
+            {
+              "name": "Cameron Johnson",
+              "rate": 0.388
+            },
+            {
+              "name": "Day'Ron Sharpe",
+              "rate": 0.163
+            },
+            {
+              "name": "Bobby Portis",
+              "rate": 0.113
+            },
+            {
+              "name": "Kyshawn George",
+              "rate": 0.1
+            },
+            {
+              "name": "Jrue Holiday",
+              "rate": 0.087
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.025
+            }
+          ]
+        },
+        {
+          "round": 12,
+          "pick": 164,
+          "targets": [
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.481
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.206
+            },
+            {
+              "name": "Jerami Grant",
+              "rate": 0.188
+            },
+            {
+              "name": "Scotty Pippen Jr.",
+              "rate": 0.05
+            },
+            {
+              "name": "Kyle Filipowski",
+              "rate": 0.025
+            },
+            {
+              "name": "Al Horford",
+              "rate": 0.019
+            }
+          ]
+        },
+        {
+          "round": 13,
+          "pick": 173,
+          "targets": [
+            {
+              "name": "Al Horford",
+              "rate": 0.406
+            },
+            {
+              "name": "Davion Mitchell",
+              "rate": 0.35
+            },
+            {
+              "name": "Jusuf Nurkic",
+              "rate": 0.131
+            },
+            {
+              "name": "Moussa Diabate",
+              "rate": 0.062
+            },
+            {
+              "name": "Bradley Beal",
+              "rate": 0.037
+            },
+            {
+              "name": "Tim Hardaway Jr.",
+              "rate": 0.013
+            }
+          ]
+        },
+        {
+          "round": 14,
+          "pick": 192,
+          "targets": [
+            {
+              "name": "Bradley Beal",
+              "rate": 0.756
+            },
+            {
+              "name": "Khaman Maluach",
+              "rate": 0.087
+            },
+            {
+              "name": "De'Andre Hunter",
+              "rate": 0.044
+            },
+            {
+              "name": "Ajay Mitchell",
+              "rate": 0.031
+            },
+            {
+              "name": "Keaton Wagler",
+              "rate": 0.031
+            },
+            {
+              "name": "Dennis Schroder",
+              "rate": 0.031
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from web.backend.services.draft import (
     _draft_round_count,
+    _known_order_simulation,
     _planned_team_picks,
     _roster_comparison,
     _round_balanced_roster_comparison,
@@ -160,6 +161,17 @@ class UpcomingRequest(FakeRequest):
         data = super().get_league_draft()
         data["draftDetail"].update({"inProgress": False})
         return data
+
+
+def test_known_order_simulation_stub_skips_monte_carlo():
+    stub = _known_order_simulation([12, 3, 7], 3, 2, 16)
+    assert stub["mode"] == "known_order"
+    assert stub["runs"] == 0
+    assert stub["slot"] == 2
+    assert stub["next_pick"] == 2
+    assert stub["following_pick"] == 16
+    assert stub["slot_result"] is None
+    assert _known_order_simulation([12, 3], 99, 1, None) is None
 
 
 def test_upcoming_draft_explicitly_reports_unknown_order():
@@ -652,6 +664,26 @@ def test_projected_evaluator_counts_punt_category_and_projected_volume():
     assert result["category_wins"] == 1 + (len(CATEGORIES) - 2) * 0.5
     assert result["category_totals"]["PTS"] == 800
     assert result["category_totals"]["FG%"] == 0.4
+    assert result["average_matchup_score"] == result["category_wins"]
+    assert result["matchup_win_rate"] == 0
+    assert result["matchup_tie_rate"] == 1
+    assert result["matchup_loss_rate"] == 0
+    assert result["category_win_rate"]["PTS"] == 1
+
+
+def test_projected_evaluator_tracks_six_category_h2h_win_and_margin():
+    categories = ["PTS", "REB", "AST", "STL", "BLK", "3PM", "DD", "FG%", "FT%", "3PT%", "A/TO"]
+    own = {"GP": 1, "PTS": 2, "REB": 2, "AST": 4, "STL": 2, "BLK": 2, "3PM": 2,
+           "DD": 0, "FGM": 4, "FGA": 10, "FTM": 4, "FTA": 10, "3PA": 30, "TO": 4}
+    opponent = {"GP": 1, "PTS": 1, "REB": 1, "AST": 1, "STL": 1, "BLK": 1, "3PM": 1,
+                "DD": 1, "FGM": 6, "FGA": 10, "FTM": 6, "FTA": 10, "3PA": 10, "TO": .5}
+    result = evaluate_projected_rosters({1: [{"stats": own}], 2: [{"stats": opponent}]}, 1, categories)
+
+    assert result["average_matchup_score"] == 6
+    assert result["matchup_win_rate"] == 1
+    assert result["narrow_matchup_win_rate"] == 1
+    assert result["decisive_matchup_win_rate"] == 0
+    assert result["average_matchup_margin"] == 0.5
 
 
 def test_paired_benchmark_compares_model_and_punt_to_roto():
