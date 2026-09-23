@@ -109,19 +109,23 @@ def update_draft_connection_mode(
     if mode not in {"espn", "analytics"}:
         raise HTTPException(status_code=400, detail="Неизвестный режим подключения к драфту")
     try:
-        save_draft_connection_mode(mode)
+        # A saved "analytics" mode used to keep a second lobby session open.
+        save_draft_connection_mode("espn")
     except (OSError, ValueError) as error:
         raise HTTPException(status_code=500, detail="Не удалось сохранить режим драфта") from error
 
+    from services.draft import get_draft_state
     from services.draft_live import live_draft_client
-    if mode == "espn":
+    state = get_draft_state(league_meta)
+    on_clock = False
+    try:
+        account_team_id, _member = live_draft_client._team_identity(league_meta)
+        on_clock = account_team_id == state.get("next_team_id")
+    except Exception:
+        on_clock = state.get("status") == "live"
+    if not on_clock:
         live_draft_client.stop()
-    else:
-        # Start the connection immediately; the frontend doesn't need a reload
-        # or to wait for its next polling interval.
-        from services.draft import get_draft_state
-        get_draft_state(league_meta)
-    return {"mode": mode, "connected_by_analytics": mode == "analytics"}
+    return {"mode": "espn", "connected_by_analytics": False}
 
 
 @router.get("")

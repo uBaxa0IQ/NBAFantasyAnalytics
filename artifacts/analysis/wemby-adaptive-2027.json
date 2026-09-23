@@ -1,0 +1,160 @@
+{
+  "runs_per_variant": 100,
+  "variants": {
+    "fixed_chet_gobert": {
+      "average_league_rank": 3.56,
+      "first_place_rate": 9.0,
+      "top_two_rate": 31.0,
+      "top_four_rate": 74.0,
+      "playoff_top_six_rate": 91.0,
+      "matchup_win_rate": 80.4,
+      "title_proxy_top6": 57.3,
+      "average_category_score": 6.347,
+      "category_win_rates": {
+        "FG%": 93.8,
+        "FT%": 5.4,
+        "3PM": 0.2,
+        "3PT%": 32.8,
+        "REB": 95.5,
+        "AST": 43.2,
+        "A/TO": 85.2,
+        "STL": 81.7,
+        "BLK": 99.6,
+        "DD": 97.3,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 1.8,
+        "FT%": 13.3,
+        "3PM": 13.98,
+        "3PT%": 9.73,
+        "REB": 1.58,
+        "AST": 8.39,
+        "A/TO": 2.93,
+        "STL": 3.38,
+        "BLK": 1.05,
+        "DD": 1.35,
+        "PTS": 14.0
+      }
+    },
+    "adaptive_sengun_deni": {
+      "average_league_rank": 2.38,
+      "first_place_rate": 25.0,
+      "top_two_rate": 62.0,
+      "top_four_rate": 95.0,
+      "playoff_top_six_rate": 100.0,
+      "matchup_win_rate": 89.4,
+      "title_proxy_top6": 76.6,
+      "average_category_score": 6.677,
+      "category_win_rates": {
+        "FG%": 83.5,
+        "FT%": 12.8,
+        "3PM": 0.3,
+        "3PT%": 17.8,
+        "REB": 91.8,
+        "AST": 88.8,
+        "A/TO": 87.7,
+        "STL": 94.3,
+        "BLK": 92.6,
+        "DD": 97.3,
+        "PTS": 0.7
+      },
+      "category_ranks": {
+        "FG%": 3.14,
+        "FT%": 12.34,
+        "3PM": 13.96,
+        "3PT%": 11.68,
+        "REB": 2.06,
+        "AST": 2.46,
+        "A/TO": 2.6,
+        "STL": 1.74,
+        "BLK": 1.96,
+        "DD": 1.35,
+        "PTS": 13.91
+      }
+    },
+    "adaptive_duren_deni": {
+      "average_league_rank": 2.58,
+      "first_place_rate": 22.0,
+      "top_two_rate": 55.0,
+      "top_four_rate": 91.0,
+      "playoff_top_six_rate": 99.0,
+      "matchup_win_rate": 86.9,
+      "title_proxy_top6": 71.4,
+      "average_category_score": 6.644,
+      "category_win_rates": {
+        "FG%": 91.5,
+        "FT%": 16.2,
+        "3PM": 0.1,
+        "3PT%": 21.4,
+        "REB": 95.1,
+        "AST": 77.0,
+        "A/TO": 81.1,
+        "STL": 90.7,
+        "BLK": 91.8,
+        "DD": 98.7,
+        "PTS": 0.8
+      },
+      "category_ranks": {
+        "FG%": 2.1,
+        "FT%": 11.89,
+        "3PM": 13.99,
+        "3PT%": 11.22,
+        "REB": 1.64,
+        "AST": 3.99,
+        "A/TO": 3.46,
+        "STL": 2.21,
+        "BLK": 2.06,
+        "DD": 1.17,
+        "PTS": 13.9
+      }
+    }
+  },
+  "rosters": {
+    "fixed_chet_gobert": [
+      "Victor Wembanyama",
+      "Josh Giddey",
+      "Chet Holmgren",
+      "Rudy Gobert",
+      "Josh Hart",
+      "Ausar Thompson",
+      "Nic Claxton",
+      "Cason Wallace",
+      "Isaiah Hartenstein",
+      "Jalen Suggs",
+      "Davion Mitchell",
+      "Moussa Diabate",
+      "Tre Jones"
+    ],
+    "adaptive_sengun_deni": [
+      "Victor Wembanyama",
+      "Josh Giddey",
+      "Alperen Sengun",
+      "Deni Avdija",
+      "Josh Hart",
+      "Ausar Thompson",
+      "Nic Claxton",
+      "Cason Wallace",
+      "Isaiah Hartenstein",
+      "Jalen Suggs",
+      "Davion Mitchell",
+      "Moussa Diabate",
+      "Tre Jones"
+    ],
+    "adaptive_duren_deni": [
+      "Victor Wembanyama",
+      "Josh Giddey",
+      "Jalen Duren",
+      "Deni Avdija",
+      "Josh Hart",
+      "Ausar Thompson",
+      "Nic Claxton",
+      "Cason Wallace",
+      "Isaiah Hartenstein",
+      "Jalen Suggs",
+      "Davion Mitchell",
+      "Moussa Diabate",
+      "Tre Jones"
+    ]
+  }
+}

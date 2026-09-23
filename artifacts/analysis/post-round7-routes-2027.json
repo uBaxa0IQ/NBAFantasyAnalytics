@@ -1,0 +1,967 @@
+{
+  "created_at": "2026-09-22T02:26:20.146531+00:00",
+  "picks": [
+    5,
+    22,
+    31,
+    48,
+    57,
+    74,
+    83,
+    100,
+    109,
+    126,
+    135,
+    152,
+    161
+  ],
+  "sharp_prices": {
+    "Isaiah Hartenstein": 105.0,
+    "Davion Mitchell": 110.0,
+    "Cason Wallace": 121.0,
+    "Collin Murray-Boyles": 123.5,
+    "Peyton Watson": 124.0,
+    "Toumani Camara": 121.0,
+    "Tari Eason": 137.0,
+    "Tre Jones": 150.0
+  },
+  "clingan_available_at_74": 0.1,
+  "claxton_power": [
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.028,
+      "first_place_rate": 19.4,
+      "top_two_rate": 38.9,
+      "top_four_rate": 83.3,
+      "playoff_top_six_rate": 97.2,
+      "matchup_win_rate": 80.1,
+      "title_proxy_top6": 58.9,
+      "average_category_score": 6.495,
+      "category_win_rates": {
+        "FG%": 90.3,
+        "FT%": 0.9,
+        "3PM": 0.2,
+        "3PT%": 44.0,
+        "REB": 78.0,
+        "AST": 83.8,
+        "A/TO": 96.3,
+        "STL": 77.1,
+        "BLK": 89.4,
+        "DD": 89.6,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.17,
+        "FT%": 12.89,
+        "3PM": 12.97,
+        "3PT%": 7.72,
+        "REB": 3.64,
+        "AST": 2.94,
+        "A/TO": 1.44,
+        "STL": 3.75,
+        "BLK": 2.28,
+        "DD": 2.25,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Toumani Camara",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.333,
+      "first_place_rate": 13.9,
+      "top_two_rate": 41.7,
+      "top_four_rate": 77.8,
+      "playoff_top_six_rate": 97.2,
+      "matchup_win_rate": 79.6,
+      "title_proxy_top6": 59.2,
+      "average_category_score": 6.377,
+      "category_win_rates": {
+        "FG%": 85.9,
+        "FT%": 1.9,
+        "3PM": 0.0,
+        "3PT%": 39.8,
+        "REB": 79.2,
+        "AST": 83.6,
+        "A/TO": 96.5,
+        "STL": 82.9,
+        "BLK": 77.8,
+        "DD": 90.3,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.69,
+        "FT%": 12.78,
+        "3PM": 13.0,
+        "3PT%": 8.22,
+        "REB": 3.5,
+        "AST": 2.97,
+        "A/TO": 1.42,
+        "STL": 3.06,
+        "BLK": 3.67,
+        "DD": 2.17,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Toumani Camara",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.444,
+      "first_place_rate": 16.7,
+      "top_two_rate": 30.6,
+      "top_four_rate": 72.2,
+      "playoff_top_six_rate": 94.4,
+      "matchup_win_rate": 79.2,
+      "title_proxy_top6": 54.3,
+      "average_category_score": 6.35,
+      "category_win_rates": {
+        "FG%": 88.7,
+        "FT%": 1.4,
+        "3PM": 0.0,
+        "3PT%": 48.6,
+        "REB": 83.6,
+        "AST": 81.7,
+        "A/TO": 95.8,
+        "STL": 52.5,
+        "BLK": 91.4,
+        "DD": 91.2,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.36,
+        "FT%": 12.83,
+        "3PM": 13.0,
+        "3PT%": 7.17,
+        "REB": 2.97,
+        "AST": 3.19,
+        "A/TO": 1.5,
+        "STL": 6.69,
+        "BLK": 2.03,
+        "DD": 2.06,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.25,
+      "first_place_rate": 25.0,
+      "top_two_rate": 44.4,
+      "top_four_rate": 75.0,
+      "playoff_top_six_rate": 91.7,
+      "matchup_win_rate": 78.5,
+      "title_proxy_top6": 55.0,
+      "average_category_score": 6.361,
+      "category_win_rates": {
+        "FG%": 91.4,
+        "FT%": 1.2,
+        "3PM": 0.0,
+        "3PT%": 33.3,
+        "REB": 77.3,
+        "AST": 83.6,
+        "A/TO": 98.1,
+        "STL": 77.3,
+        "BLK": 84.0,
+        "DD": 89.8,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.03,
+        "FT%": 12.86,
+        "3PM": 13.0,
+        "3PT%": 9.0,
+        "REB": 3.72,
+        "AST": 2.97,
+        "A/TO": 1.22,
+        "STL": 3.72,
+        "BLK": 2.92,
+        "DD": 2.22,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.639,
+      "first_place_rate": 8.3,
+      "top_two_rate": 25.0,
+      "top_four_rate": 72.2,
+      "playoff_top_six_rate": 97.2,
+      "matchup_win_rate": 78.5,
+      "title_proxy_top6": 53.6,
+      "average_category_score": 6.294,
+      "category_win_rates": {
+        "FG%": 94.0,
+        "FT%": 1.6,
+        "3PM": 0.0,
+        "3PT%": 45.4,
+        "REB": 81.7,
+        "AST": 79.6,
+        "A/TO": 96.5,
+        "STL": 45.8,
+        "BLK": 92.6,
+        "DD": 92.1,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 1.72,
+        "FT%": 12.81,
+        "3PM": 13.0,
+        "3PT%": 7.56,
+        "REB": 3.19,
+        "AST": 3.44,
+        "A/TO": 1.42,
+        "STL": 7.5,
+        "BLK": 1.89,
+        "DD": 1.94,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Toumani Camara"
+      ],
+      "average_league_rank": 3.361,
+      "first_place_rate": 13.9,
+      "top_two_rate": 41.7,
+      "top_four_rate": 77.8,
+      "playoff_top_six_rate": 94.4,
+      "matchup_win_rate": 78.2,
+      "title_proxy_top6": 56.6,
+      "average_category_score": 6.38,
+      "category_win_rates": {
+        "FG%": 87.0,
+        "FT%": 1.6,
+        "3PM": 0.0,
+        "3PT%": 54.2,
+        "REB": 75.9,
+        "AST": 69.0,
+        "A/TO": 95.1,
+        "STL": 80.6,
+        "BLK": 86.6,
+        "DD": 88.0,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.56,
+        "FT%": 12.81,
+        "3PM": 13.0,
+        "3PT%": 6.5,
+        "REB": 3.89,
+        "AST": 4.72,
+        "A/TO": 1.58,
+        "STL": 3.33,
+        "BLK": 2.61,
+        "DD": 2.44,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles"
+      ],
+      "average_league_rank": 3.389,
+      "first_place_rate": 16.7,
+      "top_two_rate": 41.7,
+      "top_four_rate": 77.8,
+      "playoff_top_six_rate": 91.7,
+      "matchup_win_rate": 77.8,
+      "title_proxy_top6": 55.6,
+      "average_category_score": 6.396,
+      "category_win_rates": {
+        "FG%": 93.5,
+        "FT%": 1.9,
+        "3PM": 0.0,
+        "3PT%": 49.5,
+        "REB": 75.9,
+        "AST": 67.1,
+        "A/TO": 95.8,
+        "STL": 74.1,
+        "BLK": 91.2,
+        "DD": 90.5,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 1.78,
+        "FT%": 12.78,
+        "3PM": 13.0,
+        "3PT%": 7.06,
+        "REB": 3.89,
+        "AST": 4.94,
+        "A/TO": 1.5,
+        "STL": 4.11,
+        "BLK": 2.06,
+        "DD": 2.14,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles",
+        "Toumani Camara"
+      ],
+      "average_league_rank": 3.472,
+      "first_place_rate": 13.9,
+      "top_two_rate": 47.2,
+      "top_four_rate": 75.0,
+      "playoff_top_six_rate": 86.1,
+      "matchup_win_rate": 77.3,
+      "title_proxy_top6": 54.8,
+      "average_category_score": 6.315,
+      "category_win_rates": {
+        "FG%": 91.7,
+        "FT%": 2.1,
+        "3PM": 0.0,
+        "3PT%": 45.6,
+        "REB": 75.2,
+        "AST": 67.8,
+        "A/TO": 96.8,
+        "STL": 80.1,
+        "BLK": 81.7,
+        "DD": 90.5,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.0,
+        "FT%": 12.75,
+        "3PM": 13.0,
+        "3PT%": 7.53,
+        "REB": 3.97,
+        "AST": 4.86,
+        "A/TO": 1.39,
+        "STL": 3.39,
+        "BLK": 3.19,
+        "DD": 2.14,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles",
+        "Toumani Camara",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.583,
+      "first_place_rate": 5.6,
+      "top_two_rate": 36.1,
+      "top_four_rate": 69.4,
+      "playoff_top_six_rate": 94.4,
+      "matchup_win_rate": 76.9,
+      "title_proxy_top6": 51.9,
+      "average_category_score": 6.238,
+      "category_win_rates": {
+        "FG%": 91.0,
+        "FT%": 1.2,
+        "3PM": 0.0,
+        "3PT%": 40.3,
+        "REB": 83.8,
+        "AST": 80.3,
+        "A/TO": 97.0,
+        "STL": 52.3,
+        "BLK": 85.6,
+        "DD": 92.4,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.08,
+        "FT%": 12.86,
+        "3PM": 13.0,
+        "3PT%": 8.17,
+        "REB": 2.94,
+        "AST": 3.36,
+        "A/TO": 1.36,
+        "STL": 6.72,
+        "BLK": 2.72,
+        "DD": 1.92,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles",
+        "Toumani Camara"
+      ],
+      "average_league_rank": 3.917,
+      "first_place_rate": 5.6,
+      "top_two_rate": 36.1,
+      "top_four_rate": 69.4,
+      "playoff_top_six_rate": 88.9,
+      "matchup_win_rate": 75.5,
+      "title_proxy_top6": 51.0,
+      "average_category_score": 6.222,
+      "category_win_rates": {
+        "FG%": 92.8,
+        "FT%": 1.2,
+        "3PM": 0.0,
+        "3PT%": 55.6,
+        "REB": 82.6,
+        "AST": 62.5,
+        "A/TO": 94.2,
+        "STL": 49.8,
+        "BLK": 92.1,
+        "DD": 91.4,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 1.86,
+        "FT%": 12.86,
+        "3PM": 13.0,
+        "3PT%": 6.33,
+        "REB": 3.08,
+        "AST": 5.5,
+        "A/TO": 1.69,
+        "STL": 7.03,
+        "BLK": 1.94,
+        "DD": 2.03,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles",
+        "Tari Eason",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.917,
+      "first_place_rate": 11.1,
+      "top_two_rate": 27.8,
+      "top_four_rate": 66.7,
+      "playoff_top_six_rate": 91.7,
+      "matchup_win_rate": 74.8,
+      "title_proxy_top6": 47.0,
+      "average_category_score": 6.174,
+      "category_win_rates": {
+        "FG%": 91.7,
+        "FT%": 1.4,
+        "3PM": 0.0,
+        "3PT%": 32.6,
+        "REB": 84.0,
+        "AST": 78.7,
+        "A/TO": 95.6,
+        "STL": 53.7,
+        "BLK": 86.3,
+        "DD": 93.3,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.0,
+        "FT%": 12.83,
+        "3PM": 13.0,
+        "3PT%": 9.08,
+        "REB": 2.92,
+        "AST": 3.56,
+        "A/TO": 1.53,
+        "STL": 6.56,
+        "BLK": 2.64,
+        "DD": 1.81,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Tari Eason",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.667,
+      "first_place_rate": 16.7,
+      "top_two_rate": 27.8,
+      "top_four_rate": 63.9,
+      "playoff_top_six_rate": 91.7,
+      "matchup_win_rate": 74.8,
+      "title_proxy_top6": 48.6,
+      "average_category_score": 6.248,
+      "category_win_rates": {
+        "FG%": 86.1,
+        "FT%": 1.9,
+        "3PM": 0.0,
+        "3PT%": 31.5,
+        "REB": 78.2,
+        "AST": 82.9,
+        "A/TO": 96.5,
+        "STL": 80.8,
+        "BLK": 76.6,
+        "DD": 90.3,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.67,
+        "FT%": 12.78,
+        "3PM": 13.0,
+        "3PT%": 9.22,
+        "REB": 3.61,
+        "AST": 3.06,
+        "A/TO": 1.42,
+        "STL": 3.31,
+        "BLK": 3.81,
+        "DD": 2.17,
+        "PTS": 13.0
+      }
+    }
+  ],
+  "clingan_power": [
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Draymond Green"
+      ],
+      "average_league_rank": 2.778,
+      "first_place_rate": 25.0,
+      "top_two_rate": 47.2,
+      "top_four_rate": 88.9,
+      "playoff_top_six_rate": 97.2,
+      "matchup_win_rate": 86.1,
+      "title_proxy_top6": 70.4,
+      "average_category_score": 6.664,
+      "category_win_rates": {
+        "FG%": 87.0,
+        "FT%": 2.3,
+        "3PM": 0.7,
+        "3PT%": 43.5,
+        "REB": 90.0,
+        "AST": 80.8,
+        "A/TO": 97.0,
+        "STL": 75.7,
+        "BLK": 94.2,
+        "DD": 95.1,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.56,
+        "FT%": 12.72,
+        "3PM": 12.92,
+        "3PT%": 7.78,
+        "REB": 2.19,
+        "AST": 3.31,
+        "A/TO": 1.36,
+        "STL": 3.92,
+        "BLK": 1.69,
+        "DD": 1.58,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles",
+        "Draymond Green"
+      ],
+      "average_league_rank": 2.889,
+      "first_place_rate": 19.4,
+      "top_two_rate": 55.6,
+      "top_four_rate": 83.3,
+      "playoff_top_six_rate": 97.2,
+      "matchup_win_rate": 85.2,
+      "title_proxy_top6": 68.7,
+      "average_category_score": 6.567,
+      "category_win_rates": {
+        "FG%": 91.2,
+        "FT%": 2.5,
+        "3PM": 0.0,
+        "3PT%": 33.6,
+        "REB": 89.8,
+        "AST": 78.0,
+        "A/TO": 97.9,
+        "STL": 76.2,
+        "BLK": 91.0,
+        "DD": 96.5,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.06,
+        "FT%": 12.69,
+        "3PM": 13.0,
+        "3PT%": 8.97,
+        "REB": 2.22,
+        "AST": 3.64,
+        "A/TO": 1.25,
+        "STL": 3.86,
+        "BLK": 2.08,
+        "DD": 1.42,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Toumani Camara",
+        "Draymond Green"
+      ],
+      "average_league_rank": 2.944,
+      "first_place_rate": 25.0,
+      "top_two_rate": 47.2,
+      "top_four_rate": 86.1,
+      "playoff_top_six_rate": 91.7,
+      "matchup_win_rate": 83.3,
+      "title_proxy_top6": 64.5,
+      "average_category_score": 6.535,
+      "category_win_rates": {
+        "FG%": 82.4,
+        "FT%": 2.5,
+        "3PM": 0.7,
+        "3PT%": 36.6,
+        "REB": 89.8,
+        "AST": 79.9,
+        "A/TO": 97.0,
+        "STL": 82.4,
+        "BLK": 85.6,
+        "DD": 96.5,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 3.11,
+        "FT%": 12.69,
+        "3PM": 12.92,
+        "3PT%": 8.61,
+        "REB": 2.22,
+        "AST": 3.42,
+        "A/TO": 1.36,
+        "STL": 3.11,
+        "BLK": 2.72,
+        "DD": 1.42,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Tari Eason",
+        "Draymond Green"
+      ],
+      "average_league_rank": 3.056,
+      "first_place_rate": 19.4,
+      "top_two_rate": 44.4,
+      "top_four_rate": 77.8,
+      "playoff_top_six_rate": 97.2,
+      "matchup_win_rate": 82.9,
+      "title_proxy_top6": 64.8,
+      "average_category_score": 6.468,
+      "category_win_rates": {
+        "FG%": 83.3,
+        "FT%": 2.3,
+        "3PM": 0.5,
+        "3PT%": 32.6,
+        "REB": 91.2,
+        "AST": 76.6,
+        "A/TO": 96.8,
+        "STL": 79.9,
+        "BLK": 86.3,
+        "DD": 97.2,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 3.0,
+        "FT%": 12.72,
+        "3PM": 12.94,
+        "3PT%": 9.08,
+        "REB": 2.06,
+        "AST": 3.81,
+        "A/TO": 1.39,
+        "STL": 3.42,
+        "BLK": 2.64,
+        "DD": 1.33,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Collin Murray-Boyles"
+      ],
+      "average_league_rank": 3.083,
+      "first_place_rate": 19.4,
+      "top_two_rate": 47.2,
+      "top_four_rate": 83.3,
+      "playoff_top_six_rate": 94.4,
+      "matchup_win_rate": 82.6,
+      "title_proxy_top6": 64.1,
+      "average_category_score": 6.514,
+      "category_win_rates": {
+        "FG%": 91.7,
+        "FT%": 2.1,
+        "3PM": 0.0,
+        "3PT%": 48.6,
+        "REB": 88.7,
+        "AST": 60.9,
+        "A/TO": 95.1,
+        "STL": 72.7,
+        "BLK": 95.4,
+        "DD": 96.3,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 2.0,
+        "FT%": 12.75,
+        "3PM": 13.0,
+        "3PT%": 7.17,
+        "REB": 2.36,
+        "AST": 5.69,
+        "A/TO": 1.58,
+        "STL": 4.28,
+        "BLK": 1.56,
+        "DD": 1.44,
+        "PTS": 13.0
+      }
+    },
+    {
+      "added": [
+        "Isaiah Hartenstein",
+        "Cason Wallace",
+        "Peyton Watson",
+        "Davion Mitchell",
+        "Tre Jones",
+        "Toumani Camara"
+      ],
+      "average_league_rank": 3.139,
+      "first_place_rate": 25.0,
+      "top_two_rate": 52.8,
+      "top_four_rate": 75.0,
+      "playoff_top_six_rate": 91.7,
+      "matchup_win_rate": 81.9,
+      "title_proxy_top6": 63.0,
+      "average_category_score": 6.481,
+      "category_win_rates": {
+        "FG%": 83.1,
+        "FT%": 2.3,
+        "3PM": 0.9,
+        "3PT%": 50.9,
+        "REB": 89.1,
+        "AST": 61.6,
+        "A/TO": 94.2,
+        "STL": 78.7,
+        "BLK": 91.4,
+        "DD": 95.8,
+        "PTS": 0.0
+      },
+      "category_ranks": {
+        "FG%": 3.03,
+        "FT%": 12.72,
+        "3PM": 12.89,
+        "3PT%": 6.89,
+        "REB": 2.31,
+        "AST": 5.61,
+        "A/TO": 1.69,
+        "STL": 3.56,
+        "BLK": 2.03,
+        "DD": 1.5,
+        "PTS": 13.0
+      }
+    }
+  ],
+  "routes": {
+    "hartenstein100_davion109_cason126_peyton135_tre152": {
+      "exact_rate": 0.0,
+      "picks": [
+        {
+          "pick": 100,
+          "player": "Isaiah Hartenstein",
+          "available": 66.3
+        },
+        {
+          "pick": 109,
+          "player": "Davion Mitchell",
+          "available": 58.6
+        },
+        {
+          "pick": 126,
+          "player": "Cason Wallace",
+          "available": 45.3
+        },
+        {
+          "pick": 135,
+          "player": "Peyton Watson",
+          "available": 34.1
+        },
+        {
+          "pick": 152,
+          "player": "Tre Jones",
+          "available": 58.4
+        },
+        {
+          "pick": 161,
+          "player": "Collin Murray-Boyles",
+          "available": 2.8
+        }
+      ]
+    },
+    "davion100_hartenstein109_cason126_peyton135_tre152": {
+      "exact_rate": 0.0,
+      "picks": [
+        {
+          "pick": 100,
+          "player": "Davion Mitchell",
+          "available": 76.8
+        },
+        {
+          "pick": 109,
+          "player": "Isaiah Hartenstein",
+          "available": 46.5
+        },
+        {
+          "pick": 126,
+          "player": "Cason Wallace",
+          "available": 45.3
+        },
+        {
+          "pick": 135,
+          "player": "Peyton Watson",
+          "available": 34.1
+        },
+        {
+          "pick": 152,
+          "player": "Tre Jones",
+          "available": 58.4
+        },
+        {
+          "pick": 161,
+          "player": "Collin Murray-Boyles",
+          "available": 2.8
+        }
+      ]
+    },
+    "hartenstein100_davion109_peyton126_cason135_tre152": {
+      "exact_rate": 0.0,
+      "picks": [
+        {
+          "pick": 100,
+          "player": "Isaiah Hartenstein",
+          "available": 66.3
+        },
+        {
+          "pick": 109,
+          "player": "Davion Mitchell",
+          "available": 58.6
+        },
+        {
+          "pick": 126,
+          "player": "Peyton Watson",
+          "available": 50.2
+        },
+        {
+          "pick": 135,
+          "player": "Cason Wallace",
+          "available": 28.6
+        },
+        {
+          "pick": 152,
+          "player": "Tre Jones",
+          "available": 58.4
+        },
+        {
+          "pick": 161,
+          "player": "Collin Murray-Boyles",
+          "available": 2.8
+        }
+      ]
+    },
+    "hartenstein100_davion109_cmb126_peyton135_tre152": {
+      "exact_rate": 0.0,
+      "picks": [
+        {
+          "pick": 100,
+          "player": "Isaiah Hartenstein",
+          "available": 66.3
+        },
+        {
+          "pick": 109,
+          "player": "Davion Mitchell",
+          "available": 58.6
+        },
+        {
+          "pick": 126,
+          "player": "Collin Murray-Boyles",
+          "available": 51.2
+        },
+        {
+          "pick": 135,
+          "player": "Peyton Watson",
+          "available": 33.8
+        },
+        {
+          "pick": 152,
+          "player": "Tre Jones",
+          "available": 58.3
+        },
+        {
+          "pick": 161,
+          "player": "Cason Wallace",
+          "available": 1.7
+        }
+      ]
+    }
+  }
+}

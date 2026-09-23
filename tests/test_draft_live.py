@@ -95,7 +95,6 @@ def test_espn_mode_overlays_saved_snapshot_onto_rest_placeholders(tmp_path, monk
     )
     client = LiveDraftClient()
     monkeypatch.setattr(draft_live, "live_draft_client", client)
-    monkeypatch.setattr(draft_live, "get_draft_connection_mode", lambda: "espn")
 
     client._key = (1, 2027, 1)
     client._state = {
@@ -135,7 +134,6 @@ def test_espn_mode_injects_snapshot_picks_when_rest_board_is_empty(tmp_path, mon
     )
     client = LiveDraftClient()
     monkeypatch.setattr(draft_live, "live_draft_client", client)
-    monkeypatch.setattr(draft_live, "get_draft_connection_mode", lambda: "espn")
     client._key = (1, 2027, 1)
     client._state = {
         "draft_date": 99,
@@ -183,6 +181,121 @@ def test_cached_snapshot_prefers_disk_picks_over_empty_dated_memory(tmp_path, mo
     )
 
     assert snapshot["picks"][0]["player_id"] == 99
+
+
+def _live_state(next_team_id):
+    return {"status": "live", "next_team_id": next_team_id, "settings": {"date": 99}}
+
+
+def test_pull_once_takes_init_and_closes_without_retry(monkeypatch):
+    import web.backend.services.draft as draft_service
+    import web.backend.services.draft_live as draft_live
+
+    client = LiveDraftClient()
+    client._state = {
+        "draft_date": 99,
+        "picks": [{"pick_number": 1, "team_id": 4, "player_id": 5, "slot_id": 0}],
+    }
+    meta = SimpleNamespace(league_id=7, year=2027, espn_s2="s2", swid="{S}")
+    monkeypatch.setattr(draft_service, "get_draft_state", lambda _meta: _live_state(4))
+    monkeypatch.setattr(client, "_team_identity", lambda _meta: (12, "member"))
+    monkeypatch.setattr(client, "_security_token", lambda *_args: "token")
+    monkeypatch.setattr(client, "_save", lambda: None)
+    monkeypatch.setattr(draft_live, "decode_init", lambda _payload: {
+        "draft_date": 99,
+        "draft_state": 1,
+        "picks": [{"pick_number": 2, "team_id": 3, "player_id": 9, "slot_id": 1}],
+    })
+
+    class Response:
+        def __init__(self):
+            self.closed = False
+            self._lines = [b"data: INIT payload\n", b"data: SELECTED 3 8 1\n"]
+
+        def readline(self):
+            if self._lines:
+                return self._lines.pop(0)
+            return b""
+
+        def close(self):
+            self.closed = True
+
+    response = Response()
+    calls = []
+
+    def urlopen(request, timeout=0):
+        calls.append((request.full_url, timeout))
+        return response
+
+    monkeypatch.setattr(draft_live.urllib.request, "urlopen", urlopen)
+
+    snapshot = client.pull_once(meta)
+
+    assert len(calls) == 1
+    assert calls[0][1] == 8
+    assert "/sse/JOIN?" in calls[0][0]
+    assert response.closed is True
+    assert snapshot["connected"] is False
+    assert snapshot["picks"] == [{"pick_number": 2, "team_id": 3, "player_id": 9, "slot_id": 1}]
+    assert client._pulling is False
+
+
+def test_failed_pull_keeps_previous_snapshot_and_does_not_retry(monkeypatch):
+    import web.backend.services.draft as draft_service
+    import web.backend.services.draft_live as draft_live
+
+    client = LiveDraftClient()
+    client._state = {
+        "draft_date": 99,
+        "picks": [{"pick_number": 1, "team_id": 4, "player_id": 5, "slot_id": 0}],
+    }
+    meta = SimpleNamespace(league_id=7, year=2027, espn_s2="s2", swid="{S}")
+    monkeypatch.setattr(draft_service, "get_draft_state", lambda _meta: _live_state(4))
+    monkeypatch.setattr(client, "_team_identity", lambda _meta: (12, "member"))
+    monkeypatch.setattr(client, "_security_token", lambda *_args: "token")
+    monkeypatch.setattr(client, "_save", lambda: None)
+    calls = []
+
+    def urlopen(_request, timeout=0):
+        calls.append(timeout)
+        raise TimeoutError("lobby down")
+
+    monkeypatch.setattr(draft_live.urllib.request, "urlopen", urlopen)
+
+    try:
+        client.pull_once(meta)
+        raised = False
+    except draft_live.DraftPullError as error:
+        raised = str(error) == draft_live.PULL_FAILED
+
+    assert raised is True
+    assert calls == [8]
+    assert client._state["picks"][0]["player_id"] == 5
+    assert client._state["connected"] is False
+    assert client._pulling is False
+
+
+def test_pull_is_refused_on_the_clock_without_joining(monkeypatch):
+    import web.backend.services.draft as draft_service
+    import web.backend.services.draft_live as draft_live
+
+    client = LiveDraftClient()
+    meta = SimpleNamespace(league_id=7, year=2027, espn_s2="s2", swid="{S}")
+    monkeypatch.setattr(draft_service, "get_draft_state", lambda _meta: _live_state(12))
+    monkeypatch.setattr(client, "_team_identity", lambda _meta: (12, "member"))
+
+    def urlopen(_request, timeout=0):
+        raise AssertionError("lobby join is not allowed on the clock")
+
+    monkeypatch.setattr(draft_live.urllib.request, "urlopen", urlopen)
+
+    try:
+        client.pull_once(meta)
+        raised = None
+    except draft_live.DraftPullRefused as error:
+        raised = str(error)
+
+    assert raised == draft_live.PULL_ON_CLOCK
 
 
 def test_load_keeps_disk_snapshot_when_rest_draft_date_differs(tmp_path, monkeypatch):

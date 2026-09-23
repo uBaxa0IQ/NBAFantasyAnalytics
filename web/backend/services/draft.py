@@ -1029,17 +1029,8 @@ def get_draft_recommendations(
 _MOCK_POOL = {}
 
 
-def run_human_mock_draft(
-    league_metadata,
-    team_id: int,
-    period: str = PERIODS["projected"],
-    human_picks=(),
-    seed: int = 9105,
-    opponent_field: str = "strong",
-    advisor: str = "heuristic",
-    punt_categories=(),
-):
-    from .draft_mock import MockDraftError, play_mock_draft
+def get_offline_draft_board(league_metadata, team_id, period, require_order=True):
+    from .draft_mock import MockDraftError
 
     cache_key = (
         int(getattr(league_metadata, "league_id", 0) or 0),
@@ -1058,19 +1049,21 @@ def run_human_mock_draft(
             300,
             (),
             None,
-            run_simulation=False,
+            False,
         )
         state = get_draft_state(league_metadata)
         pick_order = list(state.get("settings", {}).get("pick_order") or ())
-        if team_id not in pick_order:
+        if require_order and team_id not in pick_order:
             raise MockDraftError("Порядок драфта неизвестен")
         names = _team_names(league_metadata)
+        slot = pick_order.index(team_id) + 1 if team_id in pick_order else 1
         cached = {
             "players": recs["players"],
-            "slot": pick_order.index(team_id) + 1,
-            "team_count": max(1, int(state.get("team_count") or len(pick_order))),
+            "slot": slot,
+            "team_count": max(1, int(state.get("team_count") or len(pick_order) or 1)),
             "rounds": int(recs.get("draft_rounds") or recs.get("roster_limit") or 14),
             "roster_slots": tuple(recs.get("roster_slots") or ()),
+            "order_known": team_id in pick_order,
             "slot_names": {
                 index + 1: names.get(order_team_id, f"Team {order_team_id}")
                 for index, order_team_id in enumerate(pick_order)
@@ -1078,6 +1071,22 @@ def run_human_mock_draft(
             "categories": list(league_metadata.get_categories()),
         }
         _MOCK_POOL[cache_key] = cached
+    return cached
+
+
+def run_human_mock_draft(
+    league_metadata,
+    team_id: int,
+    period: str = PERIODS["projected"],
+    human_picks=(),
+    seed: int = 9105,
+    opponent_field: str = "strong",
+    advisor: str = "heuristic",
+    punt_categories=(),
+):
+    from .draft_mock import play_mock_draft
+
+    cached = get_offline_draft_board(league_metadata, team_id, period, require_order=True)
     return play_mock_draft(
         cached["players"],
         slot=cached["slot"],

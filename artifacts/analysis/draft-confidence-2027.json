@@ -1,0 +1,1368 @@
+{
+  "created_at": "2026-09-21T23:32:12.546685+00:00",
+  "team_count": 14,
+  "picks": [
+    5,
+    24,
+    33,
+    52,
+    61,
+    80,
+    89,
+    108,
+    117,
+    136,
+    145,
+    164,
+    173
+  ],
+  "runs": 64,
+  "availability_runs": 700,
+  "raw_market": {
+    "Cade Cunningham": {
+      "market": 10.71,
+      "adp": 8.13,
+      "roto": 11
+    },
+    "Josh Giddey": {
+      "market": 35.11,
+      "adp": 27.07,
+      "roto": 36
+    },
+    "Domantas Sabonis": {
+      "market": 30.6,
+      "adp": 18.03,
+      "roto": 32
+    },
+    "Scottie Barnes": {
+      "market": 11.12,
+      "adp": 21.22,
+      "roto": 10
+    },
+    "Amen Thompson": {
+      "market": 13.67,
+      "adp": 19.66,
+      "roto": 13
+    },
+    "Bam Adebayo": {
+      "market": 16.62,
+      "adp": 31.19,
+      "roto": 15
+    },
+    "Jalen Duren": {
+      "market": 25.11,
+      "adp": 44.13,
+      "roto": 23
+    },
+    "Evan Mobley": {
+      "market": 27.92,
+      "adp": 36.21,
+      "roto": 27
+    },
+    "Alperen Sengun": {
+      "market": 28.84,
+      "adp": 27.38,
+      "roto": 29
+    },
+    "Chet Holmgren": {
+      "market": 53.74,
+      "adp": 58.83,
+      "roto": 51
+    },
+    "Josh Hart": {
+      "market": 92.54,
+      "adp": 84.26,
+      "roto": 97
+    },
+    "Walker Kessler": {
+      "market": 48.62,
+      "adp": 81.18,
+      "roto": 45
+    },
+    "Donovan Clingan": {
+      "market": 48.04,
+      "adp": 93.41,
+      "roto": 43
+    },
+    "Dyson Daniels": {
+      "market": 40.36,
+      "adp": 61.61,
+      "roto": 38
+    },
+    "Kel'el Ware": {
+      "market": 84.12,
+      "adp": 115.9,
+      "roto": 67
+    },
+    "Rudy Gobert": {
+      "market": 65.32,
+      "adp": 84.49,
+      "roto": 55
+    },
+    "Davion Mitchell": {
+      "market": 160.61,
+      "adp": 139.02,
+      "roto": 175
+    },
+    "Isaiah Hartenstein": {
+      "market": 132.71,
+      "adp": 129.27,
+      "roto": 135
+    },
+    "Jalen Suggs": {
+      "market": 139.24,
+      "adp": 135.09,
+      "roto": 142
+    },
+    "Ausar Thompson": {
+      "market": 88.3,
+      "adp": 107.43,
+      "roto": 78
+    },
+    "Draymond Green": {
+      "market": 147.97,
+      "adp": 128.43,
+      "roto": 161
+    },
+    "Tre Jones": {
+      "market": 220.0,
+      "adp": null,
+      "roto": null
+    },
+    "Aaron Nesmith": {
+      "market": 220.0,
+      "adp": null,
+      "roto": null
+    },
+    "Cason Wallace": {
+      "market": 120.47,
+      "adp": 137.67,
+      "roto": 109
+    },
+    "Nic Claxton": {
+      "market": 120.18,
+      "adp": 121.96,
+      "roto": 119
+    },
+    "Peyton Watson": {
+      "market": 114.71,
+      "adp": 130.78,
+      "roto": 104
+    },
+    "Day'Ron Sharpe": {
+      "market": 137.31,
+      "adp": 139.27,
+      "roto": 136
+    },
+    "Alex Caruso": {
+      "market": 137.56,
+      "adp": 138.39,
+      "roto": 137
+    },
+    "Toumani Camara": {
+      "market": 133.68,
+      "adp": 136.2,
+      "roto": 132
+    },
+    "Luguentz Dort": {
+      "market": 153.18,
+      "adp": 139.94,
+      "roto": 162
+    },
+    "Collin Murray-Boyles": {
+      "market": 160.22,
+      "adp": 139.54,
+      "roto": 174
+    },
+    "Tari Eason": {
+      "market": 161.06,
+      "adp": 138.64,
+      "roto": 176
+    }
+  },
+  "board": [
+    {
+      "name": "Cade Cunningham",
+      "pos": "PG",
+      "team": null,
+      "raw_market": 10.71,
+      "sharp_market": 8.0,
+      "espn_adp": 8.13,
+      "roto": 11
+    },
+    {
+      "name": "Josh Giddey",
+      "pos": "PG",
+      "team": null,
+      "raw_market": 35.11,
+      "sharp_market": 24.0,
+      "espn_adp": 27.07,
+      "roto": 36
+    },
+    {
+      "name": "Chet Holmgren",
+      "pos": "C",
+      "team": null,
+      "raw_market": 53.74,
+      "sharp_market": 28.0,
+      "espn_adp": 58.83,
+      "roto": 51
+    },
+    {
+      "name": "Rudy Gobert",
+      "pos": "C",
+      "team": null,
+      "raw_market": 65.32,
+      "sharp_market": 58.0,
+      "espn_adp": 84.49,
+      "roto": 55
+    },
+    {
+      "name": "Josh Hart",
+      "pos": "SF",
+      "team": null,
+      "raw_market": 92.54,
+      "sharp_market": 70.0,
+      "espn_adp": 84.26,
+      "roto": 97
+    },
+    {
+      "name": "Ausar Thompson",
+      "pos": "SF",
+      "team": null,
+      "raw_market": 88.3,
+      "sharp_market": 82.0,
+      "espn_adp": 107.43,
+      "roto": 78
+    },
+    {
+      "name": "Cason Wallace",
+      "pos": "SG",
+      "team": null,
+      "raw_market": 120.47,
+      "sharp_market": 115.0,
+      "espn_adp": 137.67,
+      "roto": 109
+    },
+    {
+      "name": "Nic Claxton",
+      "pos": "C",
+      "team": null,
+      "raw_market": 120.18,
+      "sharp_market": 104.0,
+      "espn_adp": 121.96,
+      "roto": 119
+    },
+    {
+      "name": "Isaiah Hartenstein",
+      "pos": "C",
+      "team": null,
+      "raw_market": 132.71,
+      "sharp_market": 90.0,
+      "espn_adp": 129.27,
+      "roto": 135
+    },
+    {
+      "name": "Peyton Watson",
+      "pos": "SF",
+      "team": null,
+      "raw_market": 114.71,
+      "sharp_market": 112.0,
+      "espn_adp": 130.78,
+      "roto": 104
+    },
+    {
+      "name": "Davion Mitchell",
+      "pos": "PG",
+      "team": null,
+      "raw_market": 160.61,
+      "sharp_market": 125.0,
+      "espn_adp": 139.02,
+      "roto": 175
+    },
+    {
+      "name": "Collin Murray-Boyles",
+      "pos": "PF",
+      "team": null,
+      "raw_market": 160.22,
+      "sharp_market": 150.0,
+      "espn_adp": 139.54,
+      "roto": 174
+    },
+    {
+      "name": "Tre Jones",
+      "pos": "PG",
+      "team": null,
+      "raw_market": 220.0,
+      "sharp_market": 165.0,
+      "espn_adp": null,
+      "roto": null
+    },
+    {
+      "name": "Evan Mobley",
+      "pos": "PF",
+      "team": null,
+      "raw_market": 27.92,
+      "sharp_market": 24.0,
+      "espn_adp": 36.21,
+      "roto": 27
+    },
+    {
+      "name": "Bam Adebayo",
+      "pos": "C",
+      "team": null,
+      "raw_market": 16.62,
+      "sharp_market": 16.62,
+      "espn_adp": 31.19,
+      "roto": 15
+    },
+    {
+      "name": "Walker Kessler",
+      "pos": "C",
+      "team": null,
+      "raw_market": 48.62,
+      "sharp_market": 38.0,
+      "espn_adp": 81.18,
+      "roto": 45
+    },
+    {
+      "name": "Jalen Duren",
+      "pos": "C",
+      "team": null,
+      "raw_market": 25.11,
+      "sharp_market": 25.11,
+      "espn_adp": 44.13,
+      "roto": 23
+    },
+    {
+      "name": "Dyson Daniels",
+      "pos": "SG",
+      "team": null,
+      "raw_market": 40.36,
+      "sharp_market": 40.36,
+      "espn_adp": 61.61,
+      "roto": 38
+    },
+    {
+      "name": "Domantas Sabonis",
+      "pos": "C",
+      "team": null,
+      "raw_market": 30.6,
+      "sharp_market": 30.6,
+      "espn_adp": 18.03,
+      "roto": 32
+    },
+    {
+      "name": "Alperen Sengun",
+      "pos": "C",
+      "team": null,
+      "raw_market": 28.84,
+      "sharp_market": 21.0,
+      "espn_adp": 27.38,
+      "roto": 29
+    },
+    {
+      "name": "Toumani Camara",
+      "pos": "PF",
+      "team": null,
+      "raw_market": 133.68,
+      "sharp_market": 112.0,
+      "espn_adp": 136.2,
+      "roto": 132
+    },
+    {
+      "name": "Tari Eason",
+      "pos": "SF",
+      "team": null,
+      "raw_market": 161.06,
+      "sharp_market": 124.0,
+      "espn_adp": 138.64,
+      "roto": 176
+    },
+    {
+      "name": "Jalen Suggs",
+      "pos": "PG",
+      "team": null,
+      "raw_market": 139.24,
+      "sharp_market": 114.0,
+      "espn_adp": 135.09,
+      "roto": 142
+    },
+    {
+      "name": "Aaron Nesmith",
+      "pos": "SF",
+      "team": null,
+      "raw_market": 220.0,
+      "sharp_market": 134.0,
+      "espn_adp": null,
+      "roto": null
+    },
+    {
+      "name": "Luguentz Dort",
+      "pos": "SG",
+      "team": null,
+      "raw_market": 153.18,
+      "sharp_market": 150.0,
+      "espn_adp": 139.94,
+      "roto": 162
+    },
+    {
+      "name": "Alex Caruso",
+      "pos": "SG",
+      "team": null,
+      "raw_market": 137.56,
+      "sharp_market": 137.56,
+      "espn_adp": 138.39,
+      "roto": 137
+    },
+    {
+      "name": "Kel'el Ware",
+      "pos": "C",
+      "team": null,
+      "raw_market": 84.12,
+      "sharp_market": 84.12,
+      "espn_adp": 115.9,
+      "roto": 67
+    },
+    {
+      "name": "Donovan Clingan",
+      "pos": "C",
+      "team": null,
+      "raw_market": 48.04,
+      "sharp_market": 48.04,
+      "espn_adp": 93.41,
+      "roto": 43
+    },
+    {
+      "name": "Day'Ron Sharpe",
+      "pos": "C",
+      "team": null,
+      "raw_market": 137.31,
+      "sharp_market": 137.31,
+      "espn_adp": 139.27,
+      "roto": 136
+    },
+    {
+      "name": "Draymond Green",
+      "pos": "PF",
+      "team": null,
+      "raw_market": 147.97,
+      "sharp_market": 108.0,
+      "espn_adp": 128.43,
+      "roto": 161
+    },
+    {
+      "name": "Amen Thompson",
+      "pos": "SF",
+      "team": null,
+      "raw_market": 13.67,
+      "sharp_market": 13.67,
+      "espn_adp": 19.66,
+      "roto": 13
+    },
+    {
+      "name": "Scottie Barnes",
+      "pos": "SF",
+      "team": null,
+      "raw_market": 11.12,
+      "sharp_market": 11.12,
+      "espn_adp": 21.22,
+      "roto": 10
+    }
+  ],
+  "third_pick": {
+    "Chet Holmgren": {
+      "beat_opponents_6plus": 85.3,
+      "beat_opponents_7plus": 58.9,
+      "beat_opponents_exactly_6": 26.4,
+      "lose_to_opponents": 14.7,
+      "seasons_beating_10_of_13": 81.2,
+      "seasons_beating_half": 96.9,
+      "top4_rate": 75.0,
+      "avg_rank": 3.09,
+      "avg_cats": 6.62,
+      "avg_worst_matchup": 4.8,
+      "target_cat_win": {
+        "FG%": 89.1,
+        "REB": 81.9,
+        "AST": 75.2,
+        "A/TO": 96.5,
+        "STL": 86.1,
+        "BLK": 93.9,
+        "DD": 94.2
+      },
+      "target_safety": {
+        "FG%": 1.71,
+        "REB": 1.11,
+        "AST": 0.79,
+        "A/TO": 2.27,
+        "STL": 1.34,
+        "BLK": 1.78,
+        "DD": 1.86
+      }
+    },
+    "Evan Mobley": {
+      "beat_opponents_6plus": 89.7,
+      "beat_opponents_7plus": 66.0,
+      "beat_opponents_exactly_6": 23.7,
+      "lose_to_opponents": 10.3,
+      "seasons_beating_10_of_13": 90.6,
+      "seasons_beating_half": 98.4,
+      "top4_rate": 93.8,
+      "avg_rank": 2.42,
+      "avg_cats": 6.72,
+      "avg_worst_matchup": 5.08,
+      "target_cat_win": {
+        "FG%": 89.7,
+        "REB": 86.9,
+        "AST": 82.0,
+        "A/TO": 97.7,
+        "STL": 90.7,
+        "BLK": 90.4,
+        "DD": 96.4
+      },
+      "target_safety": {
+        "FG%": 1.7,
+        "REB": 1.32,
+        "AST": 1.05,
+        "A/TO": 2.37,
+        "STL": 1.63,
+        "BLK": 1.49,
+        "DD": 2.16
+      }
+    },
+    "Bam Adebayo": {
+      "beat_opponents_6plus": 85.7,
+      "beat_opponents_7plus": 57.5,
+      "beat_opponents_exactly_6": 28.2,
+      "lose_to_opponents": 14.3,
+      "seasons_beating_10_of_13": 84.4,
+      "seasons_beating_half": 100.0,
+      "top4_rate": 81.2,
+      "avg_rank": 2.97,
+      "avg_cats": 6.54,
+      "avg_worst_matchup": 4.91,
+      "target_cat_win": {
+        "FG%": 80.8,
+        "REB": 87.5,
+        "AST": 81.5,
+        "A/TO": 98.2,
+        "STL": 94.8,
+        "BLK": 80.2,
+        "DD": 97.2
+      },
+      "target_safety": {
+        "FG%": 1.09,
+        "REB": 1.43,
+        "AST": 1.01,
+        "A/TO": 2.5,
+        "STL": 2.05,
+        "BLK": 0.91,
+        "DD": 2.35
+      }
+    },
+    "Walker Kessler": {
+      "beat_opponents_6plus": 89.1,
+      "beat_opponents_7plus": 64.7,
+      "beat_opponents_exactly_6": 24.4,
+      "lose_to_opponents": 10.9,
+      "seasons_beating_10_of_13": 90.6,
+      "seasons_beating_half": 100.0,
+      "top4_rate": 89.1,
+      "avg_rank": 2.56,
+      "avg_cats": 6.73,
+      "avg_worst_matchup": 5.06,
+      "target_cat_win": {
+        "FG%": 93.8,
+        "REB": 91.6,
+        "AST": 74.3,
+        "A/TO": 96.2,
+        "STL": 88.0,
+        "BLK": 95.3,
+        "DD": 96.2
+      },
+      "target_safety": {
+        "FG%": 1.99,
+        "REB": 1.68,
+        "AST": 0.74,
+        "A/TO": 2.19,
+        "STL": 1.4,
+        "BLK": 2.05,
+        "DD": 2.15
+      }
+    },
+    "Jalen Duren": {
+      "beat_opponents_6plus": 88.9,
+      "beat_opponents_7plus": 67.2,
+      "beat_opponents_exactly_6": 21.8,
+      "lose_to_opponents": 11.1,
+      "seasons_beating_10_of_13": 89.1,
+      "seasons_beating_half": 98.4,
+      "top4_rate": 93.8,
+      "avg_rank": 2.45,
+      "avg_cats": 6.77,
+      "avg_worst_matchup": 5.09,
+      "target_cat_win": {
+        "FG%": 94.6,
+        "REB": 92.1,
+        "AST": 77.9,
+        "A/TO": 95.2,
+        "STL": 91.6,
+        "BLK": 83.7,
+        "DD": 98.1
+      },
+      "target_safety": {
+        "FG%": 2.33,
+        "REB": 1.69,
+        "AST": 0.85,
+        "A/TO": 2.04,
+        "STL": 1.71,
+        "BLK": 1.09,
+        "DD": 2.67
+      }
+    },
+    "Dyson Daniels": {
+      "beat_opponents_6plus": 84.9,
+      "beat_opponents_7plus": 58.3,
+      "beat_opponents_exactly_6": 26.6,
+      "lose_to_opponents": 15.1,
+      "seasons_beating_10_of_13": 81.2,
+      "seasons_beating_half": 98.4,
+      "top4_rate": 78.1,
+      "avg_rank": 3.03,
+      "avg_cats": 6.48,
+      "avg_worst_matchup": 4.59,
+      "target_cat_win": {
+        "FG%": 86.8,
+        "REB": 78.5,
+        "AST": 91.3,
+        "A/TO": 99.5,
+        "STL": 98.8,
+        "BLK": 75.0,
+        "DD": 92.2
+      },
+      "target_safety": {
+        "FG%": 1.46,
+        "REB": 0.94,
+        "AST": 1.51,
+        "A/TO": 3.22,
+        "STL": 3.11,
+        "BLK": 0.7,
+        "DD": 1.64
+      }
+    },
+    "Domantas Sabonis": {
+      "beat_opponents_6plus": 91.0,
+      "beat_opponents_7plus": 71.4,
+      "beat_opponents_exactly_6": 19.6,
+      "lose_to_opponents": 9.0,
+      "seasons_beating_10_of_13": 89.1,
+      "seasons_beating_half": 100.0,
+      "top4_rate": 92.2,
+      "avg_rank": 2.2,
+      "avg_cats": 6.86,
+      "avg_worst_matchup": 5.25,
+      "target_cat_win": {
+        "FG%": 91.6,
+        "REB": 93.9,
+        "AST": 93.3,
+        "A/TO": 98.6,
+        "STL": 89.7,
+        "BLK": 76.0,
+        "DD": 98.9
+      },
+      "target_safety": {
+        "FG%": 1.81,
+        "REB": 1.88,
+        "AST": 1.7,
+        "A/TO": 2.64,
+        "STL": 1.57,
+        "BLK": 0.76,
+        "DD": 2.73
+      }
+    },
+    "Alperen Sengun": {
+      "beat_opponents_6plus": 89.3,
+      "beat_opponents_7plus": 66.7,
+      "beat_opponents_exactly_6": 22.6,
+      "lose_to_opponents": 10.7,
+      "seasons_beating_10_of_13": 95.3,
+      "seasons_beating_half": 100.0,
+      "top4_rate": 90.6,
+      "avg_rank": 2.52,
+      "avg_cats": 6.72,
+      "avg_worst_matchup": 4.98,
+      "target_cat_win": {
+        "FG%": 87.3,
+        "REB": 86.9,
+        "AST": 89.2,
+        "A/TO": 97.6,
+        "STL": 94.5,
+        "BLK": 84.0,
+        "DD": 97.4
+      },
+      "target_safety": {
+        "FG%": 1.53,
+        "REB": 1.36,
+        "AST": 1.44,
+        "A/TO": 2.33,
+        "STL": 2.03,
+        "BLK": 1.1,
+        "DD": 2.34
+      }
+    }
+  },
+  "peyton_replacements": {
+    "Peyton Watson": {
+      "beat_opponents_6plus": 85.3,
+      "beat_opponents_7plus": 58.9,
+      "beat_opponents_exactly_6": 26.4,
+      "lose_to_opponents": 14.7,
+      "seasons_beating_10_of_13": 81.2,
+      "seasons_beating_half": 96.9,
+      "top4_rate": 75.0,
+      "avg_rank": 3.09,
+      "avg_cats": 6.62,
+      "avg_worst_matchup": 4.8,
+      "target_cat_win": {
+        "FG%": 89.1,
+        "REB": 81.9,
+        "AST": 75.2,
+        "A/TO": 96.5,
+        "STL": 86.1,
+        "BLK": 93.9,
+        "DD": 94.2
+      },
+      "target_safety": {
+        "FG%": 1.71,
+        "REB": 1.11,
+        "AST": 0.79,
+        "A/TO": 2.27,
+        "STL": 1.34,
+        "BLK": 1.78,
+        "DD": 1.86
+      }
+    },
+    "Toumani Camara": {
+      "beat_opponents_6plus": 83.2,
+      "beat_opponents_7plus": 55.6,
+      "beat_opponents_exactly_6": 27.5,
+      "lose_to_opponents": 16.8,
+      "seasons_beating_10_of_13": 76.6,
+      "seasons_beating_half": 100.0,
+      "top4_rate": 79.7,
+      "avg_rank": 3.12,
+      "avg_cats": 6.51,
+      "avg_worst_matchup": 4.52,
+      "target_cat_win": {
+        "FG%": 88.8,
+        "REB": 81.4,
+        "AST": 75.0,
+        "A/TO": 97.0,
+        "STL": 89.5,
+        "BLK": 85.9,
+        "DD": 93.4
+      },
+      "target_safety": {
+        "FG%": 1.71,
+        "REB": 1.09,
+        "AST": 0.8,
+        "A/TO": 2.37,
+        "STL": 1.59,
+        "BLK": 1.25,
+        "DD": 1.82
+      }
+    },
+    "Tari Eason": {
+      "beat_opponents_6plus": 83.8,
+      "beat_opponents_7plus": 53.2,
+      "beat_opponents_exactly_6": 30.5,
+      "lose_to_opponents": 16.2,
+      "seasons_beating_10_of_13": 79.7,
+      "seasons_beating_half": 96.9,
+      "top4_rate": 71.9,
+      "avg_rank": 3.39,
+      "avg_cats": 6.5,
+      "avg_worst_matchup": 4.78,
+      "target_cat_win": {
+        "FG%": 88.2,
+        "REB": 84.3,
+        "AST": 70.3,
+        "A/TO": 97.0,
+        "STL": 90.1,
+        "BLK": 85.8,
+        "DD": 95.7
+      },
+      "target_safety": {
+        "FG%": 1.63,
+        "REB": 1.21,
+        "AST": 0.65,
+        "A/TO": 2.35,
+        "STL": 1.55,
+        "BLK": 1.19,
+        "DD": 2.0
+      }
+    },
+    "Jalen Suggs": {
+      "beat_opponents_6plus": 81.7,
+      "beat_opponents_7plus": 55.3,
+      "beat_opponents_exactly_6": 26.4,
+      "lose_to_opponents": 18.3,
+      "seasons_beating_10_of_13": 73.4,
+      "seasons_beating_half": 100.0,
+      "top4_rate": 79.7,
+      "avg_rank": 3.33,
+      "avg_cats": 6.5,
+      "avg_worst_matchup": 4.56,
+      "target_cat_win": {
+        "FG%": 87.5,
+        "REB": 73.1,
+        "AST": 82.2,
+        "A/TO": 97.1,
+        "STL": 91.3,
+        "BLK": 86.9,
+        "DD": 93.9
+      },
+      "target_safety": {
+        "FG%": 1.65,
+        "REB": 0.76,
+        "AST": 1.03,
+        "A/TO": 2.37,
+        "STL": 1.78,
+        "BLK": 1.27,
+        "DD": 1.77
+      }
+    },
+    "Aaron Nesmith": {
+      "beat_opponents_6plus": 81.2,
+      "beat_opponents_7plus": 56.0,
+      "beat_opponents_exactly_6": 25.2,
+      "lose_to_opponents": 18.8,
+      "seasons_beating_10_of_13": 76.6,
+      "seasons_beating_half": 95.3,
+      "top4_rate": 76.6,
+      "avg_rank": 3.3,
+      "avg_cats": 6.51,
+      "avg_worst_matchup": 4.47,
+      "target_cat_win": {
+        "FG%": 90.3,
+        "REB": 76.3,
+        "AST": 72.2,
+        "A/TO": 98.3,
+        "STL": 82.1,
+        "BLK": 85.9,
+        "DD": 93.0
+      },
+      "target_safety": {
+        "FG%": 1.81,
+        "REB": 0.89,
+        "AST": 0.67,
+        "A/TO": 2.56,
+        "STL": 1.08,
+        "BLK": 1.2,
+        "DD": 1.74
+      }
+    },
+    "Luguentz Dort": {
+      "beat_opponents_6plus": 81.5,
+      "beat_opponents_7plus": 55.0,
+      "beat_opponents_exactly_6": 26.4,
+      "lose_to_opponents": 18.5,
+      "seasons_beating_10_of_13": 75.0,
+      "seasons_beating_half": 95.3,
+      "top4_rate": 70.3,
+      "avg_rank": 3.48,
+      "avg_cats": 6.47,
+      "avg_worst_matchup": 4.47,
+      "target_cat_win": {
+        "FG%": 87.7,
+        "REB": 78.8,
+        "AST": 71.5,
+        "A/TO": 97.8,
+        "STL": 86.5,
+        "BLK": 85.7,
+        "DD": 93.3
+      },
+      "target_safety": {
+        "FG%": 1.63,
+        "REB": 0.91,
+        "AST": 0.67,
+        "A/TO": 2.55,
+        "STL": 1.44,
+        "BLK": 1.22,
+        "DD": 1.73
+      }
+    },
+    "Alex Caruso": {
+      "beat_opponents_6plus": 81.7,
+      "beat_opponents_7plus": 52.9,
+      "beat_opponents_exactly_6": 28.8,
+      "lose_to_opponents": 18.3,
+      "seasons_beating_10_of_13": 76.6,
+      "seasons_beating_half": 100.0,
+      "top4_rate": 71.9,
+      "avg_rank": 3.3,
+      "avg_cats": 6.4,
+      "avg_worst_matchup": 4.55,
+      "target_cat_win": {
+        "FG%": 87.6,
+        "REB": 76.9,
+        "AST": 77.5,
+        "A/TO": 98.6,
+        "STL": 95.3,
+        "BLK": 85.6,
+        "DD": 93.0
+      },
+      "target_safety": {
+        "FG%": 1.65,
+        "REB": 0.86,
+        "AST": 0.89,
+        "A/TO": 2.72,
+        "STL": 2.17,
+        "BLK": 1.2,
+        "DD": 1.73
+      }
+    }
+  },
+  "hartenstein_replacements": {
+    "Isaiah Hartenstein": {
+      "beat_opponents_6plus": 85.3,
+      "beat_opponents_7plus": 58.9,
+      "beat_opponents_exactly_6": 26.4,
+      "lose_to_opponents": 14.7,
+      "seasons_beating_10_of_13": 81.2,
+      "seasons_beating_half": 96.9,
+      "top4_rate": 75.0,
+      "avg_rank": 3.09,
+      "avg_cats": 6.62,
+      "avg_worst_matchup": 4.8,
+      "target_cat_win": {
+        "FG%": 89.1,
+        "REB": 81.9,
+        "AST": 75.2,
+        "A/TO": 96.5,
+        "STL": 86.1,
+        "BLK": 93.9,
+        "DD": 94.2
+      },
+      "target_safety": {
+        "FG%": 1.71,
+        "REB": 1.11,
+        "AST": 0.79,
+        "A/TO": 2.27,
+        "STL": 1.34,
+        "BLK": 1.78,
+        "DD": 1.86
+      }
+    },
+    "Kel'el Ware": {
+      "beat_opponents_6plus": 84.9,
+      "beat_opponents_7plus": 57.7,
+      "beat_opponents_exactly_6": 27.2,
+      "lose_to_opponents": 15.1,
+      "seasons_beating_10_of_13": 79.7,
+      "seasons_beating_half": 95.3,
+      "top4_rate": 79.7,
+      "avg_rank": 3.16,
+      "avg_cats": 6.61,
+      "avg_worst_matchup": 4.84,
+      "target_cat_win": {
+        "FG%": 88.0,
+        "REB": 85.9,
+        "AST": 60.8,
+        "A/TO": 94.1,
+        "STL": 83.9,
+        "BLK": 95.6,
+        "DD": 96.2
+      },
+      "target_safety": {
+        "FG%": 1.58,
+        "REB": 1.24,
+        "AST": 0.35,
+        "A/TO": 2.0,
+        "STL": 1.18,
+        "BLK": 2.1,
+        "DD": 2.19
+      }
+    },
+    "Donovan Clingan": {
+      "beat_opponents_6plus": 86.4,
+      "beat_opponents_7plus": 60.1,
+      "beat_opponents_exactly_6": 26.3,
+      "lose_to_opponents": 13.6,
+      "seasons_beating_10_of_13": 82.8,
+      "seasons_beating_half": 98.4,
+      "top4_rate": 84.4,
+      "avg_rank": 2.8,
+      "avg_cats": 6.65,
+      "avg_worst_matchup": 5.11,
+      "target_cat_win": {
+        "FG%": 86.5,
+        "REB": 91.0,
+        "AST": 69.6,
+        "A/TO": 95.2,
+        "STL": 80.3,
+        "BLK": 98.2,
+        "DD": 97.6
+      },
+      "target_safety": {
+        "FG%": 1.58,
+        "REB": 1.52,
+        "AST": 0.6,
+        "A/TO": 2.19,
+        "STL": 1.02,
+        "BLK": 2.62,
+        "DD": 2.34
+      }
+    },
+    "Day'Ron Sharpe": {
+      "beat_opponents_6plus": 81.9,
+      "beat_opponents_7plus": 54.1,
+      "beat_opponents_exactly_6": 27.8,
+      "lose_to_opponents": 18.1,
+      "seasons_beating_10_of_13": 79.7,
+      "seasons_beating_half": 95.3,
+      "top4_rate": 81.2,
+      "avg_rank": 3.19,
+      "avg_cats": 6.49,
+      "avg_worst_matchup": 4.53,
+      "target_cat_win": {
+        "FG%": 86.9,
+        "REB": 81.0,
+        "AST": 70.9,
+        "A/TO": 93.4,
+        "STL": 85.2,
+        "BLK": 96.3,
+        "DD": 92.5
+      },
+      "target_safety": {
+        "FG%": 1.59,
+        "REB": 1.02,
+        "AST": 0.6,
+        "A/TO": 2.01,
+        "STL": 1.27,
+        "BLK": 2.06,
+        "DD": 1.64
+      }
+    },
+    "Draymond Green": {
+      "beat_opponents_6plus": 80.0,
+      "beat_opponents_7plus": 55.9,
+      "beat_opponents_exactly_6": 24.2,
+      "lose_to_opponents": 20.0,
+      "seasons_beating_10_of_13": 76.6,
+      "seasons_beating_half": 93.8,
+      "top4_rate": 73.4,
+      "avg_rank": 3.31,
+      "avg_cats": 6.47,
+      "avg_worst_matchup": 4.44,
+      "target_cat_win": {
+        "FG%": 81.0,
+        "REB": 69.6,
+        "AST": 84.0,
+        "A/TO": 96.5,
+        "STL": 87.6,
+        "BLK": 94.7,
+        "DD": 88.9
+      },
+      "target_safety": {
+        "FG%": 1.23,
+        "REB": 0.61,
+        "AST": 1.13,
+        "A/TO": 2.35,
+        "STL": 1.38,
+        "BLK": 1.82,
+        "DD": 1.35
+      }
+    }
+  },
+  "availability_sharp": {
+    "planned_order": [
+      {
+        "pick": 5,
+        "name": "Cade Cunningham",
+        "available": 86.9
+      },
+      {
+        "pick": 24,
+        "name": "Josh Giddey",
+        "available": 59.4
+      },
+      {
+        "pick": 33,
+        "name": "Chet Holmgren",
+        "available": 33.6
+      },
+      {
+        "pick": 52,
+        "name": "Rudy Gobert",
+        "available": 78.6
+      },
+      {
+        "pick": 61,
+        "name": "Josh Hart",
+        "available": 75.6
+      },
+      {
+        "pick": 80,
+        "name": "Ausar Thompson",
+        "available": 52.3
+      },
+      {
+        "pick": 89,
+        "name": "Cason Wallace",
+        "available": 94.0
+      },
+      {
+        "pick": 108,
+        "name": "Nic Claxton",
+        "available": 49.1
+      },
+      {
+        "pick": 117,
+        "name": "Isaiah Hartenstein",
+        "available": 3.0
+      },
+      {
+        "pick": 136,
+        "name": "Peyton Watson",
+        "available": 12.0
+      },
+      {
+        "pick": 145,
+        "name": "Davion Mitchell",
+        "available": 49.9
+      },
+      {
+        "pick": 164,
+        "name": "Collin Murray-Boyles",
+        "available": 31.0
+      },
+      {
+        "pick": 173,
+        "name": "Tre Jones",
+        "available": 35.6
+      }
+    ],
+    "davion_one_pick_earlier": [
+      {
+        "pick": 5,
+        "name": "Cade Cunningham",
+        "available": 85.6
+      },
+      {
+        "pick": 24,
+        "name": "Josh Giddey",
+        "available": 63.0
+      },
+      {
+        "pick": 33,
+        "name": "Chet Holmgren",
+        "available": 33.9
+      },
+      {
+        "pick": 52,
+        "name": "Rudy Gobert",
+        "available": 76.4
+      },
+      {
+        "pick": 61,
+        "name": "Josh Hart",
+        "available": 75.9
+      },
+      {
+        "pick": 80,
+        "name": "Ausar Thompson",
+        "available": 53.3
+      },
+      {
+        "pick": 89,
+        "name": "Cason Wallace",
+        "available": 95.0
+      },
+      {
+        "pick": 108,
+        "name": "Nic Claxton",
+        "available": 45.4
+      },
+      {
+        "pick": 117,
+        "name": "Isaiah Hartenstein",
+        "available": 4.3
+      },
+      {
+        "pick": 136,
+        "name": "Davion Mitchell",
+        "available": 69.1
+      },
+      {
+        "pick": 145,
+        "name": "Peyton Watson",
+        "available": 4.7
+      },
+      {
+        "pick": 164,
+        "name": "Collin Murray-Boyles",
+        "available": 31.6
+      },
+      {
+        "pick": 173,
+        "name": "Tre Jones",
+        "available": 37.3
+      }
+    ],
+    "third_pick_survival": {
+      "Chet Holmgren": 34.6,
+      "Evan Mobley": 12.1,
+      "Bam Adebayo": 0.0,
+      "Walker Kessler": 86.7,
+      "Jalen Duren": 17.7,
+      "Dyson Daniels": 91.1,
+      "Domantas Sabonis": 52.8,
+      "Alperen Sengun": 3.7
+    }
+  },
+  "availability_if_room_is_on_davion": {
+    "planned_davion_at_145": [
+      {
+        "pick": 5,
+        "name": "Cade Cunningham",
+        "available": 89.3
+      },
+      {
+        "pick": 24,
+        "name": "Josh Giddey",
+        "available": 62.0
+      },
+      {
+        "pick": 33,
+        "name": "Chet Holmgren",
+        "available": 36.0
+      },
+      {
+        "pick": 52,
+        "name": "Rudy Gobert",
+        "available": 77.3
+      },
+      {
+        "pick": 61,
+        "name": "Josh Hart",
+        "available": 79.3
+      },
+      {
+        "pick": 80,
+        "name": "Ausar Thompson",
+        "available": 56.7
+      },
+      {
+        "pick": 89,
+        "name": "Cason Wallace",
+        "available": 95.4
+      },
+      {
+        "pick": 108,
+        "name": "Nic Claxton",
+        "available": 50.1
+      },
+      {
+        "pick": 117,
+        "name": "Isaiah Hartenstein",
+        "available": 6.0
+      },
+      {
+        "pick": 136,
+        "name": "Peyton Watson",
+        "available": 11.4
+      },
+      {
+        "pick": 145,
+        "name": "Davion Mitchell",
+        "available": 24.4
+      },
+      {
+        "pick": 164,
+        "name": "Collin Murray-Boyles",
+        "available": 29.9
+      },
+      {
+        "pick": 173,
+        "name": "Tre Jones",
+        "available": 34.9
+      }
+    ],
+    "davion_at_136": [
+      {
+        "pick": 5,
+        "name": "Cade Cunningham",
+        "available": 87.6
+      },
+      {
+        "pick": 24,
+        "name": "Josh Giddey",
+        "available": 60.7
+      },
+      {
+        "pick": 33,
+        "name": "Chet Holmgren",
+        "available": 32.0
+      },
+      {
+        "pick": 52,
+        "name": "Rudy Gobert",
+        "available": 77.0
+      },
+      {
+        "pick": 61,
+        "name": "Josh Hart",
+        "available": 77.0
+      },
+      {
+        "pick": 80,
+        "name": "Ausar Thompson",
+        "available": 54.0
+      },
+      {
+        "pick": 89,
+        "name": "Cason Wallace",
+        "available": 95.3
+      },
+      {
+        "pick": 108,
+        "name": "Nic Claxton",
+        "available": 48.3
+      },
+      {
+        "pick": 117,
+        "name": "Isaiah Hartenstein",
+        "available": 4.6
+      },
+      {
+        "pick": 136,
+        "name": "Davion Mitchell",
+        "available": 36.6
+      },
+      {
+        "pick": 145,
+        "name": "Peyton Watson",
+        "available": 4.3
+      },
+      {
+        "pick": 164,
+        "name": "Collin Murray-Boyles",
+        "available": 32.3
+      },
+      {
+        "pick": 173,
+        "name": "Tre Jones",
+        "available": 33.7
+      }
+    ]
+  },
+  "notes": [
+    "14 teams, slot 5, 13 rounds.",
+    "beat_opponents_6plus is the share of rival rosters we beat by winning at least 6 categories.",
+    "beat_opponents_7plus is the comfortable margin. exactly_6 is a 6-5 sweat.",
+    "Opponent boards use the earlier of the internal market and a category-room price, so centers do not fall for free.",
+    "This is stressed season volume against the other drafted rosters, not a week-by-week schedule."
+  ]
+}

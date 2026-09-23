@@ -31,6 +31,13 @@ class MockDraftRequest(BaseModel):
     punt_categories: List[str] = []
 
 
+class ConstructorRosterRequest(BaseModel):
+    player_ids: List[Optional[int]] = []
+    period: str = DEFAULT_PERIOD
+    punt_categories: List[str] = []
+    runs: int = 200
+
+
 class TeamTrade(BaseModel):
     """Модель для трейда одной команды в мультикомандном трейде."""
     team_id: int

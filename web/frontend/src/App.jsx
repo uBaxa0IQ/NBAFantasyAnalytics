@@ -12,11 +12,13 @@ const PlayerComparisonModal = lazy(() => import('./components/PlayerComparisonMo
 import SettingsModal from './components/SettingsModal';
 const DraftAssistant = lazy(() => import('./components/DraftAssistant'));
 const MockDraftPage = lazy(() => import('./components/MockDraftPage'));
+const RosterConstructorPage = lazy(() => import('./components/RosterConstructorPage'));
 import { getSeasonConfig, normalizeSavedPeriod, saveSeasonConfig } from './utils/periods';
+import { currentToolRoute, normalizeToolHash } from './utils/appRoutes';
 
-const readMockRoute = () => {
-  const path = (window.location.pathname || '/').replace(/\/$/, '') || '/';
-  return window.location.hash === '#/mock' || path === '/mock';
+const readToolRoute = () => {
+  normalizeToolHash();
+  return currentToolRoute();
 };
 
 function App() {
@@ -35,9 +37,9 @@ function App() {
   const [isPlayoff, setIsPlayoff] = useState(false);
   const [draftState, setDraftState] = useState(null);
   const [seasonConfig, setSeasonConfig] = useState(getSeasonConfig);
-  const [mockRoute, setMockRoute] = useState(readMockRoute);
+  const [toolRoute, setToolRoute] = useState(readToolRoute);
   useEffect(() => {
-    const sync = () => setMockRoute(readMockRoute());
+    const sync = () => setToolRoute(readToolRoute());
     window.addEventListener('hashchange', sync);
     window.addEventListener('popstate', sync);
     return () => {
@@ -225,17 +227,18 @@ function App() {
     <button className="rounded bg-blue-700 px-4 py-2 text-white">Войти</button>
   </form>;
 
-  if (mockRoute) {
+  if (toolRoute) {
+    const ToolPage = toolRoute === 'constructor' ? RosterConstructorPage : MockDraftPage;
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-blue-900 p-4 text-white shadow-md">
-          <h1 className="text-center text-2xl font-bold">Мок-драфт</h1>
+          <h1 className="text-center text-2xl font-bold">{toolRoute === 'constructor' ? 'Конструктор состава' : 'Мок-драфт'}</h1>
         </header>
         <main
           className="container mx-auto max-w-7xl p-4"
           style={{ paddingBottom: comparisonPlayers.length >= 2 ? '120px' : undefined }}
         >
-          <MockDraftPage
+          <ToolPage
             mainTeam={mainTeam}
             projectedPeriod={seasonConfig.periods.projected}
             leagueId={seasonConfig.league_id}
@@ -298,6 +301,7 @@ function App() {
             onPuntCategoriesChange={setPuntCategories}
             onOpenSettings={() => setShowSettingsModal(true)}
             onPlayerClick={handlePlayerClick}
+            onDraftState={setDraftState}
           />
         </main>
         {selectedPlayer && (

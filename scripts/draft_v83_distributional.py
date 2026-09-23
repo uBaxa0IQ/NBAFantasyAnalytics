@@ -150,7 +150,7 @@ def label_state(job):
         contenders=np.asarray(contenders, dtype=np.int16), scenario=np.asarray(key), format_id=np.asarray(case["id"]),
         category_count=np.asarray(len(case["categories"])), provenance=np.asarray(expected))
     return {"format_id": case["id"], "safe_profile": profiles[safe_index], "contenders": len(contenders),
-            "committed": committed}
+            "committed": bool(committed)}
 
 
 def parallel_labels(settings, jobs, out, total, existing):

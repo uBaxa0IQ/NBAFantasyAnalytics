@@ -3,8 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from dependencies import get_league_meta
 from core.config import CATEGORIES, PERIODS
-from models import MockDraftRequest
-from services.draft import get_draft_recommendations, get_draft_state, run_human_mock_draft
+from models import ConstructorRosterRequest, MockDraftRequest
+from services.draft import get_draft_recommendations, get_draft_state, get_offline_draft_board, run_human_mock_draft
+from services.draft_live import DraftPullError, DraftPullRefused, live_draft_client
 from services.draft_calculation import StaleDraftCalculation, draft_calculations
 from services.draft_benchmark import benchmark_adaptive_vs_legacy, benchmark_draft_strategies, benchmark_punt_strategies
 from services.draft_learning import learning_dataset_stats
@@ -57,6 +58,53 @@ def draft_learning_stats():
 @router.get("/state")
 def draft_state(league_meta=Depends(get_league_meta)):
     return get_draft_state(league_meta)
+
+
+@router.post("/pull")
+def pull_live_board(league_meta=Depends(get_league_meta)):
+    """Take one lobby snapshot and disconnect. Refuses while this account is on the clock."""
+    try:
+        live_draft_client.pull_once(league_meta)
+    except DraftPullRefused as error:
+        status = 409 if "ваш ход" in str(error) or "уже идёт" in str(error) else 400
+        raise HTTPException(status_code=status, detail=str(error)) from error
+    except DraftPullError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return get_draft_state(league_meta)
+
+
+@router.get("/constructor/{team_id}")
+def constructor_board(team_id: int, period: str = PERIODS["projected"], league_meta=Depends(get_league_meta)):
+    if league_meta.get_team_by_id(team_id) is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    from services.draft_constructor import constructor_board as build_board
+    from services.draft_mock import MockDraftError
+    try:
+        return build_board(get_offline_draft_board(league_meta, team_id, period, require_order=False))
+    except MockDraftError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@router.post("/constructor/{team_id}")
+def constructor_evaluate(team_id: int, body: ConstructorRosterRequest, league_meta=Depends(get_league_meta)):
+    if league_meta.get_team_by_id(team_id) is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    from services.draft_constructor import evaluate_constructor_roster
+    from services.draft_mock import MockDraftError
+    try:
+        board = get_offline_draft_board(league_meta, team_id, body.period, require_order=False)
+    except MockDraftError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return evaluate_constructor_roster(
+        board["players"],
+        body.player_ids,
+        slot=board["slot"],
+        team_count=board["team_count"],
+        rounds=board["rounds"],
+        categories=board["categories"],
+        punt_categories=body.punt_categories,
+        runs=max(20, min(400, int(body.runs or 200))),
+    )
 
 
 @router.post("/mock/{team_id}")

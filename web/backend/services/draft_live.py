@@ -1,4 +1,9 @@
-"""Single read-only ESPN live-draft event client with a persistent local cache."""
+"""One-shot ESPN draft board pulls with a persistent local cache.
+
+The client must not stay joined to the draft lobby. A long-lived session uses the
+same account as the browser, which kicks that tab out and can look like the
+manager went offline when the session closes.
+"""
 
 from __future__ import annotations
 
@@ -15,10 +20,22 @@ import urllib.request
 from pathlib import Path
 
 from core.config import DEFAULT_TEAM_ID
-from core.runtime_settings import get_draft_connection_mode
 
 
 logger = logging.getLogger(__name__)
+
+PULL_FAILED = "Не удалось снять доску. Прошлый снимок на месте."
+PULL_ON_CLOCK = "Сейчас ваш ход. Доску не снимаем, оставайся в лобби ESPN."
+PULL_NOT_LIVE = "Драфт сейчас не идёт"
+PULL_BUSY = "Съёмка уже идёт"
+
+
+class DraftPullError(Exception):
+    """A one-shot board pull failed. The previous snapshot stays in place."""
+
+
+class DraftPullRefused(DraftPullError):
+    """The pull was refused before opening a lobby session."""
 
 
 def _has_live_picks(state):
@@ -243,6 +260,7 @@ class LiveDraftClient:
         self._draft_token = None
         self._connected_team_id = None
         self._response = None
+        self._pulling = False
 
     def _cache_path(self, league_id, season):
         return Path(".cache") / f"live_draft_{league_id}_{season}.json"
@@ -274,26 +292,124 @@ class LiveDraftClient:
             pass
 
     def ensure(self, league_metadata, raw_draft):
-        if not raw_draft.get("draftDetail", {}).get("inProgress"):
-            self.stop()
-            return
-        league_id, season = league_metadata.league_id, league_metadata.year
-        draft_date = raw_draft.get("settings", {}).get("draftSettings", {}).get("date")
-        key = (league_id, season, DEFAULT_TEAM_ID)
+        """Lobby sessions are not kept open between requests."""
+        return
+
+    def pull_once(self, league_metadata):
+        """Join the lobby, take one board snapshot, and disconnect. No retries."""
         with self._lock:
-            if self._thread and self._thread.is_alive() and self._key == key:
+            if self._pulling:
+                raise DraftPullRefused(PULL_BUSY)
+            self._pulling = True
+        try:
+            return self._pull_once(league_metadata)
+        finally:
+            with self._lock:
+                self._pulling = False
+
+    def _pull_once(self, league_metadata):
+        from .draft import get_draft_state
+
+        state = get_draft_state(league_metadata)
+        if state.get("status") != "live":
+            raise DraftPullRefused(PULL_NOT_LIVE)
+        try:
+            team_id, member_id = self._team_identity(league_metadata)
+        except Exception as error:
+            logger.warning("ESPN draft pull could not resolve the account team: %s", error)
+            raise DraftPullError(PULL_FAILED) from error
+        if team_id == state.get("next_team_id"):
+            raise DraftPullRefused(PULL_ON_CLOCK)
+
+        self.stop()
+        league_id, season = league_metadata.league_id, league_metadata.year
+        draft_date = state.get("settings", {}).get("date")
+        with self._lock:
+            self._key = (league_id, season, team_id)
+            if not _has_live_picks(self._state):
+                self._state["draft_date"] = draft_date
+                self._load(league_id, season, draft_date)
+            previous = copy.deepcopy(self._state)
+        self._stop.clear()
+        try:
+            token = self._security_token(league_metadata, team_id, member_id)
+            self._read_until_init(league_metadata, team_id, member_id, token)
+        except DraftPullRefused:
+            self._restore_snapshot(previous)
+            raise
+        except Exception as error:
+            logger.warning("ESPN draft pull failed: %s", error)
+            self._restore_snapshot(previous, PULL_FAILED)
+            raise DraftPullError(PULL_FAILED) from error
+        finally:
+            self._close_response()
+            self._stop.set()
+        with self._lock:
+            self._state["connected"] = False
+            self._state.pop("connection_error", None)
+            self._state["updated_at"] = time.time()
+            if draft_date and not self._state.get("draft_date"):
+                self._state["draft_date"] = draft_date
+            self._save()
+            return copy.deepcopy(self._state)
+
+    def _restore_snapshot(self, previous, error=None):
+        with self._lock:
+            self._state = previous
+            self._state["connected"] = False
+            if error:
+                self._state["connection_error"] = error
+            else:
+                self._state.pop("connection_error", None)
+            self._save()
+
+    def _read_until_init(self, league_metadata, team_id, member_id, token):
+        params = (
+            f"1=3&2={league_metadata.league_id}&3={team_id}&4={member_id}"
+            f"&5={token}&6=false&7=false&8=KONA"
+            f"&nocache={int(time.time() * 1000) % 1_000_000}"
+        )
+        url = f"https://fantasydraft.espn.com/game-3/league-{league_metadata.league_id}/sse/JOIN?{params}"
+        request = urllib.request.Request(url, headers={
+            "Accept": "text/event-stream",
+            "Cookie": f"espn_s2={league_metadata.espn_s2}; SWID={league_metadata.swid}",
+            "Origin": "https://fantasy.espn.com",
+            "Referer": "https://fantasy.espn.com/",
+            "User-Agent": "Mozilla/5.0",
+        })
+        response = urllib.request.urlopen(request, timeout=8)
+        with self._lock:
+            self._response = response
+            self._connected_team_id = team_id
+            self._draft_token = token
+        started = time.monotonic()
+        while time.monotonic() - started < 8:
+            if self._stop.is_set():
+                break
+            raw_line = response.readline()
+            if not raw_line:
+                break
+            line = raw_line.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            message = line[5:].strip()
+            command = message.partition(" ")[0]
+            if command == "ERROR":
+                raise DraftPullError(PULL_FAILED)
+            self._handle(message)
+            if command == "INIT":
                 return
-            previous = copy.deepcopy(self._state) if _has_live_picks(self._state) else None
-            self.stop()
-            self._key = key
-            self._state = {"picks": [], "draft_state": 1, "selecting_team_id": None, "draft_date": draft_date}
-            self._load(league_id, season, draft_date)
-            if not _has_live_picks(self._state) and previous:
-                previous["draft_date"] = self._state.get("draft_date", previous.get("draft_date"))
-                self._state = previous
-            self._stop.clear()
-            self._thread = threading.Thread(target=self._run, args=(league_metadata,), daemon=True, name="espn-live-draft")
-            self._thread.start()
+        raise DraftPullError(PULL_FAILED)
+
+    def _close_response(self):
+        with self._lock:
+            response = self._response
+            self._response = None
+        if response is not None:
+            try:
+                response.close()
+            except OSError:
+                pass
 
     def stop(self):
         self._stop.set()
@@ -318,9 +434,8 @@ class LiveDraftClient:
                 self._save()
 
     def snapshot(self, league_metadata, raw_draft):
-        self.ensure(league_metadata, raw_draft)
-        with self._lock:
-            return copy.deepcopy(self._state)
+        """Read the last pulled board. This does not open a lobby session."""
+        return self.cached_snapshot(league_metadata, raw_draft)
 
     def cached_snapshot(self, league_metadata, raw_draft):
         """Return the last matching snapshot without opening an ESPN connection."""
@@ -378,57 +493,6 @@ class LiveDraftClient:
             security = json.loads(response.read().decode("utf-8"))
         return f"3:{league_metadata.league_id}:{team_id}:{member_id}:{security}"
 
-    def _run(self, league_metadata):
-        delay = 2
-        while not self._stop.is_set():
-            try:
-                team_id, member_id = self._team_identity(league_metadata)
-                token = self._security_token(league_metadata, team_id, member_id)
-                # ESPN's own client concatenates the compound draft token
-                # verbatim.  Generic urlencode escapes its ':' separators and
-                # the draft server then misleadingly reports that the team
-                # doesn't exist.
-                params = (
-                    f"1=3&2={league_metadata.league_id}&3={team_id}&4={member_id}"
-                    f"&5={token}&6=false&7=false&8=KONA"
-                    f"&nocache={int(time.time() * 1000) % 1_000_000}"
-                )
-                url = f"https://fantasydraft.espn.com/game-3/league-{league_metadata.league_id}/sse/JOIN?{params}"
-                with self._lock:
-                    self._command_base = f"https://fantasydraft.espn.com/game-3/league-{league_metadata.league_id}"
-                    self._draft_token = token
-                    self._connected_team_id = team_id
-                request = urllib.request.Request(url, headers={
-                    "Accept": "text/event-stream",
-                    "Cookie": f"espn_s2={league_metadata.espn_s2}; SWID={league_metadata.swid}",
-                    "Origin": "https://fantasy.espn.com",
-                    "Referer": "https://fantasy.espn.com/",
-                    "User-Agent": "Mozilla/5.0",
-                })
-                with urllib.request.urlopen(request, timeout=45) as response:
-                    with self._lock:
-                        self._response = response
-                    try:
-                        delay = 2
-                        for raw_line in response:
-                            if self._stop.is_set():
-                                return
-                            line = raw_line.decode("utf-8", "replace").strip()
-                            if line.startswith("data:"):
-                                self._handle(line[5:].strip())
-                            elif line.startswith("ERROR"):
-                                raise ConnectionError(urllib.parse.unquote_plus(line))
-                    finally:
-                        with self._lock:
-                            if self._response is response:
-                                self._response = None
-            except Exception as error:
-                with self._lock:
-                    self._state["connection_error"] = str(error)[:240]
-                logger.warning("ESPN live draft reconnect: %s", error)
-                self._stop.wait(delay)
-                delay = min(20, delay * 2)
-
     def _handle(self, message: str):
         if not message:
             return
@@ -477,15 +541,10 @@ def _as_pick_number(value):
 
 
 def overlay_live_draft(league_metadata, raw_draft):
-    """Fill ESPN REST placeholder picks from the single live event stream."""
+    """Fill ESPN REST placeholder picks from the last one-shot snapshot."""
     if not hasattr(league_metadata, "league_id") or not hasattr(league_metadata, "year"):
         return raw_draft
-    mode = get_draft_connection_mode()
-    if mode != "analytics":
-        live_draft_client.stop()
-        snapshot = live_draft_client.cached_snapshot(league_metadata, raw_draft)
-    else:
-        snapshot = live_draft_client.snapshot(league_metadata, raw_draft)
+    snapshot = live_draft_client.cached_snapshot(league_metadata, raw_draft)
     live_picks = {}
     for pick in snapshot.get("picks", []) or []:
         number = _as_pick_number(pick.get("pick_number"))
@@ -513,10 +572,10 @@ def overlay_live_draft(league_metadata, raw_draft):
         detail["inProgress"] = False
         detail["drafted"] = True
     detail["liveSelectingTeamId"] = snapshot.get("selecting_team_id")
-    detail["liveSource"] = mode == "analytics" and bool(snapshot.get("connected"))
+    detail["liveSource"] = False
     detail["liveSnapshotAvailable"] = bool(live_picks)
-    detail["liveSnapshotFrozen"] = mode == "espn" and bool(live_picks)
+    detail["liveSnapshotFrozen"] = bool(live_picks)
     detail["liveUpdatedAt"] = snapshot.get("updated_at")
-    detail["liveConnectionError"] = snapshot.get("connection_error") if mode == "analytics" else None
-    detail["liveConnectionMode"] = mode
+    detail["liveConnectionError"] = None
+    detail["liveConnectionMode"] = "espn"
     return merged

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
+import { openConstructor } from '../utils/appRoutes';
 const recommendationsCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
 const storedRecommendationKey = contextKey => `draft-recommendation:${contextKey}`;
@@ -57,7 +58,7 @@ const MetricCard = ({ label, value, tone = 'text-gray-900' }) => (
     </div>
 );
 
-const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPeriod, leagueId, onOpenSettings, onPlayerClick }) => {
+const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPeriod, leagueId, onOpenSettings, onPlayerClick, onDraftState }) => {
     const [activeTab, setActiveTab] = useState('draft');
     const storageKey = `draft-plan:${leagueId}:${projectedPeriod}:${mainTeam}`;
     const [plans, setPlans] = useState(() => {
@@ -92,28 +93,15 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         return () => benchmarkAbort.current?.abort();
     }, [mainTeam, projectedPeriod, leagueId]);
     const [benchmarkError, setBenchmarkError] = useState(null);
-    const [lastGoodDraft, setLastGoodDraft] = useState(null);
-    const [modeOverride, setModeOverride] = useState(null);
-    const [modeSwitching, setModeSwitching] = useState(false);
-    const [modeError, setModeError] = useState(null);
+    const [pulling, setPulling] = useState(false);
+    const [pullError, setPullError] = useState(null);
 
     const isUpcoming = draftState?.status === 'upcoming';
     const isLive = draftState?.status === 'live';
     const isPostDraft = draftState?.postdraft;
-    const effectiveDraftMode = modeOverride || draftState?.draft_connection_mode || 'espn';
-    const analyticsDraftMode = effectiveDraftMode === 'analytics';
-    const officialDraftMode = isLive && !analyticsDraftMode;
-    useEffect(() => {
-        if (draftState && (draftState.live_snapshot_available || (draftState.pick_count || 0) > 0)) setLastGoodDraft(draftState);
-    }, [draftState]);
-    const snapshotMissing = !(draftState?.live_snapshot_available || (draftState?.pick_count || 0) > 0);
-    const viewState = officialDraftMode && snapshotMissing && lastGoodDraft
-        ? lastGoodDraft
-        : draftState;
+    const viewState = draftState;
     const pickCount = viewState?.pick_count;
-    const hasLiveSnapshot = Boolean(viewState?.live_snapshot_available || pickCount);
-    const waitingForFirstLiveSnapshot = isLive && analyticsDraftMode && !draftState?.live_source && !hasLiveSnapshot;
-    const refreshingLiveSnapshot = isLive && analyticsDraftMode && !draftState?.live_source && hasLiveSnapshot;
+    const hasLiveSnapshot = Boolean(viewState?.live_snapshot_available);
     const snapshotTime = viewState?.live_updated_at
         ? new Date(Number(viewState.live_updated_at) * 1000).toLocaleTimeString('ru-RU')
         : null;
@@ -143,10 +131,6 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     useEffect(() => {
         if (isPostDraft && activeTab === 'simulation') setActiveTab('draft');
     }, [activeTab, isPostDraft]);
-
-    useEffect(() => {
-        if (modeOverride && draftState?.draft_connection_mode === modeOverride) setModeOverride(null);
-    }, [draftState?.draft_connection_mode, modeOverride]);
 
     const recommendationContextKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), mockIds].join('|');
 
@@ -312,18 +296,17 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     };
     const SortIcon = ({ column }) => sortBy === column ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ⇅';
 
-    const switchDraftMode = async mode => {
-        if (mode === effectiveDraftMode || modeSwitching) return;
-        if (mode === 'analytics' && !window.confirm('Переключить источник на аналитику?')) return;
-        setModeSwitching(true);
-        setModeError(null);
+    const pullBoard = async () => {
+        if (pulling || isOurTurn || !isLive) return;
+        setPulling(true);
+        setPullError(null);
         try {
-            await api.put('/settings/draft-connection-mode', { mode });
-            setModeOverride(mode);
+            const response = await api.post('/draft/pull');
+            onDraftState?.(response.data);
         } catch (requestError) {
-            setModeError(requestError.response?.data?.detail || 'Не удалось переключить draft-соединение');
+            setPullError(requestError.response?.data?.detail || 'Не удалось снять доску. Прошлый снимок на месте.');
         } finally {
-            setModeSwitching(false);
+            setPulling(false);
         }
     };
 
@@ -364,17 +347,20 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                     <div className={`grid flex-1 ${isPostDraft ? 'min-w-[300px] grid-cols-2' : 'min-w-[420px] grid-cols-3'}`}>
                         {tabs.map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === key ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>{label}</button>)}
                     </div>
-                    <button onClick={onOpenSettings} className="ml-4 rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Настройки">
+                    <button onClick={() => openConstructor()} className="ml-2 rounded px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700">Конструктор</button>
+                    <button onClick={onOpenSettings} className="ml-2 rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Настройки">
 <span className="block text-xl leading-5" aria-hidden="true">⚙</span>
                         <svg className="hidden h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826 2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     </button>
                 </div>
-                {!isPostDraft && <div className="flex flex-wrap items-center justify-end gap-2 border-t bg-slate-50 px-4 py-1.5">
-                    <span className={`h-2 w-2 rounded-full ${modeSwitching ? 'bg-amber-400' : analyticsDraftMode && draftState?.live_source ? 'bg-green-500' : 'bg-gray-400'}`} />
-                    <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 text-xs">
-                        <button disabled={modeSwitching} onClick={() => switchDraftMode('espn')} className={`rounded-md px-3 py-1.5 font-medium transition-colors ${effectiveDraftMode === 'espn' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>ESPN</button>
-                        <button disabled={modeSwitching} onClick={() => switchDraftMode('analytics')} className={`rounded-md px-3 py-1.5 font-medium transition-colors ${effectiveDraftMode === 'analytics' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>Аналитика</button>
-                    </div>
+                {isLive && <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-slate-50 px-4 py-1.5 text-xs text-gray-600">
+                    <span>{hasLiveSnapshot ? `Снимок #${pickCount || '—'}${snapshotTime ? ` · ${snapshotTime}` : ''}` : 'Доска ESPN, снимок ещё не снят'}</span>
+                    <button
+                        disabled={pulling || isOurTurn}
+                        title={isOurTurn ? 'Сейчас ваш ход — оставайся в лобби ESPN' : 'Снять доску и сразу выйти из лобби'}
+                        onClick={pullBoard}
+                        className="rounded bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >{pulling ? 'Снимаем…' : 'Снять доску'}</button>
                 </div>}
             </div>
 
@@ -392,7 +378,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
             </section>}
 
             {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-            {modeError && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{modeError}</div>}
+            {pullError && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{pullError}</div>}
             {recommendationsLoading && recommendations && <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">Пересчёт… #{pickCount || '—'}</div>}
             {recommendationsAreStale && !recommendationsLoading && <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">Снимок #{calculatedPickCount}, сейчас #{pickCount}</div>}
             {!mainTeam ? (
@@ -405,15 +391,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                         {error ? 'Данные драфта сейчас недоступны' : waitingForScheduledCalculation ? 'Ждём ваш ход' : 'Собираем доску игроков…'}
                     </div>
                 ) : <>
-                {(activeTab === 'draft' || activeTab === 'players') && officialDraftMode && !hasLiveSnapshot && <section className="rounded-xl border bg-white p-6 text-center"><h1 className="text-xl font-bold">Нет live-снимка</h1><button disabled={modeSwitching} onClick={() => switchDraftMode('analytics')} className="mt-4 rounded bg-blue-600 px-5 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{modeSwitching ? 'Подключение…' : 'Подключить аналитику'}</button></section>}
-
-                {(activeTab === 'draft' || activeTab === 'players') && officialDraftMode && hasLiveSnapshot && <section className="mb-4 flex items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 text-sm"><span>Снимок #{pickCount}{snapshotTime ? ` · ${snapshotTime}` : ''}</span><button disabled={modeSwitching} onClick={() => switchDraftMode('analytics')} className="rounded bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700 disabled:opacity-60">Обновить</button></section>}
-
-                {(activeTab === 'draft' || activeTab === 'players') && refreshingLiveSnapshot && <section className="mb-4 rounded-xl border bg-white px-4 py-3 text-sm">Синхронизация… #{pickCount}</section>}
-
-                {(activeTab === 'draft' || activeTab === 'players') && waitingForFirstLiveSnapshot && <section className="rounded-xl border bg-white p-6 text-center"><h1 className="text-xl font-bold">Подключение к драфту…</h1></section>}
-
-                {activeTab === 'players' && !waitingForFirstLiveSnapshot && (!officialDraftMode || hasLiveSnapshot) && (
+                {activeTab === 'players' && (
                     <section className="overflow-hidden rounded-xl border bg-white">
                         <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
                             {!isPostDraft && <div className="inline-flex self-start rounded-lg border border-gray-300 bg-gray-50 p-1">
@@ -440,7 +418,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                     </section>
                 )}
 
-                {activeTab === 'draft' && !isUpcoming && !waitingForFirstLiveSnapshot && (!officialDraftMode || hasLiveSnapshot) && (
+                {activeTab === 'draft' && !isUpcoming && (
                     <div className="space-y-4">
                         <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-800 text-white shadow-lg">
                             <div className="grid gap-5 p-6 lg:grid-cols-[1.5fr_1fr]"><div><div className="text-sm font-medium text-blue-200">{isLive ? 'LIVE' : 'DRAFT'}</div><h1 className="mt-2 text-3xl font-bold">{isLive ? `Раунд ${displayRound}` : 'Состав'}</h1>{isLive && <p className="mt-2 text-blue-100">{viewState.next_team_name || '—'} · #{viewState.next_overall || '—'}</p>}{isLive && <><div className="mt-4 h-2 overflow-hidden rounded-full bg-white/20"><div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, roundProgress / teamCount * 100)}%` }} /></div><div className="mt-1 text-xs text-blue-200">{roundProgress} / {teamCount}</div></>}</div><div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-white/10 p-4"><div className="text-xs text-blue-200">{isLive ? 'Ваш пик' : 'Пики'}</div><div className="mt-1 text-2xl font-bold">{isLive ? `#${recommendations.next_pick_for_team || '—'}` : pickCount}</div>{isLive && <div className="text-xs text-blue-200">через {recommendations.picks_until_turn ?? '—'}</div>}</div><div className="rounded-xl bg-white/10 p-4"><div className="text-xs text-blue-200">Состав</div><div className="mt-1 text-2xl font-bold">{roster.length} / {rosterLimit}</div></div></div></div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
+import { openAppRoute, openConstructor } from '../utils/appRoutes';
 
 const formatStat = (category, value) => {
     if (value == null || Number.isNaN(Number(value))) return '—';
@@ -25,15 +26,6 @@ const errorMessage = error => {
     if (typeof detail === 'string') return detail;
     if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;
     return error?.message || 'Мок недоступен';
-};
-
-const leaveMock = () => {
-    if (window.location.hash === '#/mock') {
-        window.location.hash = '';
-        return;
-    }
-    window.history.pushState({}, '', '/');
-    window.dispatchEvent(new PopStateEvent('popstate'));
 };
 
 export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, puntCategories = [], onPlayerClick, onOpenSettings }) {
@@ -175,8 +167,13 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
     return (
         <div className="space-y-4">
             <section className="flex flex-wrap items-center justify-between gap-3">
-                <button onClick={leaveMock} className="text-sm text-blue-700 hover:underline">К основному приложению</button>
+                <button onClick={() => openAppRoute('')} className="text-sm text-blue-700 hover:underline">К основному приложению</button>
                 <div className="flex flex-wrap gap-2">
+                    <div className="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1">
+                        <button type="button" onClick={() => openConstructor('constructor')} className="rounded-md px-3 py-1.5 text-sm text-gray-600">Конструктор</button>
+                        <button type="button" onClick={() => openConstructor('players')} className="rounded-md px-3 py-1.5 text-sm text-gray-600">Игроки</button>
+                        <button type="button" className="rounded-md bg-white px-3 py-1.5 text-sm text-blue-600 shadow-sm">Мок</button>
+                    </div>
                     <div className="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1">
                         <button type="button" onClick={() => persist({ picks, seed, advisor: 'heuristic' })} className={`rounded-md px-3 py-1.5 text-sm ${advisor === 'heuristic' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}>Эвристика</button>
                         <button type="button" onClick={() => persist({ picks, seed, advisor: 'v8' })} className={`rounded-md px-3 py-1.5 text-sm ${advisor === 'v8' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}>V8</button>
