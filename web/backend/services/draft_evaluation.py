@@ -118,11 +118,15 @@ def evaluate_projected_rosters(team_rosters, own_slot, categories=None):
     minimum_win = len(categories) // 2 + 1
     matchup_wins = sum(score > midpoint + 1e-12 for score in own_matchup_scores)
     matchup_ties = sum(abs(score - midpoint) <= 1e-12 for score in own_matchup_scores)
+    matchup_losses = opponent_count - matchup_wins - matchup_ties
     decisive_wins = sum(score >= minimum_win + 1 - 1e-12 for score in own_matchup_scores)
     narrow_wins = sum(minimum_win - 1e-12 <= score < minimum_win + 1 - 1e-12 for score in own_matchup_scores)
     return {
         "category_wins": own_score,
         "league_rank": rank,
+        "matchup_wins": matchup_wins,
+        "matchup_ties": matchup_ties,
+        "matchup_losses": matchup_losses,
         "category_ranks": category_ranks,
         "category_totals": totals[own_slot],
         "category_margin": {
@@ -133,7 +137,7 @@ def evaluate_projected_rosters(team_rosters, own_slot, categories=None):
         "category_margin_z": category_margin_z,
         "matchup_win_rate": matchup_wins / opponent_count,
         "matchup_tie_rate": matchup_ties / opponent_count,
-        "matchup_loss_rate": (opponent_count - matchup_wins - matchup_ties) / opponent_count,
+        "matchup_loss_rate": matchup_losses / opponent_count,
         "decisive_matchup_win_rate": decisive_wins / opponent_count,
         "narrow_matchup_win_rate": narrow_wins / opponent_count,
         "average_matchup_score": sum(own_matchup_scores) / opponent_count,

@@ -665,6 +665,9 @@ def test_projected_evaluator_counts_punt_category_and_projected_volume():
     assert result["category_totals"]["PTS"] == 800
     assert result["category_totals"]["FG%"] == 0.4
     assert result["average_matchup_score"] == result["category_wins"]
+    assert result["matchup_wins"] == 0
+    assert result["matchup_ties"] == 1
+    assert result["matchup_losses"] == 0
     assert result["matchup_win_rate"] == 0
     assert result["matchup_tie_rate"] == 1
     assert result["matchup_loss_rate"] == 0

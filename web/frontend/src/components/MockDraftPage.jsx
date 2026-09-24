@@ -28,6 +28,65 @@ const errorMessage = error => {
     return error?.message || 'Мок недоступен';
 };
 
+const REVERSE_CATEGORIES = new Set(['TO']);
+
+const categoryTotal = (row, category) => {
+    const value = Number(row?.category_totals?.[category]);
+    return Number.isFinite(value) ? value : null;
+};
+
+const catsTaken = (left, right, categories) => {
+    let score = 0;
+    let compared = 0;
+    categories.forEach(category => {
+        let own = categoryTotal(left, category);
+        let opponent = categoryTotal(right, category);
+        if (own == null || opponent == null) return;
+        compared += 1;
+        if (REVERSE_CATEGORIES.has(category)) {
+            own = -own;
+            opponent = -opponent;
+        }
+        if (own > opponent + 1e-12) score += 1;
+        else if (Math.abs(own - opponent) <= 1e-12) score += 0.5;
+    });
+    return { score, compared };
+};
+
+const attachH2h = (standings, categories) => {
+    const rows = Array.isArray(standings) ? standings : [];
+    if (rows.length < 2) return rows;
+    const cats = categories?.length ? categories : CATEGORIES;
+    const ranked = rows.map(row => {
+        let wins = 0;
+        let ties = 0;
+        let losses = 0;
+        rows.forEach(other => {
+            if (other.slot === row.slot) return;
+            const { score, compared } = catsTaken(row, other, cats);
+            if (!compared) return;
+            const midpoint = compared / 2;
+            if (Math.abs(score - midpoint) <= 1e-12) ties += 1;
+            else if (score > midpoint) wins += 1;
+            else losses += 1;
+        });
+        return { ...row, matchup_wins: wins, matchup_ties: ties, matchup_losses: losses };
+    });
+    ranked.sort((left, right) => (
+        (right.matchup_wins + 0.5 * right.matchup_ties) - (left.matchup_wins + 0.5 * left.matchup_ties)
+        || Number(right.category_wins) - Number(left.category_wins)
+        || left.slot - right.slot
+    ));
+    let rank = 1;
+    let previous = null;
+    return ranked.map((row, index) => {
+        const key = `${row.matchup_wins}:${row.matchup_ties}:${row.category_wins}`;
+        if (previous != null && key !== previous) rank = index + 1;
+        previous = key;
+        return { ...row, league_rank: rank };
+    });
+};
+
 export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, puntCategories = [], onPlayerClick, onOpenSettings }) {
     const storageKey = `draft-mock-strong:${leagueId}:${mainTeam}:${projectedPeriod}`;
     const puntKey = (puntCategories || []).join(',');
@@ -131,8 +190,12 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
     const inspected = (result?.teams || []).find(team => team.slot === inspectedSlot) || (result?.teams || []).find(team => team.is_you);
     const reports = result?.round_reports || [];
     const selectedReport = reports.find(report => report.round === viewRound) || reports[reports.length - 1];
-    const standings = result?.status === 'complete' ? result.standings : selectedReport?.standings;
-    const you = (standings || []).find(row => row.is_you);
+    const categories = result?.categories || CATEGORIES;
+    const standings = useMemo(
+        () => attachH2h(result?.status === 'complete' ? result.standings : selectedReport?.standings, categories),
+        [result, selectedReport, categories],
+    );
+    const you = standings.find(row => row.is_you);
     const pickLog = result?.pick_log || [];
     const recent = [...pickLog].slice(-8).reverse();
     const picksByRound = useMemo(() => {
@@ -145,10 +208,10 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
         });
         return rounds;
     }, [pickLog]);
+    const h2h = row => (row?.matchup_wins == null ? '—' : `${row.matchup_wins}-${row.matchup_losses}-${row.matchup_ties}`);
     const onClock = result?.status === 'on_the_clock';
     const complete = result?.status === 'complete';
     const modelPick = result?.model_pick;
-    const categories = result?.categories || CATEGORIES;
 
     const pickValue = (player, category) => (
         playersView === 'stats' ? formatStat(category, player.stats?.[category]) : Number(player.z_scores?.[category] || 0).toFixed(2)
@@ -189,7 +252,7 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
                 <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Раунд</div><div className="mt-1 text-2xl font-bold">{result?.round ? `${result.round} / ${result?.rounds || '—'}` : '—'}</div></div>
                 <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Состав</div><div className="mt-1 text-2xl font-bold">{result?.your_roster?.length || 0} / {result?.rounds || '—'}</div></div>
                 <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Место</div><div className="mt-1 text-2xl font-bold">{you ? `#${you.league_rank} / ${result.team_count}` : '—'}</div></div>
-                <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Категории</div><div className="mt-1 text-2xl font-bold">{you ? `${you.category_wins.toFixed(2)} / ${categories.length}` : '—'}</div></div>
+                <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">1v1</div><div className="mt-1 text-2xl font-bold">{h2h(you)}</div></div>
             </section>
             {loading && <div className="text-sm text-gray-500">{result ? 'Ход моделей…' : 'Собираем доску…'}</div>}
             {error && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -281,7 +344,7 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
                 </table></div>
             </section>}
 
-            {!!reports.length && standings && <section className="overflow-hidden rounded-xl border bg-white">
+            {!!reports.length && standings.length > 0 && <section className="overflow-hidden rounded-xl border bg-white">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
                     <h2 className="font-bold">{complete ? 'Лига' : `После раунда ${selectedReport?.round}`}</h2>
                     {reports.length > 1 && <select value={viewRound || ''} onChange={event => setViewRound(Number(event.target.value))} className="rounded border p-1.5 text-sm">
@@ -298,7 +361,7 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
                 })}</div>}
                 <div className="overflow-x-auto"><table className="min-w-full text-sm">
                     <thead><tr className="bg-gray-100">
-                        <th className="border p-2">#</th><th className="border p-2 text-left">Команда</th><th className="border p-2">Политика</th><th className="border p-2">Победы</th>
+                        <th className="border p-2">#</th><th className="border p-2 text-left">Команда</th><th className="border p-2">Политика</th><th className="border p-2">1v1</th><th className="border p-2">Кат</th>
                         {categories.map(category => <th key={category} className="border p-2">{category}</th>)}
                     </tr></thead>
                     <tbody>{standings.map(row => (
@@ -306,7 +369,8 @@ export default function MockDraftPage({ mainTeam, projectedPeriod, leagueId, pun
                             <td className="border p-2 text-center font-bold">{row.league_rank}</td>
                             <td className="border p-2">{row.team_name}{row.is_you ? ' · вы' : ''} · слот {row.slot}</td>
                             <td className="border p-2 text-center text-xs">{row.policy_label}</td>
-                            <td className="border p-2 text-center font-bold">{row.category_wins.toFixed(2)}</td>
+                            <td className="border p-2 text-center font-bold">{h2h(row)}</td>
+                            <td className="border p-2 text-center">{row.category_wins.toFixed(2)}</td>
                             {categories.map(category => {
                                 const rank = row.category_ranks?.[category];
                                 return <td key={category} className={`border p-2 text-center ${rank <= 6 ? 'text-green-700' : rank >= 10 ? 'text-red-700' : ''}`}>#{rank}</td>;

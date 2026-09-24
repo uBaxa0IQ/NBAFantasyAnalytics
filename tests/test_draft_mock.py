@@ -59,6 +59,39 @@ def test_complete_mock_returns_league_table():
     you = next(row for row in result["standings"] if row["is_you"])
     assert [player["name"] for player in you["roster"]] == ["Gamma", "Delta"]
     assert you["category_ranks"]["PTS"] == 2
+    assert you["matchup_wins"] + you["matchup_ties"] + you["matchup_losses"] == 1
+    assert result["standings"] == sorted(
+        result["standings"],
+        key=lambda row: (-(row["matchup_wins"] + 0.5 * row["matchup_ties"]), -row["category_wins"], row["slot"]),
+    )
+
+
+def test_league_table_ranks_by_h2h_matchups_not_average_cats():
+    from web.backend.services.draft_mock import _league_table
+
+    def roster(pts, reb, ast):
+        return [{"stats": {"GP": 1, "PTS": pts, "REB": reb, "AST": ast}, "z_scores": {}, "name": "x", "player_id": 1}]
+
+    profiles = {slot: {"policy": "model", "punts": ()} for slot in (1, 2, 3, 4)}
+    standings = _league_table(
+        {
+            1: roster(10, 10, 1),
+            2: roster(9, 9, 100),
+            3: roster(1, 1, 50),
+            4: roster(1, 1, 50),
+        },
+        profiles,
+        1,
+        {1: "A", 2: "B", 3: "C", 4: "D"},
+        ("PTS", "REB", "AST"),
+    )
+    by_slot = {row["slot"]: row for row in standings}
+    assert by_slot[1]["matchup_wins"] == 3
+    assert by_slot[2]["matchup_wins"] == 2
+    assert by_slot[2]["category_wins"] > by_slot[1]["category_wins"]
+    assert [row["slot"] for row in standings][:2] == [1, 2]
+    assert by_slot[1]["league_rank"] == 1
+    assert by_slot[2]["league_rank"] == 2
 
 
 def test_taken_player_is_rejected():

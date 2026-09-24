@@ -158,6 +158,14 @@ def _choose_opponent(remaining, drafting_slot, overall, rosters, profile, market
     )
 
 
+def _h2h_sort_key(row):
+    return (
+        -(row["matchup_wins"] + 0.5 * row["matchup_ties"]),
+        -row["category_wins"],
+        row["slot"],
+    )
+
+
 def _league_table(rosters, profiles, human_slot, slot_names, categories):
     standings = []
     for slot, roster in rosters.items():
@@ -170,12 +178,23 @@ def _league_table(rosters, profiles, human_slot, slot_names, categories):
             "policy_label": _policy_label(profiles[slot]),
             "punt_categories": list(profiles[slot].get("punts") or ()),
             "category_wins": round(result["category_wins"], 3),
+            "matchup_wins": int(result["matchup_wins"]),
+            "matchup_ties": int(result["matchup_ties"]),
+            "matchup_losses": int(result["matchup_losses"]),
             "league_rank": result["league_rank"],
             "category_ranks": result["category_ranks"],
             "category_totals": result["category_totals"],
             "roster": [_public_player(player) for player in roster],
         })
-    standings.sort(key=lambda row: (row["league_rank"], -row["category_wins"], row["slot"]))
+    standings.sort(key=_h2h_sort_key)
+    rank = 1
+    previous = None
+    for index, row in enumerate(standings):
+        key = _h2h_sort_key(row)[:2]
+        if previous is not None and key != previous:
+            rank = index + 1
+        row["league_rank"] = rank
+        previous = key
     return standings
 
 
