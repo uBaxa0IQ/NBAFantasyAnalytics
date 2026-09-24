@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
-import { openConstructor } from '../utils/appRoutes';
+import DraftRoom from './DraftRoom';
 const recommendationsCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
 const storedRecommendationKey = contextKey => `draft-recommendation:${contextKey}`;
@@ -36,6 +36,20 @@ const calculateGeneralZ = player => CATEGORIES.reduce(
     (total, category) => total + Number(player.z_scores?.[category] || 0),
     0,
 );
+
+const nextOwnPick = (pickCount, pickOrder, teamId) => {
+    if (!pickOrder?.length || teamId == null || teamId === '') return null;
+    const order = pickOrder.map(id => String(id));
+    const target = String(teamId);
+    const start = Number(pickCount) || 0;
+    for (let index = start; index < start + order.length * 2; index += 1) {
+        const round = Math.floor(index / order.length);
+        const slot = index % order.length;
+        const active = round % 2 === 0 ? order : [...order].reverse();
+        if (active[slot] === target) return { overall: index + 1, until: index - start };
+    }
+    return null;
+};
 
 const balancedCategoryCardStyle = count => {
     const columns = count <= 6 ? Math.max(1, count) : Math.min(6, Math.ceil(count / 2));
@@ -72,6 +86,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const [playersView, setPlayersView] = useState('draft');
     const [recommendations, setRecommendations] = useState(null);
     const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+    const [projectionLoading, setProjectionLoading] = useState(false);
     const recommendationContextRef = useRef(null);
     const recommendationAbort = useRef(null);
     const recommendationRequestId = useRef(0);
@@ -95,6 +110,9 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const [benchmarkError, setBenchmarkError] = useState(null);
     const [pulling, setPulling] = useState(false);
     const [pullError, setPullError] = useState(null);
+    const [showHint, setShowHint] = useState(false);
+    const [showSimulation, setShowSimulation] = useState(false);
+    const [inspectedTeamId, setInspectedTeamId] = useState(null);
 
     const isUpcoming = draftState?.status === 'upcoming';
     const isLive = draftState?.status === 'live';
@@ -107,22 +125,18 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         : null;
     const teamCount = Math.max(1, viewState?.team_count || 1);
     const effectivePlayersView = isPostDraft ? 'stats' : playersView;
-    const isOurTurn = isLive && String(viewState?.next_team_id || '') === String(mainTeam || '');
-    const isRoundEnd = isLive && Number(pickCount || 0) > 0 && Number(pickCount) % teamCount === 0;
     const recommendationTrigger = isUpcoming
         ? `upcoming:${pickCount || 0}:${mockIds}`
         : isPostDraft
             ? `completed:${pickCount || 0}`
-            : isOurTurn || isRoundEnd
-                ? `live:${pickCount || 0}`
+            : isLive && hasLiveSnapshot
+                ? `snapshot:${pickCount || 0}:${viewState?.live_updated_at || 0}`
                 : null;
     const recommendationTriggerKind = isUpcoming
         ? 'upcoming'
         : isPostDraft
             ? 'completed'
-            : isOurTurn
-                ? 'our_turn'
-                : 'round_end';
+            : 'snapshot';
 
     useEffect(() => {
         if (recommendations?.simulation?.mode === 'known_order') setSimulationSlot(recommendations.simulation.slot);
@@ -160,31 +174,45 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         setDetailedSimulations({});
         setError(null);
         setRecommendationsLoading(true);
-        const cacheKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), pickCount, mockIds].join('|');
+        setProjectionLoading(false);
+        const cacheKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), pickCount, mockIds, viewState?.live_updated_at || ''].join('|');
         const cached = recommendationsCache.get(cacheKey);
         if (cached && Date.now() - cached.savedAt < CACHE_TTL) {
-            setRecommendations(cached.data);
+            setRecommendations(current => (
+                current?.projection_ready && Number(current.draft_pick_count) === Number(cached.data?.draft_pick_count)
+                    ? current
+                    : cached.data
+            ));
             setRecommendationsLoading(false);
             return undefined;
         }
-        api.get(`/draft/recommendations/${mainTeam}`, {
-            params: {
-                period: projectedPeriod,
-                punt_categories: puntCategories.join(','),
-                mock_player_ids: mockIds,
-                limit: 300,
-                expected_pick_count: isLive ? pickCount : undefined,
-                trigger: recommendationTriggerKind,
-            },
+        const paramsFor = scope => ({
+            period: projectedPeriod,
+            punt_categories: puntCategories.join(','),
+            mock_player_ids: mockIds,
+            limit: 300,
+            expected_pick_count: isLive ? pickCount : undefined,
+            trigger: recommendationTriggerKind,
+            scope,
+        });
+        const accept = data => requestId === recommendationRequestId.current && (!isLive || Number(data?.draft_pick_count) === Number(pickCount));
+        const loadBoard = api.get(`/draft/recommendations/${mainTeam}`, {
+            params: paramsFor(isUpcoming ? 'full' : 'board'),
             signal: controller.signal,
-        })
+        });
+        loadBoard
             .then(response => {
-                if (requestId !== recommendationRequestId.current) return;
-                if (isLive && Number(response.data?.draft_pick_count) !== Number(pickCount)) return;
+                if (!accept(response.data)) return null;
+                setRecommendations(current => (
+                    current?.projection_ready && Number(current.draft_pick_count) === Number(response.data.draft_pick_count)
+                        ? current
+                        : response.data
+                ));
+                setRecommendationsLoading(false);
                 recommendationsCache.set(cacheKey, { data: response.data, savedAt: Date.now() });
                 if (recommendationsCache.size > 8) recommendationsCache.delete(recommendationsCache.keys().next().value);
                 storeRecommendation(recommendationContextKey, response.data);
-                setRecommendations(response.data);
+                return null;
             })
             .catch(requestError => {
                 if (requestError.code === 'ERR_CANCELED') {
@@ -201,7 +229,43 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
             controller.abort();
             if (lastRequestedRecommendation.current === requestKey) lastRequestedRecommendation.current = null;
         };
-    }, [mainTeam, pickCount, recommendationContextKey, recommendationTrigger, recommendationTriggerKind, isLive, leagueId, projectedPeriod, puntCategories, mockIds]);
+    }, [mainTeam, pickCount, recommendationContextKey, recommendationTrigger, recommendationTriggerKind, isLive, isUpcoming, leagueId, projectedPeriod, puntCategories, mockIds]);
+
+    useEffect(() => {
+        if (!showSimulation || isUpcoming || !mainTeam || pickCount === undefined) return undefined;
+        if (isLive && !hasLiveSnapshot) return undefined;
+        if (recommendationsLoading) return undefined;
+        if (!recommendations || Number(recommendations.draft_pick_count) !== Number(pickCount) || recommendations.projection_ready) return undefined;
+        const controller = new AbortController();
+        const cacheKey = [leagueId, mainTeam, projectedPeriod, puntCategories.join(','), pickCount, mockIds, viewState?.live_updated_at || ''].join('|');
+        setProjectionLoading(true);
+        api.get(`/draft/recommendations/${mainTeam}`, {
+            params: {
+                period: projectedPeriod,
+                punt_categories: puntCategories.join(','),
+                mock_player_ids: mockIds,
+                limit: 300,
+                expected_pick_count: pickCount,
+                trigger: isLive ? 'snapshot' : 'manual',
+                scope: 'projection',
+            },
+            signal: controller.signal,
+        })
+            .then(response => {
+                if (Number(response.data?.draft_pick_count) !== Number(pickCount)) return;
+                recommendationsCache.set(cacheKey, { data: response.data, savedAt: Date.now() });
+                setRecommendations(response.data);
+            })
+            .catch(requestError => {
+                if (requestError.code === 'ERR_CANCELED' || requestError.response?.status === 409) return;
+                setError(requestError.response?.data?.detail || 'Не удалось посчитать симуляцию');
+            })
+            .finally(() => { if (!controller.signal.aborted) setProjectionLoading(false); });
+        return () => {
+            controller.abort();
+            setProjectionLoading(false);
+        };
+    }, [showSimulation, isLive, isUpcoming, hasLiveSnapshot, mainTeam, pickCount, projectedPeriod, puntCategories, mockIds, viewState?.live_updated_at, recommendationsLoading, recommendations?.draft_pick_count, recommendations?.projection_ready, leagueId]);
 
     useEffect(() => {
         const mode = recommendations?.simulation?.mode;
@@ -266,7 +330,21 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const effectiveSimulationRuns = detailedSimulation?.runs
         || (recommendations?.simulation?.mode === 'all_slots' ? recommendations.simulation.runs_per_slot : recommendations?.simulation?.runs);
 
-    const roster = useMemo(() => recommendations?.roster || [], [recommendations]);
+    const snapshotRoster = useMemo(() => (viewState?.picks || [])
+        .filter(pick => String(pick.team_id) === String(mainTeam))
+        .sort((left, right) => Number(left.overall) - Number(right.overall))
+        .map(pick => ({
+            player_id: pick.player_id,
+            name: pick.player_name,
+            draft_pick: pick.overall,
+            position: null,
+            total_z: null,
+        })), [viewState?.picks, mainTeam]);
+    const rosterReady = recommendations && Number(recommendations.draft_pick_count) === Number(pickCount);
+    const roster = rosterReady && recommendations.roster?.length
+        ? recommendations.roster
+        : (isLive ? snapshotRoster : (recommendations?.roster || []));
+    const ownPick = isLive ? nextOwnPick(pickCount, viewState?.settings?.pick_order, mainTeam) : null;
     const rosterLimit = viewState?.roster_size || recommendations?.roster_limit || roster.length;
     const rosterTotalZ = roster.reduce((sum, player) => sum + Number(player.total_z || 0), 0);
     const rosterCategoryStrength = useMemo(() => Object.fromEntries(CATEGORIES.map(category => [
@@ -275,6 +353,14 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     ])), [roster]);
     const balancedRound = recommendations?.round_balanced_comparison;
     const balancedComparison = balancedRound?.comparison;
+    const liveStandings = useMemo(() => (
+        Number(balancedRound?.completed_rounds) > 0 ? (balancedRound.standings || []) : []
+    ), [balancedRound]);
+    const youStanding = liveStandings.find(row => row.is_you) || null;
+    const inspectedStanding = inspectedTeamId == null ? null : (liveStandings.find(row => String(row.team_id) === String(inspectedTeamId)) || null);
+    const completedTeamStats = isLive && Number(balancedRound?.completed_rounds) > 0 ? balancedRound : null;
+    const displayedTotalZ = isLive ? (completedTeamStats ? Number(completedTeamStats.total_z || 0) : null) : rosterTotalZ;
+    const displayedCategoryStrength = isLive ? (completedTeamStats?.category_strength || {}) : rosterCategoryStrength;
     const pickAdvice = recommendations?.pick_advice;
     const calculatedPickCount = recommendations?.draft_pick_count;
     const recommendationsAreStale = isLive && recommendations && Number(calculatedPickCount) !== Number(pickCount);
@@ -297,7 +383,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
     const SortIcon = ({ column }) => sortBy === column ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ⇅';
 
     const pullBoard = async () => {
-        if (pulling || isOurTurn || !isLive) return;
+        if (pulling || !isLive) return;
         setPulling(true);
         setPullError(null);
         try {
@@ -347,7 +433,6 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                     <div className={`grid flex-1 ${isPostDraft ? 'min-w-[300px] grid-cols-2' : 'min-w-[420px] grid-cols-3'}`}>
                         {tabs.map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`py-2 px-4 font-medium whitespace-nowrap ${activeTab === key ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>{label}</button>)}
                     </div>
-                    <button onClick={() => openConstructor()} className="ml-2 rounded px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700">Конструктор</button>
                     <button onClick={onOpenSettings} className="ml-2 rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Настройки">
 <span className="block text-xl leading-5" aria-hidden="true">⚙</span>
                         <svg className="hidden h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826 2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -356,8 +441,8 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                 {isLive && <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-slate-50 px-4 py-1.5 text-xs text-gray-600">
                     <span>{hasLiveSnapshot ? `Снимок #${pickCount || '—'}${snapshotTime ? ` · ${snapshotTime}` : ''}` : 'Доска ESPN, снимок ещё не снят'}</span>
                     <button
-                        disabled={pulling || isOurTurn}
-                        title={isOurTurn ? 'Сейчас ваш ход — оставайся в лобби ESPN' : 'Снять доску и сразу выйти из лобби'}
+                        disabled={pulling}
+                        title="Снять доску и сразу выйти из лобби"
                         onClick={pullBoard}
                         className="rounded bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >{pulling ? 'Снимаем…' : 'Снять доску'}</button>
@@ -379,18 +464,73 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
 
             {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
             {pullError && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{pullError}</div>}
-            {recommendationsLoading && recommendations && <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">Пересчёт… #{pickCount || '—'}</div>}
+            {recommendationsLoading && <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">Считаем состав… #{pickCount || '—'}</div>}
+            {showSimulation && projectionLoading && !recommendationsLoading && <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">Считаем прогноз… #{pickCount || '—'}</div>}
             {recommendationsAreStale && !recommendationsLoading && <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">Снимок #{calculatedPickCount}, сейчас #{pickCount}</div>}
             {!mainTeam ? (
                 <div className="rounded border bg-white p-6 text-center"><button onClick={onOpenSettings} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Выбрать команду</button></div>
             ) : (
             <>
                 {isUpcoming && activeTab === 'draft' && <DraftPrepInfo draftState={draftState} recommendations={recommendations} mainTeam={mainTeam} snakeSlot={snakeSlot} />}
-                {!recommendations ? (
+                {activeTab === 'draft' && !isUpcoming && (
+                    <DraftRoom
+                        puntCategories={puntCategories}
+                        onPlayerClick={onPlayerClick}
+                        totalsAreZ
+                        roundLabel={isPostDraft ? 'Финал' : String(displayRound || '—')}
+                        clockLabel={isLive ? `${viewState?.next_team_name || '—'} · #${viewState?.next_overall || '—'}` : 'Драфт завершён'}
+                        yourPick={isLive ? ownPick?.overall : null}
+                        picksUntil={isLive ? (ownPick?.until ?? null) : null}
+                        rosterCount={roster.length}
+                        rosterLimit={rosterLimit}
+                        rankLabel={youStanding ? `#${youStanding.league_rank} / ${liveStandings.length}` : '—'}
+                        recordLabel={youStanding?.matchup_wins == null ? null : `${youStanding.matchup_wins}-${youStanding.matchup_losses}-${youStanding.matchup_ties}`}
+                        showHint={showHint}
+                        onToggleHint={() => setShowHint(value => !value)}
+                        showSimulation={showSimulation}
+                        onToggleSimulation={() => setShowSimulation(value => !value)}
+                        hint={pickAdvice?.primary ? {
+                            label: pickAdvice.is_on_the_clock ? 'Сейчас взял бы' : 'На ваш пик',
+                            player: pickAdvice.primary,
+                            name: pickAdvice.primary.name,
+                            position: pickAdvice.primary.position,
+                            z: pickAdvice.primary.total_z ?? pickAdvice.primary.score,
+                        } : null}
+                        players={availablePlayers}
+                        highlightedPlayerId={showHint ? pickAdvice?.primary?.player_id : null}
+                        pickLog={(viewState?.picks || []).map(pick => ({
+                            overall: pick.overall,
+                            round: pick.round,
+                            playerName: pick.player_name,
+                            player: { name: pick.player_name, player_id: pick.player_id },
+                            teamName: pick.team_name,
+                            isYou: String(pick.team_id) === String(mainTeam),
+                        }))}
+                        standingsTitle={Number(balancedRound?.completed_rounds) > 0 ? `После раунда ${balancedRound.completed_rounds}` : 'Лига'}
+                        standings={liveStandings}
+                        yourRoster={roster}
+                        inspected={inspectedStanding}
+                        onInspectTeam={row => setInspectedTeamId(row && String(row.team_id) !== String(mainTeam) ? row.team_id : null)}
+                        simulationContent={(
+                            <div className="space-y-4">
+                                {!projectionLoading && recommendations?.projection_ready && selectedSimulation && (
+                                    <>
+                                        <section className="grid grid-cols-2 gap-3">
+                                            <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Прогноз места</div><div className="mt-1 text-2xl font-bold">{selectedSimulation.average_league_rank != null ? `${Number(selectedSimulation.average_league_rank).toFixed(1)} / ${teamCount}` : '—'}</div></div>
+                                            <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Top-N</div><div className="mt-1 text-2xl font-bold">{selectedSimulation.projected_top_n_strength_rate != null ? `${selectedSimulation.projected_top_n_strength_rate}%` : '—'}</div></div>
+                                        </section>
+                                        {projectedTurns.length > 0 && <ProjectedTurns turns={projectedTurns} simulation={selectedSimulation} />}
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    />
+                )}
+                {!recommendations && activeTab !== 'draft' ? (
                     <div className="rounded border bg-white p-10 text-center text-gray-500">
-                        {error ? 'Данные драфта сейчас недоступны' : waitingForScheduledCalculation ? 'Ждём ваш ход' : 'Собираем доску игроков…'}
+                        {error ? 'Данные драфта сейчас недоступны' : waitingForScheduledCalculation ? 'Снимите доску для пересчёта' : 'Собираем доску игроков…'}
                     </div>
-                ) : <>
+                ) : recommendations ? <>
                 {activeTab === 'players' && (
                     <section className="overflow-hidden rounded-xl border bg-white">
                         <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -418,25 +558,11 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                     </section>
                 )}
 
-                {activeTab === 'draft' && !isUpcoming && (
-                    <div className="space-y-4">
-                        <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-800 text-white shadow-lg">
-                            <div className="grid gap-5 p-6 lg:grid-cols-[1.5fr_1fr]"><div><div className="text-sm font-medium text-blue-200">{isLive ? 'LIVE' : 'DRAFT'}</div><h1 className="mt-2 text-3xl font-bold">{isLive ? `Раунд ${displayRound}` : 'Состав'}</h1>{isLive && <p className="mt-2 text-blue-100">{viewState.next_team_name || '—'} · #{viewState.next_overall || '—'}</p>}{isLive && <><div className="mt-4 h-2 overflow-hidden rounded-full bg-white/20"><div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, roundProgress / teamCount * 100)}%` }} /></div><div className="mt-1 text-xs text-blue-200">{roundProgress} / {teamCount}</div></>}</div><div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-white/10 p-4"><div className="text-xs text-blue-200">{isLive ? 'Ваш пик' : 'Пики'}</div><div className="mt-1 text-2xl font-bold">{isLive ? `#${recommendations.next_pick_for_team || '—'}` : pickCount}</div>{isLive && <div className="text-xs text-blue-200">через {recommendations.picks_until_turn ?? '—'}</div>}</div><div className="rounded-xl bg-white/10 p-4"><div className="text-xs text-blue-200">Состав</div><div className="mt-1 text-2xl font-bold">{roster.length} / {rosterLimit}</div></div></div></div>
-                        </section>
-                        {isPostDraft ? <section className="grid grid-cols-2 gap-3 lg:grid-cols-4"><MetricCard label="Место" value={balancedComparison ? `#${balancedComparison.league_rank} / ${balancedComparison.team_count}` : '—'} /><MetricCard label="Категории" value={balancedComparison?.average_category_wins != null ? `${balancedComparison.average_category_wins.toFixed(2)} / ${CATEGORIES.length}` : '—'} /><MetricCard label="Сильные" value={strongestCategories.length ? strongestCategories.join(' · ') : '—'} tone="text-green-600" /><MetricCard label="Слабые" value={weakestCategories.length ? weakestCategories.join(' · ') : '—'} tone="text-red-600" /></section> : <section className="grid grid-cols-2 gap-3 lg:grid-cols-5"><MetricCard label="Total Z" value={rosterTotalZ.toFixed(1)} tone={rosterTotalZ >= 0 ? 'text-green-600' : 'text-red-600'} /><MetricCard label="Место" value={balancedComparison ? `#${balancedComparison.league_rank} / ${balancedComparison.team_count}` : '—'} /><MetricCard label="Категории" value={selectedSimulation?.average_category_wins != null ? `${selectedSimulation.average_category_wins.toFixed(2)} / ${CATEGORIES.length}` : '—'} /><MetricCard label="Прогноз" value={selectedSimulation?.average_league_rank != null ? `${selectedSimulation.average_league_rank.toFixed(1)} / ${teamCount}` : '—'} /><MetricCard label="Top-N" value={selectedSimulation?.projected_top_n_strength_rate != null ? `${selectedSimulation.projected_top_n_strength_rate}%` : '—'} /></section>}
-                        {!isPostDraft && <AdaptiveStrategyPanel strategy={recommendations.adaptive_strategy} />}
-                        {isPostDraft ? <RosterZTable roster={roster} puntCategories={puntCategories} onPlayerClick={onPlayerClick} /> : <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_.85fr]"><RecommendedPicks advice={pickAdvice} players={availablePlayers} onPlayerClick={onPlayerClick} isPostDraft={isPostDraft} /><RosterCard roster={roster} onPlayerClick={onPlayerClick} /></div>}
-                        <section className="rounded-xl border bg-white p-4 shadow-sm"><h2 className="mb-3 font-bold">Категории</h2><div className="flex flex-wrap justify-center gap-2">{CATEGORIES.map(category => { const value = rosterCategoryStrength[category] || 0; const rank = balancedComparison?.category_ranks?.[category]; return <div key={category} style={balancedCategoryCardStyle(CATEGORIES.length)} className={`rounded-lg border p-3 ${puntCategories.includes(category) ? 'bg-gray-100 opacity-60' : ''}`}><div className="text-xs text-gray-500">{category}{rank ? ` · #${rank}` : ''}</div><div className={`text-lg font-bold ${value > 0 ? 'text-green-600' : value < 0 ? 'text-red-600' : 'text-gray-500'}`}>{value > 0 ? '+' : ''}{value.toFixed(1)}</div></div>; })}</div></section>
-                        {!isPostDraft && projectedTurns.length > 0 && <ProjectedTurns turns={projectedTurns} simulation={selectedSimulation} />}
-                        {!isPostDraft && viewState.last_picks?.length > 0 && <section className="overflow-hidden rounded-xl border bg-white shadow-sm"><div className="border-b p-4"><h2 className="font-bold">Последние пики</h2></div><div className="grid sm:grid-cols-2 lg:grid-cols-3">{viewState.last_picks.slice(0, 6).map(pick => <div key={pick.overall} className="border-b p-3 text-sm sm:border-r"><span className="mr-2 text-gray-400">#{pick.overall}</span><span className="font-medium">{pick.player_name}</span><div className="ml-8 text-xs text-gray-400">{pick.team_name}</div></div>)}</div></section>}
-                    </div>
-                )}
-
                 {activeTab === 'simulation' && recommendations.simulation && !selectedSimulation && (
                     <div className="rounded border bg-white p-10 text-center text-gray-500">{simulationLoading ? 'Считаем симуляцию слота…' : 'Нет данных симуляции'}</div>
                 )}
                 {activeTab === 'simulation' && recommendations.simulation && selectedSimulation && <SimulationView recommendations={recommendations} selectedSimulation={selectedSimulation} simulationResults={simulationResults} rankedSimulationSlots={rankedSimulationSlots} selectedSlotRank={selectedSlotRank} effectiveSimulationRuns={effectiveSimulationRuns} simulationLoading={simulationLoading} simulationSlot={simulationSlot} setSimulationSlot={setSimulationSlot} puntCategories={puntCategories} teamCount={teamCount} onPlayerClick={onPlayerClick} isPostDraft={isPostDraft} benchmark={benchmark} benchmarkLoading={benchmarkLoading} benchmarkError={benchmarkError} runBenchmark={runBenchmark} />}
-            </>}
+            </> : null}
             </>
             )}
         </div>
@@ -566,7 +692,7 @@ const RecommendedPicks = ({ advice, players, onPlayerClick, isPostDraft }) => {
     );
 };
 
-const RosterCard = ({ roster, onPlayerClick }) => <section className="h-full overflow-hidden rounded-xl border bg-white shadow-sm"><div className="border-b p-4"><h2 className="font-bold">Состав</h2></div><div className="divide-y">{roster.map((player, index) => <div key={player.player_id || player.name} className="flex items-center justify-between gap-3 p-3 text-sm"><div><span className="mr-2 text-gray-400">{index + 1}</span><button onClick={() => onPlayerClick?.(player)} className="font-medium hover:text-blue-600">{player.name}</button><div className="ml-6 text-xs text-gray-400">{player.position} · #{player.draft_pick || '—'}</div></div><div className={player.total_z >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-600'}>{player.total_z.toFixed(1)}</div></div>)}{!roster.length && <div className="p-10 text-center text-gray-400">Пусто</div>}</div></section>;
+const RosterCard = ({ roster, onPlayerClick }) => <section className="h-full overflow-hidden rounded-xl border bg-white shadow-sm"><div className="border-b p-4"><h2 className="font-bold">Состав</h2></div><div className="divide-y">{roster.map((player, index) => <div key={player.player_id || player.name} className="flex items-center justify-between gap-3 p-3 text-sm"><div><span className="mr-2 text-gray-400">{index + 1}</span><button onClick={() => onPlayerClick?.(player)} className="font-medium hover:text-blue-600">{player.name}</button><div className="ml-6 text-xs text-gray-400">{player.position || '—'} · #{player.draft_pick || '—'}</div></div><div className={player.total_z == null ? 'text-gray-400' : player.total_z >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-600'}>{player.total_z == null ? '—' : player.total_z.toFixed(1)}</div></div>)}{!roster.length && <div className="p-10 text-center text-gray-400">Пусто</div>}</div></section>;
 
 const RosterZTable = ({ roster, puntCategories, onPlayerClick }) => {
     const [sortBy, setSortBy] = useState('total_z');

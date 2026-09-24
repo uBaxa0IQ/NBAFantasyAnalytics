@@ -275,7 +275,7 @@ def test_failed_pull_keeps_previous_snapshot_and_does_not_retry(monkeypatch):
     assert client._pulling is False
 
 
-def test_pull_is_refused_on_the_clock_without_joining(monkeypatch):
+def test_pull_on_the_clock_still_joins(monkeypatch):
     import web.backend.services.draft as draft_service
     import web.backend.services.draft_live as draft_live
 
@@ -283,19 +283,24 @@ def test_pull_is_refused_on_the_clock_without_joining(monkeypatch):
     meta = SimpleNamespace(league_id=7, year=2027, espn_s2="s2", swid="{S}")
     monkeypatch.setattr(draft_service, "get_draft_state", lambda _meta: _live_state(12))
     monkeypatch.setattr(client, "_team_identity", lambda _meta: (12, "member"))
+    monkeypatch.setattr(client, "_security_token", lambda *_args: "token")
+    monkeypatch.setattr(client, "_save", lambda: None)
+    calls = []
 
     def urlopen(_request, timeout=0):
-        raise AssertionError("lobby join is not allowed on the clock")
+        calls.append(timeout)
+        raise TimeoutError("lobby down")
 
     monkeypatch.setattr(draft_live.urllib.request, "urlopen", urlopen)
 
     try:
         client.pull_once(meta)
-        raised = None
-    except draft_live.DraftPullRefused as error:
-        raised = str(error)
+        raised = False
+    except draft_live.DraftPullError as error:
+        raised = str(error) == draft_live.PULL_FAILED
 
-    assert raised == draft_live.PULL_ON_CLOCK
+    assert raised is True
+    assert calls == [8]
 
 
 def test_load_keeps_disk_snapshot_when_rest_draft_date_differs(tmp_path, monkeypatch):

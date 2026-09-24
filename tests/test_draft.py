@@ -375,7 +375,15 @@ def test_round_balanced_comparison_ignores_partial_next_round():
 
     assert result["completed_rounds"] == 1
     assert result["comparison"]["league_rank"] == 2
+    assert result["category_strength"]["PTS"] == 1
+    assert result["total_z"] == 11
     assert all(team["roster_size"] == 1 for team in result["comparison"]["teams"])
+    ours = next(row for row in result["standings"] if row["is_you"])
+    assert ours["category_totals"]["PTS"] == 1
+    assert len(ours["roster"]) == 1
+    assert ours["matchup_wins"] == 1
+    assert ours["matchup_losses"] == 1
+    assert ours["league_rank"] == 2
 
 
 def test_adp_value_ignores_censored_late_market_tail():

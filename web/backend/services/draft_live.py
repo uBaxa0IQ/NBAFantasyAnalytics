@@ -25,7 +25,6 @@ from core.config import DEFAULT_TEAM_ID
 logger = logging.getLogger(__name__)
 
 PULL_FAILED = "Не удалось снять доску. Прошлый снимок на месте."
-PULL_ON_CLOCK = "Сейчас ваш ход. Доску не снимаем, оставайся в лобби ESPN."
 PULL_NOT_LIVE = "Драфт сейчас не идёт"
 PULL_BUSY = "Съёмка уже идёт"
 
@@ -318,8 +317,6 @@ class LiveDraftClient:
         except Exception as error:
             logger.warning("ESPN draft pull could not resolve the account team: %s", error)
             raise DraftPullError(PULL_FAILED) from error
-        if team_id == state.get("next_team_id"):
-            raise DraftPullRefused(PULL_ON_CLOCK)
 
         self.stop()
         league_id, season = league_metadata.league_id, league_metadata.year

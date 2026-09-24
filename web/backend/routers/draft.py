@@ -140,7 +140,8 @@ def draft_recommendations(
     simulation_slot: int | None = Query(default=None, ge=1, le=30),
     limit: int = Query(default=25, ge=1, le=300),
     expected_pick_count: int | None = Query(default=None, ge=0),
-    trigger: str | None = Query(default=None, pattern="^(upcoming|our_turn|round_end|completed|manual)$"),
+    trigger: str | None = Query(default=None, pattern="^(upcoming|our_turn|round_end|completed|manual|snapshot)$"),
+    scope: str = Query(default="full", pattern="^(full|board|projection)$"),
     league_meta=Depends(get_league_meta),
 ):
     if league_meta.get_team_by_id(team_id) is None:
@@ -153,17 +154,19 @@ def draft_recommendations(
     def calculate(cancel_check=None):
         return get_draft_recommendations(
             league_meta, team_id, period, punts, limit, mock_ids, simulation_slot,
-            run_simulation=not (trigger == "upcoming" and simulation_slot is None),
+            run_simulation=scope != "board" and not (trigger == "upcoming" and simulation_slot is None),
             expected_pick_count=expected_pick_count,
             cancel_check=cancel_check,
             live_fast=expected_pick_count is not None,
+            defer_projection=scope == "board",
+            projection_only=scope == "projection",
         )
 
     if expected_pick_count is None:
         return calculate()
     coordinator_key = (int(league_meta.league_id), int(league_meta.year), int(team_id))
     request_key = (
-        int(expected_pick_count), period, punts, mock_ids, simulation_slot, int(limit),
+        int(expected_pick_count), period, punts, mock_ids, simulation_slot, int(limit), scope,
     )
     try:
         return draft_calculations.run_latest(coordinator_key, request_key, calculate)

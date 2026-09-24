@@ -1,8 +1,10 @@
 """Read-only live draft state and recommendations."""
 
 from collections import Counter, defaultdict
+from copy import deepcopy
 from itertools import combinations
 from datetime import datetime, timezone
+from threading import Lock
 from time import monotonic
 import math
 
@@ -20,6 +22,98 @@ from .draft_advisor import (
 )
 from .espn_market import attach_market, get_espn_market
 from .draft_live import overlay_live_draft
+
+
+_projection_boards = {}
+_projection_board_lock = Lock()
+_PROJECTION_BOARD_TTL_SECONDS = 90
+
+
+def _projection_board_key(league_metadata, team_id, period, punt_categories, mock_player_ids, expected_pick_count):
+    return (
+        int(getattr(league_metadata, "league_id", 0) or 0),
+        int(getattr(league_metadata, "year", 0) or 0),
+        int(team_id),
+        str(period),
+        tuple(punt_categories),
+        tuple(int(player_id) for player_id in mock_player_ids),
+        None if expected_pick_count is None else int(expected_pick_count),
+    )
+
+
+def _store_projection_board(key, seed):
+    now = monotonic()
+    with _projection_board_lock:
+        _projection_boards[key] = (now, seed)
+        expired = [item for item, (saved_at, _) in _projection_boards.items() if now - saved_at > _PROJECTION_BOARD_TTL_SECONDS]
+        for item in expired:
+            _projection_boards.pop(item, None)
+
+
+def _load_projection_board(key):
+    with _projection_board_lock:
+        saved = _projection_boards.get(key)
+    if saved is None:
+        return None
+    saved_at, seed = saved
+    if monotonic() - saved_at > _PROJECTION_BOARD_TTL_SECONDS:
+        return None
+    return seed
+
+
+def _finish_projection(seed, ensure_current, live_fast, limit, simulation_slot):
+    """Run lookahead and the draft simulation on a board that was already scored."""
+    recommendations = deepcopy(seed["recommendations"])
+    adaptive_strategy = deepcopy(seed["adaptive_strategy"])
+    scoring_context = seed["scoring_context"]
+    ensure_current()
+    if seed["is_on_the_clock"] and seed["own_slot"]:
+        recommendations = lookahead_rerank(
+            recommendations,
+            existing_rosters_by_slot=seed["existing_rosters_by_slot"] or {seed["own_slot"]: list(seed["roster_details"])},
+            slot=seed["own_slot"],
+            team_count=seed["team_count"],
+            rounds=seed["draft_rounds"],
+            current_pick=seed["current_overall"],
+            punt_categories=seed["punt_categories"],
+            playoff_team_count=seed["playoff_team_count"],
+            roster_slots=seed["roster_slots"],
+            categories=CATEGORIES,
+            candidate_count=4 if live_fast else 6,
+            runs=8 if live_fast else 24,
+            cancel_check=ensure_current,
+        )
+    from .draft_ml.inference import maybe_apply_learned_rerank
+    adaptive_strategy["learned_policy"] = maybe_apply_learned_rerank(recommendations, scoring_context)
+    recommendations.sort(key=lambda player: player.get("score", 0), reverse=True)
+    for board_rank, player in enumerate(recommendations, start=1):
+        player["board_rank"] = board_rank
+    pick_advice = build_pick_advice(recommendations, scoring_context)
+    ensure_current()
+    simulation = simulate_draft_market(
+        recommendations,
+        team_count=seed["team_count"],
+        pick_order=seed["pick_order"],
+        team_id=seed["team_id"],
+        current_pick=seed["current_overall"],
+        rounds=seed["draft_rounds"],
+        selected_slot=simulation_slot,
+        existing_rosters_by_slot=seed["existing_rosters_by_slot"],
+        own_existing_roster=seed["own_existing_roster"],
+        playoff_team_count=seed["playoff_team_count"],
+        own_punt_categories=seed["punt_categories"],
+        roster_slots=seed["roster_slots"],
+        runs_override=32 if live_fast and seed["pick_order"] else None,
+        cancel_check=ensure_current,
+    )
+    response = deepcopy(seed["response"])
+    response["players"] = recommendations[:limit]
+    response["pick_advice"] = pick_advice
+    response["adaptive_strategy"] = adaptive_strategy
+    response["simulation"] = simulation
+    response["projection_ready"] = True
+    response["calculation_seconds"] = round(monotonic() - seed["started_at"], 3)
+    return response
 
 
 _previous_stats_cache = {}
@@ -371,11 +465,100 @@ def _round_balanced_roster_comparison(
         for team_id, roster in profiles.items()
         if len(roster) >= completed_rounds
     }
+    punt = set(punt_categories or ())
+    strength = {}
+    for player in balanced_profiles.get(main_team_id) or []:
+        for category, value in (player.get("z_scores") or {}).items():
+            strength[category] = strength.get(category, 0.0) + float(value or 0)
     return {
         "completed_rounds": completed_rounds,
         "players_per_team": completed_rounds,
+        "category_strength": {category: round(value, 2) for category, value in strength.items()},
+        "total_z": round(sum(value for category, value in strength.items() if category not in punt), 2),
         "comparison": _roster_comparison(balanced_profiles, team_names, main_team_id, punt_categories),
+        "standings": _category_standings(balanced_profiles, team_names, main_team_id),
     }
+
+
+def _category_standings(profiles, team_names, main_team_id):
+    """Per-team category ranks after a completed round. Higher z wins the category."""
+    categories = list(CATEGORIES)
+    totals = {}
+    for team_id, roster in profiles.items():
+        sums = {category: 0.0 for category in categories}
+        for player in roster:
+            for category, value in (player.get("z_scores") or {}).items():
+                if category in sums:
+                    sums[category] += float(value or 0)
+        totals[team_id] = sums
+    rows = []
+    opponent_count = max(1, len(totals) - 1)
+    for team_id, sums in totals.items():
+        ranks = {}
+        category_points = 0.0
+        for category in categories:
+            better = 0
+            for other_id, other_sums in totals.items():
+                if other_id == team_id:
+                    continue
+                if other_sums[category] > sums[category] + 1e-9:
+                    better += 1
+                elif other_sums[category] < sums[category] - 1e-9:
+                    category_points += 1
+                else:
+                    category_points += 0.5
+            ranks[category] = better + 1
+        rows.append({
+            "team_id": team_id,
+            "slot": team_id,
+            "team_name": team_names.get(team_id, f"Team {team_id}"),
+            "is_you": team_id == main_team_id,
+            "roster_size": len(profiles.get(team_id) or []),
+            "category_totals": {category: round(sums[category], 2) for category in categories},
+            "category_ranks": ranks,
+            "category_wins": round(category_points / opponent_count, 2),
+            "roster": [
+                {
+                    "name": player.get("name"),
+                    "position": player.get("position"),
+                    "z_scores": player.get("z_scores") or {},
+                    "total_z": player.get("score"),
+                }
+                for player in profiles.get(team_id) or []
+            ],
+        })
+    records = {team_id: {"matchup_wins": 0, "matchup_losses": 0, "matchup_ties": 0} for team_id in totals}
+    ordered_ids = list(totals)
+    midpoint = len(categories) / 2
+    for index, left in enumerate(ordered_ids):
+        for right in ordered_ids[index + 1:]:
+            left_score = 0.0
+            for category in categories:
+                left_value = totals[left][category]
+                right_value = totals[right][category]
+                if left_value > right_value + 1e-9:
+                    left_score += 1
+                elif abs(left_value - right_value) <= 1e-9:
+                    left_score += 0.5
+            if abs(left_score - midpoint) <= 1e-9:
+                records[left]["matchup_ties"] += 1
+                records[right]["matchup_ties"] += 1
+            elif left_score > midpoint:
+                records[left]["matchup_wins"] += 1
+                records[right]["matchup_losses"] += 1
+            else:
+                records[right]["matchup_wins"] += 1
+                records[left]["matchup_losses"] += 1
+    for row in rows:
+        row.update(records[row["team_id"]])
+    rows.sort(key=lambda row: (
+        -(row["matchup_wins"] + 0.5 * row["matchup_ties"]),
+        -row["category_wins"],
+        row["slot"],
+    ))
+    for index, row in enumerate(rows, start=1):
+        row["league_rank"] = index
+    return rows
 
 
 def get_draft_state(league_metadata):
@@ -514,9 +697,17 @@ def get_draft_recommendations(
     expected_pick_count=None,
     cancel_check=None,
     live_fast=False,
+    defer_projection=False,
+    projection_only=False,
 ):
     started_at = monotonic()
     ensure_current = cancel_check or (lambda: None)
+    if projection_only:
+        cached = _load_projection_board(_projection_board_key(
+            league_metadata, team_id, period, punt_categories, mock_player_ids, expected_pick_count,
+        ))
+        if cached is not None:
+            return _finish_projection(cached, ensure_current, live_fast, limit, simulation_slot)
     ensure_current()
     league = league_metadata.league
     raw_draft = overlay_live_draft(league_metadata, league.espn_request.get_league_draft())
@@ -837,7 +1028,7 @@ def get_draft_recommendations(
         }
     own_slot = pick_order.index(team_id) + 1 if pick_order and team_id in pick_order else None
     playoff_team_count = int(getattr(getattr(league, "settings", None), "playoff_team_count", 8) or 8)
-    if is_on_the_clock and own_slot:
+    if is_on_the_clock and own_slot and not defer_projection:
         recommendations = lookahead_rerank(
             recommendations,
             existing_rosters_by_slot=existing_rosters_by_slot or {own_slot: list(roster_details)},
@@ -856,9 +1047,10 @@ def get_draft_recommendations(
     # A promoted learned policy is the final optional reranker. Applying it
     # before lookahead would let the projected evaluator overwrite its order.
     from .draft_ml.inference import maybe_apply_learned_rerank
-    adaptive_strategy["learned_policy"] = maybe_apply_learned_rerank(
-        recommendations, scoring_context,
-    )
+    if not defer_projection:
+        adaptive_strategy["learned_policy"] = maybe_apply_learned_rerank(
+            recommendations, scoring_context,
+        )
     recommendations.sort(key=lambda player: player.get("score", 0), reverse=True)
     for board_rank, player in enumerate(recommendations, start=1):
         player["board_rank"] = board_rank
@@ -881,7 +1073,9 @@ def get_draft_recommendations(
     ]
 
     simulation = None
-    if run_simulation:
+    if defer_projection:
+        simulation = None
+    elif run_simulation:
         ensure_current()
         simulation = simulate_draft_market(
             recommendations,
@@ -995,11 +1189,35 @@ def get_draft_recommendations(
         "postdraft_analysis": postdraft_analysis,
         "pick_advice": pick_advice,
         "method": "adaptive_projected_marginal_lookahead",
+        "projection_ready": not defer_projection,
         "players": recommendations[:limit],
     }
+    if defer_projection:
+        _store_projection_board(_projection_board_key(
+            league_metadata, team_id, period, punt_categories, mock_player_ids, expected_pick_count,
+        ), {
+            "recommendations": recommendations,
+            "adaptive_strategy": adaptive_strategy,
+            "scoring_context": scoring_context,
+            "existing_rosters_by_slot": existing_rosters_by_slot,
+            "own_slot": own_slot,
+            "is_on_the_clock": is_on_the_clock,
+            "team_count": team_count,
+            "draft_rounds": draft_rounds,
+            "current_overall": current_overall,
+            "punt_categories": punt_categories,
+            "playoff_team_count": playoff_team_count,
+            "roster_slots": roster_slots,
+            "pick_order": pick_order,
+            "team_id": team_id,
+            "own_existing_roster": mock_roster_profile if mock_roster_profile and not active_picks else None,
+            "roster_details": roster_details,
+            "response": response,
+            "started_at": started_at,
+        })
     ensure_current()
     response["calculation_seconds"] = round(monotonic() - started_at, 3)
-    if raw_draft.get("draftDetail", {}).get("inProgress"):
+    if raw_draft.get("draftDetail", {}).get("inProgress") and not defer_projection:
         try:
             from .draft_learning import record_live_decision
             resolved_picks = []
