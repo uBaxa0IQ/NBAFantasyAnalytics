@@ -58,36 +58,15 @@ const DraftRoom = ({
 }) => {
     const [search, setSearch] = useState('');
     const [position, setPosition] = useState('ALL');
-    const [playersView, setPlayersView] = useState('stats');
-    const [sortBy, setSortBy] = useState('total_z');
-    const [sortDir, setSortDir] = useState('desc');
     const [picksExpanded, setPicksExpanded] = useState(false);
+    const [rosterOpen, setRosterOpen] = useState(true);
+    const [leagueOpen, setLeagueOpen] = useState(true);
 
-    const handleSort = column => {
-        if (sortBy === column) setSortDir(current => current === 'asc' ? 'desc' : 'asc');
-        else {
-            setSortBy(column);
-            setSortDir(column === 'name' ? 'asc' : 'desc');
-        }
-    };
-    const SortIcon = ({ column }) => <span className="ml-1 text-gray-400">{sortBy === column ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}</span>;
-
-    const visiblePlayers = useMemo(() => {
-        const filtered = players.filter(player => {
-            const matchesPosition = position === 'ALL' || String(player.position || '').includes(position);
-            const matchesSearch = !search || String(player.name || '').toLowerCase().includes(search.toLowerCase());
-            return matchesPosition && matchesSearch;
-        });
-        return [...filtered].sort((left, right) => {
-            if (sortBy === 'name') return sortDir === 'asc' ? left.name.localeCompare(right.name) : right.name.localeCompare(left.name);
-            const read = player => {
-                if (sortBy === 'total_z') return strategyZ(player, puntCategories, categories);
-                if (sortBy === 'espn_market_pick') return player.espn_market_pick ?? Number.POSITIVE_INFINITY;
-                return playersView === 'stats' ? Number(player.stats?.[sortBy] || 0) : Number(player.z_scores?.[sortBy] || 0);
-            };
-            return sortDir === 'asc' ? read(left) - read(right) : read(right) - read(left);
-        });
-    }, [players, search, position, sortBy, sortDir, playersView, puntCategories, categories]);
+    const visiblePlayers = useMemo(() => players.filter(player => {
+        const matchesPosition = position === 'ALL' || String(player.position || '').includes(position);
+        const matchesSearch = !search || String(player.name || '').toLowerCase().includes(search.toLowerCase());
+        return matchesPosition && matchesSearch;
+    }), [players, search, position]);
 
     const picksByRound = useMemo(() => {
         const groups = new Map();
@@ -101,6 +80,8 @@ const DraftRoom = ({
     const recentPicks = picksExpanded ? null : [...pickLog].slice(-8).reverse();
     const you = standings.find(row => row.is_you);
     const focus = inspected || you;
+    const roster = inspected ? (inspected.roster || []) : yourRoster;
+    const rosterTitle = inspected ? inspected.team_name : 'Ваш состав';
 
     return (
         <div className="space-y-4">
@@ -111,6 +92,18 @@ const DraftRoom = ({
                 <Metric label="Состав" value={`${rosterCount ?? 0} / ${rosterLimit || '—'}`} />
                 <Metric label="Место" value={rankLabel || '—'} detail={recordLabel} />
             </section>
+
+            {focus && <section>
+                <div className="mb-2 text-xs text-gray-500">{focus.team_name}{focus.is_you ? ' · вы' : ''}</div>
+                <div className="flex flex-wrap gap-2">{categories.map(category => {
+                    const rank = focus.category_ranks?.[category];
+                    const total = focus.category_totals?.[category];
+                    return <div key={category} className={`min-w-24 flex-1 rounded-lg border bg-white p-2 ${puntCategories.includes(category) ? 'opacity-60' : ''}`}>
+                        <div className="text-xs text-gray-500">{category}{rank ? ` · #${rank}` : ''}</div>
+                        <div className={`text-sm font-bold ${rankTone(rank) || 'text-gray-700'}`}>{totalsAreZ ? (total == null || Number.isNaN(Number(total)) ? '—' : `${Number(total) > 0 ? '+' : ''}${Number(total).toFixed(1)}`) : formatStat(category, total)}</div>
+                    </div>;
+                })}</div>
+            </section>}
 
             <section className="flex flex-wrap items-center justify-between gap-3">
                 <div className="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1">
@@ -132,15 +125,18 @@ const DraftRoom = ({
             )}
 
             <section className="overflow-hidden rounded-xl border bg-white">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
-                    <h2 className="font-bold">{standingsTitle || 'Лига'}</h2>
-                    {roundOptions.length > 1 && (
-                        <select value={viewRound || ''} onChange={event => onViewRound?.(Number(event.target.value))} className="rounded border p-1.5 text-sm">
-                            {roundOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                        </select>
-                    )}
+                <div className={`flex flex-wrap items-center justify-between gap-3 p-3 ${leagueOpen ? 'border-b' : ''}`}>
+                    <button type="button" onClick={() => setLeagueOpen(open => !open)} className="font-bold">{standingsTitle || 'Лига'}</button>
+                    <div className="flex items-center gap-3">
+                        {leagueOpen && roundOptions.length > 1 && (
+                            <select value={viewRound || ''} onChange={event => onViewRound?.(Number(event.target.value))} className="rounded border p-1.5 text-sm">
+                                {roundOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                        )}
+                        <button type="button" onClick={() => setLeagueOpen(open => !open)} className="text-sm text-blue-700">{leagueOpen ? 'Скрыть' : 'Показать'}</button>
+                    </div>
                 </div>
-                {!standings.length ? <div className="p-8 text-center text-sm text-gray-400">Таблица появится после закрытого раунда</div> : (
+                {leagueOpen && (!standings.length ? <div className="p-8 text-center text-sm text-gray-400">Таблица появится после закрытого раунда</div> : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead><tr className="bg-gray-100">
@@ -164,79 +160,57 @@ const DraftRoom = ({
                             ))}</tbody>
                         </table>
                     </div>
-                )}
-                {focus && <div className="border-t p-3"><div className="mb-2 text-xs text-gray-500">{focus.team_name}{focus.is_you ? ' · вы' : ''}</div><div className="flex flex-wrap gap-2">{categories.map(category => {
-                    const rank = focus.category_ranks?.[category];
-                    const total = focus.category_totals?.[category];
-                    return <div key={category} className={`min-w-24 flex-1 rounded-lg border p-2 ${puntCategories.includes(category) ? 'opacity-60' : ''}`}>
-                        <div className="text-xs text-gray-500">{category}{rank ? ` · #${rank}` : ''}</div>
-                        <div className={`text-sm font-bold ${rankTone(rank) || 'text-gray-700'}`}>{totalsAreZ ? (total == null || Number.isNaN(Number(total)) ? '—' : `${Number(total) > 0 ? '+' : ''}${Number(total).toFixed(1)}`) : formatStat(category, total)}</div>
-                    </div>;
-                })}</div></div>}
+                ))}
             </section>
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_.6fr]">
-                <section className="overflow-hidden rounded-xl border bg-white">
-                    <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1">
-                            <button type="button" onClick={() => { setPlayersView('stats'); setSortBy('total_z'); }} className={`rounded-md px-3 py-1.5 text-sm ${playersView === 'stats' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}>Статы</button>
-                            <button type="button" onClick={() => { setPlayersView('draft'); setSortBy('total_z'); }} className={`rounded-md px-3 py-1.5 text-sm ${playersView === 'draft' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}>Z</button>
-                        </div>
-                        <div className="flex min-w-0 flex-1 gap-2 sm:justify-end">
-                            <select value={position} onChange={event => setPosition(event.target.value)} className="rounded border p-2 text-sm"><option value="ALL">Все позиции</option>{['PG', 'SG', 'SF', 'PF', 'C'].map(item => <option key={item} value={item}>{item}</option>)}</select>
-                            <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск" className="min-w-0 flex-1 rounded border p-2 text-sm sm:max-w-xs" />
-                        </div>
-                    </div>
-                    {!visiblePlayers.length ? <div className="p-8 text-center text-sm text-gray-400">Нет доступных игроков</div> : (
-                        <div className="overflow-x-auto"><table className="min-w-full border-collapse text-sm">
-                            <thead><tr className="bg-gray-100">
-                                {onDraftPlayer && <th className="border p-2"></th>}
-                                <th onClick={() => handleSort('name')} className="cursor-pointer border p-2 text-left">Игрок<SortIcon column="name" /></th>
-                                <th className="border p-2">Поз.</th>
-                                <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer border p-2">Рынок<SortIcon column="espn_market_pick" /></th>
-                                <th onClick={() => handleSort('total_z')} className="cursor-pointer border p-2">Z<SortIcon column="total_z" /></th>
-                                {categories.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer border p-2 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
-                            </tr></thead>
-                            <tbody>{visiblePlayers.slice(0, 80).map(player => {
-                                const valueZ = strategyZ(player, puntCategories, categories);
-                                const highlighted = highlightedPlayerId != null && String(highlightedPlayerId) === String(player.player_id);
-                                return (
-                                    <tr key={player.player_id || player.name} className={highlighted ? 'bg-blue-50' : 'hover:bg-gray-50'}>
-                                        {onDraftPlayer && <td className="border p-2"><button type="button" onClick={() => onDraftPlayer(player)} className="rounded border px-2 py-1 text-xs">Взять</button></td>}
-                                        <td className="border p-2"><button type="button" onClick={() => onPlayerClick?.(player)} className="font-medium text-blue-600 hover:underline">{player.name}</button></td>
-                                        <td className="border p-2 text-center">{player.position || '—'}</td>
-                                        <td className="border p-2 text-center">{player.espn_market_pick?.toFixed?.(1) || '—'}</td>
-                                        <td className={`border p-2 text-center font-bold ${tone(valueZ)}`}>{valueZ.toFixed(2)}</td>
-                                        {categories.map(category => {
-                                            const raw = playersView === 'stats' ? player.stats?.[category] : player.z_scores?.[category];
-                                            const zScore = Number(player.z_scores?.[category] || 0);
-                                            return <td key={category} className={`border p-2 text-center ${tone(zScore)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{playersView === 'stats' ? formatStat(category, raw) : zScore.toFixed(2)}</td>;
-                                        })}
-                                    </tr>
-                                );
-                            })}</tbody>
-                        </table></div>
-                    )}
-                </section>
+            <section className="overflow-hidden rounded-xl border bg-white">
+                <button type="button" onClick={() => setRosterOpen(open => !open)} className="flex w-full items-center justify-between gap-3 p-3 text-left">
+                    <span className="font-bold">{rosterTitle} · {roster.length}</span>
+                    <span className="text-sm text-blue-700">{rosterOpen ? 'Скрыть' : 'Показать'}</span>
+                </button>
+                {rosterOpen && (
+                    <>
+                        <CategoryZTable
+                            players={roster.map(player => {
+                                const matched = pickLog.find(pick => (
+                                    (player.player_id && (pick.player?.player_id === player.player_id || pick.playerId === player.player_id))
+                                    || pick.playerName === player.name
+                                    || pick.player?.name === player.name
+                                    || (player.draft_pick && pick.overall === player.draft_pick)
+                                ));
+                                return {
+                                    ...player,
+                                    draft_pick: player.draft_pick ?? matched?.overall,
+                                    draft_round: player.draft_round ?? matched?.round,
+                                };
+                            })}
+                            categories={categories}
+                            puntCategories={puntCategories}
+                            onPlayerClick={onPlayerClick}
+                            showPick
+                            emptyLabel="Пусто"
+                        />
+                        {inspected && <button type="button" onClick={() => onInspectTeam?.(null)} className="w-full border-t p-2 text-sm text-blue-700">К своему составу</button>}
+                    </>
+                )}
+            </section>
 
-                <section className="overflow-hidden rounded-xl border bg-white">
-                    <div className="border-b p-3 font-bold">{inspected ? inspected.team_name : 'Ваш состав'}</div>
-                    <div className="divide-y">{(inspected ? inspected.roster : yourRoster).map((player, index) => {
-                        const valueZ = player.total_z == null && !player.z_scores ? null : (player.total_z ?? strategyZ(player, puntCategories, categories));
-                        return (
-                            <div key={player.player_id || player.name || index} className="flex items-center justify-between gap-3 p-3 text-sm">
-                                <div>
-                                    <span className="mr-2 text-gray-400">{index + 1}</span>
-                                    <button type="button" onClick={() => onPlayerClick?.(player)} className="font-medium text-blue-600 hover:underline">{player.name}</button>
-                                    <div className="ml-6 text-xs text-gray-400">{player.position || '—'}{player.draft_pick ? ` · #${player.draft_pick}` : ''}</div>
-                                </div>
-                                <div className={valueZ == null ? 'text-gray-400' : tone(valueZ)}>{valueZ == null ? '—' : Number(valueZ).toFixed(1)}</div>
-                            </div>
-                        );
-                    })}{!(inspected ? inspected.roster : yourRoster).length && <div className="p-8 text-center text-sm text-gray-400">Пусто</div>}</div>
-                    {inspected && <button type="button" onClick={() => onInspectTeam?.(null)} className="w-full border-t p-2 text-sm text-blue-700">К своему составу</button>}
-                </section>
-            </div>
+            <section className="overflow-hidden rounded-xl border bg-white">
+                <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-end">
+                    <select value={position} onChange={event => setPosition(event.target.value)} className="rounded border p-2 text-sm"><option value="ALL">Все позиции</option>{['PG', 'SG', 'SF', 'PF', 'C'].map(item => <option key={item} value={item}>{item}</option>)}</select>
+                    <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск" className="min-w-0 flex-1 rounded border p-2 text-sm sm:max-w-xs" />
+                </div>
+                <CategoryZTable
+                    players={visiblePlayers}
+                    categories={categories}
+                    puntCategories={puntCategories}
+                    onPlayerClick={onPlayerClick}
+                    onDraftPlayer={onDraftPlayer}
+                    highlightedPlayerId={highlightedPlayerId}
+                    showMarket
+                    emptyLabel="Нет доступных игроков"
+                />
+            </section>
 
             {!!pickLog.length && <section className="overflow-hidden rounded-xl border bg-white">
                 <div className="flex items-center justify-between border-b p-3">
@@ -252,6 +226,76 @@ const DraftRoom = ({
             </section>}
 
             {showSimulation && simulationContent}
+        </div>
+    );
+};
+
+const marketPick = player => {
+    const value = player?.espn_market_pick ?? player?.espn_adp ?? player?.espn_roto_rank;
+    return value == null || Number.isNaN(Number(value)) ? null : Number(value);
+};
+
+const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, onDraftPlayer, highlightedPlayerId, showMarket = false, showPick = false, emptyLabel }) => {
+    const [sortBy, setSortBy] = useState(showPick ? 'draft_pick' : 'total_z');
+    const [sortDir, setSortDir] = useState(showPick ? 'asc' : 'desc');
+    const handleSort = column => {
+        if (sortBy === column) setSortDir(current => current === 'asc' ? 'desc' : 'asc');
+        else {
+            setSortBy(column);
+            setSortDir(column === 'name' || column === 'espn_market_pick' || column === 'draft_pick' ? 'asc' : 'desc');
+        }
+    };
+    const SortIcon = ({ column }) => <span className="ml-1 text-gray-400">{sortBy === column ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}</span>;
+    const sorted = useMemo(() => [...players].sort((left, right) => {
+        if (sortBy === 'name') return sortDir === 'asc' ? left.name.localeCompare(right.name) : right.name.localeCompare(left.name);
+        const read = player => {
+            if (sortBy === 'total_z') return strategyZ(player, puntCategories, categories);
+            if (sortBy === 'espn_market_pick') return marketPick(player) ?? 9999;
+            if (sortBy === 'draft_pick') return Number(player.draft_pick) || 9999;
+            return Number(player.z_scores?.[sortBy] || 0);
+        };
+        return sortDir === 'asc' ? read(left) - read(right) : read(right) - read(left);
+    }), [players, sortBy, sortDir, puntCategories, categories]);
+    const generalZ = player => categories.reduce((total, category) => total + Number(player.z_scores?.[category] || 0), 0);
+
+    if (!sorted.length) return <div className="border-t p-8 text-center text-sm text-gray-400">{emptyLabel}</div>;
+    return (
+        <div className="overflow-x-auto border-t">
+            <table className="min-w-full border-collapse bg-white text-sm">
+                <thead><tr className="bg-gray-100">
+                    {showPick && <th onClick={() => handleSort('draft_pick')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">Пик<SortIcon column="draft_pick" /></th>}
+                    <th onClick={() => handleSort('name')} className="cursor-pointer whitespace-nowrap border p-2 text-left hover:bg-gray-200">Игрок<SortIcon column="name" /></th>
+                    {showMarket && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">Рынок<SortIcon column="espn_market_pick" /></th>}
+                    <th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
+                    {categories.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
+                </tr></thead>
+                <tbody>{sorted.map(player => {
+                    const total = strategyZ(player, puntCategories, categories);
+                    const highlighted = highlightedPlayerId != null && String(highlightedPlayerId) === String(player.player_id);
+                    return (
+                        <tr
+                            key={player.player_id || player.name}
+                            onClick={() => (onDraftPlayer || onPlayerClick)?.(player)}
+                            className={`cursor-pointer ${highlighted ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                        >
+                            {showPick && <td className="border p-2 text-center">{player.draft_pick ? (player.draft_round ? `${player.draft_pick} · ${player.draft_round}` : player.draft_pick) : '—'}</td>}
+                            <td className="whitespace-nowrap border p-2 font-medium text-blue-600">
+                                <span className="hover:underline">{player.name}</span>
+                                <span className="text-xs font-normal text-gray-500"> ({player.position || '—'})</span>
+                            </td>
+                            {showMarket && <td className="border p-2 text-center">{marketPick(player)?.toFixed(1) || '—'}</td>}
+                            <td className={`border p-2 text-center font-bold ${tone(total)}`}>
+                                {total.toFixed(2)}
+                                {puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {generalZ(player).toFixed(2)}</div>}
+                            </td>
+                            {categories.map(category => {
+                                const value = Number(player.z_scores?.[category] || 0);
+                                return <td key={category} className={`border p-2 text-center ${tone(value)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{value.toFixed(2)}</td>;
+                            })}
+                        </tr>
+                    );
+                })}</tbody>
+            </table>
         </div>
     );
 };

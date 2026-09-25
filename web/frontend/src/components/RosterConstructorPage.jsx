@@ -199,7 +199,17 @@ export default function RosterConstructorPage({ mainTeam, projectedPeriod, leagu
         });
     }, [board, position, search, sortBy, sortDir, puntCategories, categories]);
 
-    const favoritePlayers = favorites.map(id => playersById[id]).filter(Boolean).filter(player => !roster.includes(Number(player.player_id)));
+    const favoritePlayers = favorites
+        .map(id => playersById[id])
+        .filter(Boolean)
+        .filter(player => !roster.includes(Number(player.player_id)))
+        .sort((left, right) => {
+            const adp = player => {
+                const value = Number(player.espn_market_pick ?? player.espn_adp);
+                return Number.isFinite(value) && value > 0 ? value : 9999;
+            };
+            return adp(left) - adp(right) || String(left.name).localeCompare(String(right.name));
+        });
     const assembly = evaluation?.assembly;
     const workingInGoal = evaluation?.working_in_goal ?? 0;
     const workingCount = evaluation?.working_count ?? 7;
