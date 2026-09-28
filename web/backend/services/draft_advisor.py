@@ -17,6 +17,7 @@ from .draft_simulation import (
     _player_value,
     _simulate_slot,
     conditional_availability,
+    conditional_player_availability,
     unfilled_roster_slots,
 )
 
@@ -220,7 +221,7 @@ def expected_replacement_value(players, eval_pick, next_own_pick, punt_categorie
         if next_own_pick is None:
             values.append(value)
             continue
-        survival = conditional_availability(market, next_own_pick, eval_pick)
+        survival = conditional_player_availability(player, next_own_pick, eval_pick)
         if survival is None or survival >= 38:
             values.append(value)
     if not values:
@@ -349,7 +350,9 @@ def score_draft_pick(player, context: ScoringContext, market_pick=None):
     listed_reach = max(0.0, (listed_market or market) - context.eval_pick)
     can_wait = context.next_own_pick is not None and market >= context.next_own_pick
     listed_can_wait = context.next_own_pick is not None and (listed_market or market) >= context.next_own_pick
-    next_survival = conditional_availability(listed_market or market, context.next_own_pick, context.eval_pick)
+    next_survival = conditional_player_availability(player, context.next_own_pick, context.eval_pick)
+    if next_survival is None:
+        next_survival = conditional_availability(listed_market or market, context.next_own_pick, context.eval_pick)
     next_survival_rate = None if next_survival is None else next_survival / 100.0
 
     leverage, flips = _leverage(

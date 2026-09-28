@@ -104,13 +104,41 @@ def conditional_availability(adp: float | None, target_pick: int | None, current
     return round(max(0.0, min(1.0, target / current)) * 100)
 
 
+def conditional_player_availability(player, target_pick, current_pick=1):
+    """Conservative survival across the draft boards visible to opponents.
+
+    A blended market pick is useful for ordering players but can hide an early
+    ESPN ADP. One ADP-driven manager can take that player before the blended
+    rank, so do not display the blend alone as a survival probability. ESPN's
+    late ADP tail is capped near 140; defer to market/ROTO there.
+    """
+    if target_pick is None:
+        return None
+    market = _market_position(player)
+    adp = player.get("espn_adp")
+    roto = player.get("espn_league_rater_rank") if player.get("market_category_match") else None
+    if roto is None:
+        roto = player.get("espn_roto_rank")
+    capped_late_adp = (adp is not None and roto is not None and
+                       float(adp) >= 138 and float(roto) > float(adp) and
+                       target_pick is not None and target_pick > 140)
+    signals = (market, None if capped_late_adp else adp, roto)
+    estimates = [conditional_availability(float(value), target_pick, current_pick)
+                 for value in signals if value is not None]
+    return min(estimates) if estimates else None
+
+
 def annotate_availability(players, target_pick, following_pick=None, current_pick=1):
     for player in players:
         market_pick = _market_position(player)
-        probability = conditional_availability(market_pick, target_pick, current_pick)
-        next_probability = conditional_availability(market_pick, following_pick, current_pick)
+        probability = conditional_player_availability(player, target_pick, current_pick)
+        next_probability = conditional_player_availability(player, following_pick, current_pick)
         player["availability_probability"] = probability
         player["next_round_probability"] = next_probability
+        player["availability_market_only"] = conditional_availability(market_pick, target_pick, current_pick)
+        player["availability_method"] = "conservative_adp_roto_market" if (
+            player.get("espn_adp") is not None or player.get("espn_roto_rank") is not None
+        ) else "market_only"
         if target_pick is None:
             player["availability"] = "очередь неизвестна"
         elif probability is None:

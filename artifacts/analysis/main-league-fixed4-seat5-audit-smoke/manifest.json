@@ -1,0 +1,63 @@
+{
+  "provenance": "a6cb92ff0353406d10c389dd787e2882a2aad1b8bb7cdff3aa79aa2c817bd23c",
+  "config": {
+    "seed": 270927,
+    "output": "artifacts/analysis/main-league-fixed4-seat5-audit-smoke",
+    "snapshot": "artifacts/draft_ml/2027-projected/standard8-2027-projected-v2.json",
+    "workers": 2,
+    "runs": 2,
+    "team_count": 14,
+    "rounds": 13,
+    "hero_seat": 5,
+    "categories": [
+      "FG%",
+      "FT%",
+      "3PM",
+      "3PT%",
+      "REB",
+      "AST",
+      "A/TO",
+      "STL",
+      "BLK",
+      "DD",
+      "PTS"
+    ],
+    "punt_categories": [
+      "3PM",
+      "3PT%",
+      "FT%",
+      "PTS"
+    ],
+    "slots": [
+      "PG",
+      "SG",
+      "SF",
+      "PF",
+      "C",
+      "G",
+      "F",
+      "UTIL",
+      "UTIL",
+      "UTIL",
+      "BE",
+      "BE",
+      "BE"
+    ],
+    "user_board": [
+      "Cade Cunningham",
+      "Josh Giddey",
+      "Chet Holmgren",
+      "Rudy Gobert",
+      "Stephon Castle",
+      "Ausar Thompson",
+      "Josh Hart",
+      "Isaiah Hartenstein",
+      "Cason Wallace",
+      "Mitchell Robinson",
+      "Davion Mitchell",
+      "Collin Murray-Boyles",
+      "Tre Jones"
+    ]
+  },
+  "status": "EXPLORATORY_NO_TRAINING"
+}

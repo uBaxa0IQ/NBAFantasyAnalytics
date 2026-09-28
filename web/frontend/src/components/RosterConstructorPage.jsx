@@ -250,7 +250,7 @@ export default function RosterConstructorPage({ mainTeam, projectedPeriod, leagu
             <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Состав</div><div className="mt-1 text-2xl font-bold">{roster.filter(Boolean).length} / {rounds}</div></div>
                 <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Цели</div><div className="mt-1 text-2xl font-bold">{workingInGoal} / {workingCount}</div></div>
-                <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Сбор 13</div><div className="mt-1 text-2xl font-bold">{assembly?.full_rate == null ? '—' : `${assembly.full_rate}%`}</div></div>
+                <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Сбор {rounds}</div><div className="mt-1 text-2xl font-bold">{assembly?.full_rate == null ? '—' : `${assembly.full_rate}%`}</div><div className="text-xs text-gray-400" title="Доля симуляций, где все выбранные игроки дожили до своих пиков. Не прогноз реального драфта.">все цели доступны вместе · симуляция</div></div>
                 <div className="rounded-xl border bg-white p-4"><div className="text-xs text-gray-500">Ядро</div><div className="mt-1 text-2xl font-bold">{assembly?.core_rate == null ? '—' : `${assembly.core_rate}%`}</div><div className="text-xs text-gray-400">рынок ≤ пик+{8}</div></div>
             </section>
             {loading && <div className="text-sm text-gray-500">Собираем пул игроков…</div>}
@@ -321,7 +321,7 @@ export default function RosterConstructorPage({ mainTeam, projectedPeriod, leagu
                                             ) : (
                                                 <div className="flex-1 text-sm text-gray-400">Перетащи из избранного</div>
                                             )}
-                                            <div className="w-16 text-right text-sm font-bold">
+                                            <div className="w-16 text-right text-sm font-bold" title="Доля симуляций, где игрок дожил до этого пика. Соперники выбирают по ESPN ADP или ROTO; не реальная вероятность.">
                                                 {slotInfo?.available == null ? '' : `${slotInfo.available}%`}
                                             </div>
                                             {player && <button onClick={() => clearSlot(index)} className="text-xs text-gray-500">×</button>}

@@ -1,0 +1,19 @@
+{
+  "seed": 840926,
+  "output": "artifacts/draft_ml/v84-robust-pilot",
+  "workers": 6,
+  "formats": ["main-c11-t14-r13", "s8-t10-r13"],
+  "completed_hero_picks": [0, 3, 7],
+  "replicates": 2,
+  "hero_seats": {
+    "main-c11-t14-r13": [1, 5, 9, 13],
+    "s8-t10-r13": [1, 3, 6, 9]
+  },
+  "candidate_limit": 8,
+  "screen_rollouts_per_field": 3,
+  "confirmation_rollouts_per_field": 12,
+  "terminal_draws": 4,
+  "screen_min_gain": 0.01,
+  "screen_max_field_regret": 0.02,
+  "roto_player_noise": 0.5
+}

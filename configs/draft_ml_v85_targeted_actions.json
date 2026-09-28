@@ -1,0 +1,18 @@
+{
+  "seed": 850926,
+  "output": "artifacts/draft_ml/v85-targeted-actions",
+  "workers": 6,
+  "format_id": "main-c11-t14-r13",
+  "hero_seat": 5,
+  "completed_hero_picks": [0, 3, 7],
+  "train_replicates_per_round": 18,
+  "validation_replicates_per_round": 6,
+  "holdout_replicates_per_round": 8,
+  "candidate_limit": 8,
+  "label_rollouts_per_field": 6,
+  "confirmation_rollouts_per_field": 16,
+  "terminal_draws": 4,
+  "roto_player_noise": 0.5,
+  "screen_min_gain": 0.01,
+  "screen_max_field_regret": 0.02
+}

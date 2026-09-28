@@ -1,0 +1,16 @@
+{
+  "seed": 841027,
+  "output": "artifacts/draft_ml/v84-seat5-confirmation",
+  "workers": 6,
+  "formats": ["main-c11-t14-r13"],
+  "completed_hero_picks": [0, 3, 7],
+  "replicates": 8,
+  "hero_seats": {"main-c11-t14-r13": [5]},
+  "candidate_limit": 8,
+  "screen_rollouts_per_field": 6,
+  "confirmation_rollouts_per_field": 16,
+  "terminal_draws": 4,
+  "screen_min_gain": 0.01,
+  "screen_max_field_regret": 0.02,
+  "roto_player_noise": 0.5
+}

@@ -81,7 +81,7 @@ def _draft_once(
     hero_market=None,
 ):
     policy_modes = {"model": "legacy", "adaptive": "adaptive", "adaptive_heuristic": "adaptive_heuristic"}
-    if strategy["policy"] not in {*policy_modes, "roto", "adp"}:
+    if strategy["policy"] not in {*policy_modes, "roto", "adp", "board"}:
         raise ValueError(f"Unknown draft policy: {strategy['policy']}")
     remaining = {_identity(player): player for player in deepcopy(players)}
     perceived = {_identity(player): player for player in deepcopy(hero_market_players)} if hero_market_players is not None else None
@@ -92,27 +92,36 @@ def _draft_once(
         if not remaining:
             break
         drafting_slot = _slot_at_pick(overall, team_count)
-        if drafting_slot == hero_slot and strategy["policy"] in policy_modes:
+        if drafting_slot == hero_slot and strategy["policy"] in {*policy_modes, "board"}:
             market_order = sorted(
                 ([(hero_market or market)[identity], perceived[identity] if perceived is not None else player]
                  for identity, player in remaining.items()),
                 key=lambda item: item[0],
             )
             pick_index = hero_picks.index(overall)
-            selected = _select_player(
-                market_order,
-                rosters[hero_slot],
-                overall,
-                rounds - pick_index,
-                next_own_pick=_next_turn_pick(hero_picks, pick_index),
-                punt_categories=strategy["punts"],
-                opponent_rosters=[rosters[slot] for slot in rosters if slot != hero_slot],
-                rounds=rounds,
-                team_count=team_count,
-                roster_slots=roster_slots,
-                categories=categories,
-                policy_mode=policy_modes[strategy["policy"]],
-            )
+            selected = None
+            if strategy["policy"] == "board":
+                targets = strategy.get("targets") or ()
+                if pick_index < len(targets):
+                    target = targets[pick_index]
+                    feasible = _feasible_pool(remaining.values(), rosters[hero_slot],
+                                              rounds - pick_index, roster_slots)
+                    selected = next((player for player in feasible if player.get("name") == target), None)
+            if selected is None:
+                selected = _select_player(
+                    market_order,
+                    rosters[hero_slot],
+                    overall,
+                    rounds - pick_index,
+                    next_own_pick=_next_turn_pick(hero_picks, pick_index),
+                    punt_categories=strategy["punts"],
+                    opponent_rosters=[rosters[slot] for slot in rosters if slot != hero_slot],
+                    rounds=rounds,
+                    team_count=team_count,
+                    roster_slots=roster_slots,
+                    categories=categories,
+                    policy_mode=policy_modes.get(strategy["policy"], "adaptive_heuristic"),
+                )
         elif drafting_slot == hero_slot:
             candidates = _feasible_pool(remaining.values(), rosters[hero_slot], rounds - len(rosters[hero_slot]), roster_slots)
             selected = min(
@@ -150,8 +159,14 @@ def _draft_once(
                 selected = min(
                     candidates,
                     key=lambda player: (
+                        # Apply the scenario's player-specific draft deviation to
+                        # the selected opponent board. The old ordering used the
+                        # fixed rank first, making the sampled opponent_rank a
+                        # tie-breaker and draft availability nearly deterministic.
+                        _rank_value(player, rank_field)
+                        + opponent_rank[_identity(player)]
+                        - _rank_value(player, "espn_roto_rank"),
                         _rank_value(player, rank_field),
-                        opponent_rank[_identity(player)],
                     ),
                 )
         rosters[drafting_slot].append(selected)

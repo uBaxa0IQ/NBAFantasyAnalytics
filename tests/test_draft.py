@@ -20,7 +20,7 @@ from web.backend.services.draft_advisor import (
     score_draft_pick,
 )
 from web.backend.services.draft_benchmark import benchmark_adaptive_vs_legacy, benchmark_draft_strategies, benchmark_punt_strategies, evaluate_projected_rosters
-from web.backend.services.draft_simulation import _adp_value, _draft_price, _evaluate_rosters, _next_turn_pick, _select_player, annotate_availability, conditional_availability, simulate_draft_market, snake_pick_numbers, unfilled_roster_slots
+from web.backend.services.draft_simulation import _adp_value, _draft_price, _evaluate_rosters, _next_turn_pick, _select_player, annotate_availability, conditional_availability, conditional_player_availability, simulate_draft_market, snake_pick_numbers, unfilled_roster_slots
 from web.backend.services.draft_strategy import strategy_library, strategy_probabilities
 from web.backend.services import draft_learning
 from web.backend.services.espn_market import _serialize_player, blended_market_pick
@@ -227,6 +227,20 @@ def test_adp_availability_falls_as_target_pick_moves_later():
     late = conditional_availability(30.0, target_pick=40, current_pick=1)
 
     assert early > late
+
+
+def test_live_availability_does_not_hide_early_adp_behind_blended_market():
+    castle = {"espn_market_pick": 77.3, "espn_adp": 50.1, "espn_roto_rank": 92}
+    blended_only = conditional_availability(77.3, 61)
+    conservative = conditional_player_availability(castle, 61)
+    assert conservative < blended_only
+    assert conservative < 35
+
+
+def test_censored_late_adp_does_not_create_false_urgency():
+    davion = {"espn_market_pick": 160.4, "espn_adp": 139.5,
+              "espn_roto_rank": 175}
+    assert conditional_player_availability(davion, 145) > conditional_availability(139.5, 145)
 
 
 def test_draft_choice_waits_on_large_reach_when_player_should_survive():

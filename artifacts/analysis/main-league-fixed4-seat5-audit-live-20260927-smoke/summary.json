@@ -1,0 +1,1613 @@
+{
+  "status": "COMPLETE_EXPLORATORY_NOT_REAL_DRAFT_PROOF",
+  "runs": 2,
+  "seat": 5,
+  "rounds": 13,
+  "punts": [
+    "3PM",
+    "3PT%",
+    "FT%",
+    "PTS"
+  ],
+  "by_strategy": {
+    "user_board": {
+      "metrics": {
+        "matchup_win_rate": {
+          "n": 2,
+          "mean": 0.7692307692307692,
+          "ci95": [
+            0.3169230769230769,
+            1.2215384615384615
+          ]
+        },
+        "decisive_matchup_win_rate": {
+          "n": 2,
+          "mean": 0.38461538461538464,
+          "ci95": [
+            -0.3692307692307691,
+            1.1384615384615384
+          ]
+        },
+        "average_matchup_margin": {
+          "n": 2,
+          "mean": 0.7307692307692307,
+          "ci95": [
+            -0.7769230769230767,
+            2.238461538461538
+          ]
+        },
+        "average_matchup_score": {
+          "n": 2,
+          "mean": 6.230769230769231,
+          "ci95": [
+            4.723076923076923,
+            7.7384615384615385
+          ]
+        },
+        "category_wins": {
+          "n": 2,
+          "mean": 6.230769230769231,
+          "ci95": [
+            4.723076923076923,
+            7.7384615384615385
+          ]
+        }
+      },
+      "category_win_rates": {
+        "FG%": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "FT%": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PM": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PT%": {
+          "n": 2,
+          "mean": 0.19230769230769232,
+          "ci95": [
+            -0.18461538461538454,
+            0.5692307692307692
+          ]
+        },
+        "REB": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "AST": {
+          "n": 2,
+          "mean": 0.6538461538461539,
+          "ci95": [
+            0.12615384615384617,
+            1.1815384615384614
+          ]
+        },
+        "A/TO": {
+          "n": 2,
+          "mean": 0.7692307692307692,
+          "ci95": [
+            0.3169230769230769,
+            1.2215384615384615
+          ]
+        },
+        "STL": {
+          "n": 2,
+          "mean": 0.6538461538461539,
+          "ci95": [
+            0.4276923076923077,
+            0.88
+          ]
+        },
+        "BLK": {
+          "n": 2,
+          "mean": 0.9615384615384616,
+          "ci95": [
+            0.8861538461538463,
+            1.0369230769230768
+          ]
+        },
+        "DD": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "PTS": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "common_players": [
+        {
+          "name": "Cade Cunningham",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Chet Holmgren",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Rudy Gobert",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Ausar Thompson",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Isaiah Hartenstein",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Collin Murray-Boyles",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Tre Jones",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Josh Giddey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Donovan Clingan",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Josh Hart",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Nic Claxton",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Scotty Pippen Jr.",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jalen Duren",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jarrett Allen",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Ivica Zubac",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Kevin Porter Jr.",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Oso Ighodaro",
+          "draft_rate": 0.5
+        }
+      ],
+      "target_hit_rates": [
+        {
+          "pick": 1,
+          "name": "Cade Cunningham",
+          "rate": 1.0
+        },
+        {
+          "pick": 2,
+          "name": "Josh Giddey",
+          "rate": 0.5
+        },
+        {
+          "pick": 3,
+          "name": "Chet Holmgren",
+          "rate": 1.0
+        },
+        {
+          "pick": 4,
+          "name": "Rudy Gobert",
+          "rate": 1.0
+        },
+        {
+          "pick": 5,
+          "name": "Stephon Castle",
+          "rate": 0.0
+        },
+        {
+          "pick": 6,
+          "name": "Ausar Thompson",
+          "rate": 1.0
+        },
+        {
+          "pick": 7,
+          "name": "Josh Hart",
+          "rate": 0.5
+        },
+        {
+          "pick": 8,
+          "name": "Isaiah Hartenstein",
+          "rate": 0.5
+        },
+        {
+          "pick": 9,
+          "name": "Cason Wallace",
+          "rate": 0.0
+        },
+        {
+          "pick": 10,
+          "name": "Mitchell Robinson",
+          "rate": 0.0
+        },
+        {
+          "pick": 11,
+          "name": "Davion Mitchell",
+          "rate": 1.0
+        },
+        {
+          "pick": 12,
+          "name": "Collin Murray-Boyles",
+          "rate": 1.0
+        },
+        {
+          "pick": 13,
+          "name": "Tre Jones",
+          "rate": 1.0
+        }
+      ]
+    },
+    "first_three": {
+      "metrics": {
+        "matchup_win_rate": {
+          "n": 2,
+          "mean": 0.8461538461538463,
+          "ci95": [
+            0.6953846153846155,
+            0.996923076923077
+          ]
+        },
+        "decisive_matchup_win_rate": {
+          "n": 2,
+          "mean": 0.3076923076923077,
+          "ci95": [
+            0.3076923076923077,
+            0.3076923076923077
+          ]
+        },
+        "average_matchup_margin": {
+          "n": 2,
+          "mean": 0.6923076923076923,
+          "ci95": [
+            0.46615384615384614,
+            0.9184615384615384
+          ]
+        },
+        "average_matchup_score": {
+          "n": 2,
+          "mean": 6.192307692307692,
+          "ci95": [
+            5.966153846153845,
+            6.418461538461538
+          ]
+        },
+        "category_wins": {
+          "n": 2,
+          "mean": 6.192307692307692,
+          "ci95": [
+            5.966153846153845,
+            6.418461538461538
+          ]
+        }
+      },
+      "category_win_rates": {
+        "FG%": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "FT%": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PM": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PT%": {
+          "n": 2,
+          "mean": 0.2692307692307692,
+          "ci95": [
+            -0.25846153846153846,
+            0.7969230769230768
+          ]
+        },
+        "REB": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "AST": {
+          "n": 2,
+          "mean": 0.5769230769230769,
+          "ci95": [
+            0.3507692307692308,
+            0.803076923076923
+          ]
+        },
+        "A/TO": {
+          "n": 2,
+          "mean": 0.8076923076923077,
+          "ci95": [
+            0.5815384615384616,
+            1.0338461538461539
+          ]
+        },
+        "STL": {
+          "n": 2,
+          "mean": 0.576923076923077,
+          "ci95": [
+            -0.10153846153846147,
+            1.2553846153846155
+          ]
+        },
+        "BLK": {
+          "n": 2,
+          "mean": 0.9615384615384616,
+          "ci95": [
+            0.8861538461538463,
+            1.0369230769230768
+          ]
+        },
+        "DD": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "PTS": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "common_players": [
+        {
+          "name": "Cade Cunningham",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Chet Holmgren",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Rudy Gobert",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Ivica Zubac",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Collin Murray-Boyles",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Josh Giddey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jarrett Allen",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Josh Hart",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Nic Claxton",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Zach Edey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jrue Holiday",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jalen Duren",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Dyson Daniels",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Ausar Thompson",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Kevin Porter Jr.",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Oso Ighodaro",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Isaiah Hartenstein",
+          "draft_rate": 0.5
+        }
+      ],
+      "target_hit_rates": [
+        {
+          "pick": 1,
+          "name": "Cade Cunningham",
+          "rate": 1.0
+        },
+        {
+          "pick": 2,
+          "name": "Josh Giddey",
+          "rate": 0.5
+        },
+        {
+          "pick": 3,
+          "name": "Chet Holmgren",
+          "rate": 1.0
+        }
+      ]
+    },
+    "first_two": {
+      "metrics": {
+        "matchup_win_rate": {
+          "n": 2,
+          "mean": 0.9230769230769231,
+          "ci95": [
+            0.7723076923076924,
+            1.073846153846154
+          ]
+        },
+        "decisive_matchup_win_rate": {
+          "n": 2,
+          "mean": 0.46153846153846156,
+          "ci95": [
+            0.46153846153846156,
+            0.46153846153846156
+          ]
+        },
+        "average_matchup_margin": {
+          "n": 2,
+          "mean": 0.9615384615384616,
+          "ci95": [
+            0.6600000000000001,
+            1.263076923076923
+          ]
+        },
+        "average_matchup_score": {
+          "n": 2,
+          "mean": 6.461538461538462,
+          "ci95": [
+            6.16,
+            6.763076923076923
+          ]
+        },
+        "category_wins": {
+          "n": 2,
+          "mean": 6.461538461538462,
+          "ci95": [
+            6.16,
+            6.763076923076923
+          ]
+        }
+      },
+      "category_win_rates": {
+        "FG%": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "FT%": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PM": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PT%": {
+          "n": 2,
+          "mean": 0.34615384615384615,
+          "ci95": [
+            -0.3323076923076923,
+            1.0246153846153847
+          ]
+        },
+        "REB": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "AST": {
+          "n": 2,
+          "mean": 0.7307692307692308,
+          "ci95": [
+            0.6553846153846155,
+            0.8061538461538462
+          ]
+        },
+        "A/TO": {
+          "n": 2,
+          "mean": 0.8076923076923077,
+          "ci95": [
+            0.7323076923076923,
+            0.8830769230769231
+          ]
+        },
+        "STL": {
+          "n": 2,
+          "mean": 0.6923076923076923,
+          "ci95": [
+            0.08923076923076934,
+            1.2953846153846151
+          ]
+        },
+        "BLK": {
+          "n": 2,
+          "mean": 0.8846153846153846,
+          "ci95": [
+            0.8092307692307692,
+            0.96
+          ]
+        },
+        "DD": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "PTS": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "common_players": [
+        {
+          "name": "Cade Cunningham",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jalen Duren",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jarrett Allen",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Rudy Gobert",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Ivica Zubac",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Josh Giddey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Josh Hart",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Nic Claxton",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Zach Edey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Kyshawn George",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Collin Murray-Boyles",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Dyson Daniels",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Ausar Thompson",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Oso Ighodaro",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Kevin Porter Jr.",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Isaiah Hartenstein",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Draymond Green",
+          "draft_rate": 0.5
+        }
+      ],
+      "target_hit_rates": [
+        {
+          "pick": 1,
+          "name": "Cade Cunningham",
+          "rate": 1.0
+        },
+        {
+          "pick": 2,
+          "name": "Josh Giddey",
+          "rate": 0.5
+        }
+      ]
+    },
+    "adaptive_four": {
+      "metrics": {
+        "matchup_win_rate": {
+          "n": 2,
+          "mean": 0.7692307692307693,
+          "ci95": [
+            0.7692307692307693,
+            0.7692307692307693
+          ]
+        },
+        "decisive_matchup_win_rate": {
+          "n": 2,
+          "mean": 0.3076923076923077,
+          "ci95": [
+            0.15692307692307697,
+            0.4584615384615385
+          ]
+        },
+        "average_matchup_margin": {
+          "n": 2,
+          "mean": 0.5384615384615384,
+          "ci95": [
+            0.3123076923076923,
+            0.7646153846153846
+          ]
+        },
+        "average_matchup_score": {
+          "n": 2,
+          "mean": 6.038461538461538,
+          "ci95": [
+            5.812307692307692,
+            6.264615384615385
+          ]
+        },
+        "category_wins": {
+          "n": 2,
+          "mean": 6.038461538461538,
+          "ci95": [
+            5.812307692307692,
+            6.264615384615385
+          ]
+        }
+      },
+      "category_win_rates": {
+        "FG%": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "FT%": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PM": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PT%": {
+          "n": 2,
+          "mean": 0.4230769230769231,
+          "ci95": [
+            -0.40615384615384603,
+            1.2523076923076921
+          ]
+        },
+        "REB": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "AST": {
+          "n": 2,
+          "mean": 0.34615384615384615,
+          "ci95": [
+            -0.030769230769230715,
+            0.723076923076923
+          ]
+        },
+        "A/TO": {
+          "n": 2,
+          "mean": 0.5384615384615384,
+          "ci95": [
+            0.23692307692307696,
+            0.8399999999999999
+          ]
+        },
+        "STL": {
+          "n": 2,
+          "mean": 0.8076923076923077,
+          "ci95": [
+            0.43076923076923085,
+            1.1846153846153846
+          ]
+        },
+        "BLK": {
+          "n": 2,
+          "mean": 0.9230769230769231,
+          "ci95": [
+            0.9230769230769231,
+            0.9230769230769231
+          ]
+        },
+        "DD": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "PTS": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "common_players": [
+        {
+          "name": "Jalen Johnson",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jalen Duren",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jarrett Allen",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Rudy Gobert",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Ausar Thompson",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Collin Murray-Boyles",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Alperen Sengun",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Josh Hart",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Nic Claxton",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Zach Edey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jrue Holiday",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Dyson Daniels",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Ivica Zubac",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Kevin Porter Jr.",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Oso Ighodaro",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Isaiah Hartenstein",
+          "draft_rate": 0.5
+        }
+      ]
+    },
+    "giannis_open": {
+      "metrics": {
+        "matchup_win_rate": {
+          "n": 2,
+          "mean": 0.6923076923076923,
+          "ci95": [
+            0.08923076923076934,
+            1.2953846153846151
+          ]
+        },
+        "decisive_matchup_win_rate": {
+          "n": 2,
+          "mean": 0.23076923076923078,
+          "ci95": [
+            0.08000000000000004,
+            0.3815384615384615
+          ]
+        },
+        "average_matchup_margin": {
+          "n": 2,
+          "mean": 0.3846153846153846,
+          "ci95": [
+            -0.5953846153846154,
+            1.3646153846153846
+          ]
+        },
+        "average_matchup_score": {
+          "n": 2,
+          "mean": 5.884615384615385,
+          "ci95": [
+            4.904615384615385,
+            6.8646153846153855
+          ]
+        },
+        "category_wins": {
+          "n": 2,
+          "mean": 5.884615384615385,
+          "ci95": [
+            4.904615384615385,
+            6.8646153846153855
+          ]
+        }
+      },
+      "category_win_rates": {
+        "FG%": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "FT%": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PM": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PT%": {
+          "n": 2,
+          "mean": 0.38461538461538464,
+          "ci95": [
+            -0.3692307692307691,
+            1.1384615384615384
+          ]
+        },
+        "REB": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "AST": {
+          "n": 2,
+          "mean": 0.38461538461538464,
+          "ci95": [
+            -0.06769230769230761,
+            0.8369230769230769
+          ]
+        },
+        "A/TO": {
+          "n": 2,
+          "mean": 0.6538461538461539,
+          "ci95": [
+            0.276923076923077,
+            1.0307692307692307
+          ]
+        },
+        "STL": {
+          "n": 2,
+          "mean": 0.5769230769230769,
+          "ci95": [
+            0.04923076923076919,
+            1.1046153846153846
+          ]
+        },
+        "BLK": {
+          "n": 2,
+          "mean": 0.8846153846153846,
+          "ci95": [
+            0.8092307692307692,
+            0.96
+          ]
+        },
+        "DD": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "PTS": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "common_players": [
+        {
+          "name": "Jalen Duren",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jarrett Allen",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Rudy Gobert",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Ivica Zubac",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Collin Murray-Boyles",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jalen Johnson",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Josh Giddey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Josh Hart",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Nic Claxton",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Zach Edey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jrue Holiday",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Giannis Antetokounmpo",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Dyson Daniels",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Ausar Thompson",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Kevin Porter Jr.",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Oso Ighodaro",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Isaiah Hartenstein",
+          "draft_rate": 0.5
+        }
+      ],
+      "target_hit_rates": [
+        {
+          "pick": 1,
+          "name": "Giannis Antetokounmpo",
+          "rate": 0.5
+        },
+        {
+          "pick": 2,
+          "name": "Josh Giddey",
+          "rate": 0.5
+        }
+      ]
+    },
+    "johnson_open": {
+      "metrics": {
+        "matchup_win_rate": {
+          "n": 2,
+          "mean": 0.8846153846153846,
+          "ci95": [
+            0.6584615384615384,
+            1.1107692307692307
+          ]
+        },
+        "decisive_matchup_win_rate": {
+          "n": 2,
+          "mean": 0.34615384615384615,
+          "ci95": [
+            0.27076923076923076,
+            0.42153846153846153
+          ]
+        },
+        "average_matchup_margin": {
+          "n": 2,
+          "mean": 0.7692307692307692,
+          "ci95": [
+            0.543076923076923,
+            0.9953846153846153
+          ]
+        },
+        "average_matchup_score": {
+          "n": 2,
+          "mean": 6.26923076923077,
+          "ci95": [
+            6.0430769230769235,
+            6.495384615384617
+          ]
+        },
+        "category_wins": {
+          "n": 2,
+          "mean": 6.26923076923077,
+          "ci95": [
+            6.0430769230769235,
+            6.495384615384617
+          ]
+        }
+      },
+      "category_win_rates": {
+        "FG%": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "FT%": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PM": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "3PT%": {
+          "n": 2,
+          "mean": 0.38461538461538464,
+          "ci95": [
+            -0.3692307692307691,
+            1.1384615384615384
+          ]
+        },
+        "REB": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "AST": {
+          "n": 2,
+          "mean": 0.5769230769230769,
+          "ci95": [
+            0.5015384615384615,
+            0.6523076923076923
+          ]
+        },
+        "A/TO": {
+          "n": 2,
+          "mean": 0.7692307692307692,
+          "ci95": [
+            0.6184615384615384,
+            0.9199999999999999
+          ]
+        },
+        "STL": {
+          "n": 2,
+          "mean": 0.6538461538461539,
+          "ci95": [
+            -0.024615384615384595,
+            1.3323076923076922
+          ]
+        },
+        "BLK": {
+          "n": 2,
+          "mean": 0.8846153846153846,
+          "ci95": [
+            0.8092307692307692,
+            0.96
+          ]
+        },
+        "DD": {
+          "n": 2,
+          "mean": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ]
+        },
+        "PTS": {
+          "n": 2,
+          "mean": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "common_players": [
+        {
+          "name": "Jalen Johnson",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jalen Duren",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Jarrett Allen",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Rudy Gobert",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Ivica Zubac",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Davion Mitchell",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Moussa Diabate",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Collin Murray-Boyles",
+          "draft_rate": 1.0
+        },
+        {
+          "name": "Josh Giddey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Josh Hart",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Nic Claxton",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Zach Edey",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Jrue Holiday",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Dyson Daniels",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Ausar Thompson",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Kevin Porter Jr.",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Oso Ighodaro",
+          "draft_rate": 0.5
+        },
+        {
+          "name": "Isaiah Hartenstein",
+          "draft_rate": 0.5
+        }
+      ],
+      "target_hit_rates": [
+        {
+          "pick": 1,
+          "name": "Jalen Johnson",
+          "rate": 1.0
+        },
+        {
+          "pick": 2,
+          "name": "Josh Giddey",
+          "rate": 0.5
+        }
+      ]
+    }
+  },
+  "paired_vs_user_board": {
+    "first_three": {
+      "matchup_win_rate": {
+        "n": 2,
+        "mean": 0.07692307692307698,
+        "ci95": [
+          -0.2246153846153845,
+          0.37846153846153846
+        ]
+      },
+      "decisive_matchup_win_rate": {
+        "n": 2,
+        "mean": -0.07692307692307693,
+        "ci95": [
+          -0.8307692307692307,
+          0.6769230769230767
+        ]
+      },
+      "average_matchup_margin": {
+        "n": 2,
+        "mean": -0.03846153846153849,
+        "ci95": [
+          -1.3199999999999996,
+          1.2430769230769225
+        ]
+      },
+      "average_matchup_score": {
+        "n": 2,
+        "mean": -0.03846153846153877,
+        "ci95": [
+          -1.3199999999999998,
+          1.2430769230769223
+        ]
+      },
+      "category_wins": {
+        "n": 2,
+        "mean": -0.03846153846153877,
+        "ci95": [
+          -1.3199999999999998,
+          1.2430769230769223
+        ]
+      }
+    },
+    "first_two": {
+      "matchup_win_rate": {
+        "n": 2,
+        "mean": 0.15384615384615385,
+        "ci95": [
+          -0.14769230769230762,
+          0.45538461538461533
+        ]
+      },
+      "decisive_matchup_win_rate": {
+        "n": 2,
+        "mean": 0.07692307692307693,
+        "ci95": [
+          -0.6769230769230767,
+          0.8307692307692307
+        ]
+      },
+      "average_matchup_margin": {
+        "n": 2,
+        "mean": 0.23076923076923078,
+        "ci95": [
+          -0.9753846153846151,
+          1.4369230769230767
+        ]
+      },
+      "average_matchup_score": {
+        "n": 2,
+        "mean": 0.2307692307692304,
+        "ci95": [
+          -0.9753846153846155,
+          1.4369230769230763
+        ]
+      },
+      "category_wins": {
+        "n": 2,
+        "mean": 0.2307692307692304,
+        "ci95": [
+          -0.9753846153846155,
+          1.4369230769230763
+        ]
+      }
+    },
+    "adaptive_four": {
+      "matchup_win_rate": {
+        "n": 2,
+        "mean": 5.551115123125783e-17,
+        "ci95": [
+          -0.4523076923076922,
+          0.4523076923076923
+        ]
+      },
+      "decisive_matchup_win_rate": {
+        "n": 2,
+        "mean": -0.07692307692307696,
+        "ci95": [
+          -0.9815384615384615,
+          0.8276923076923075
+        ]
+      },
+      "average_matchup_margin": {
+        "n": 2,
+        "mean": -0.1923076923076923,
+        "ci95": [
+          -1.926153846153846,
+          1.5415384615384615
+        ]
+      },
+      "average_matchup_score": {
+        "n": 2,
+        "mean": -0.19230769230769207,
+        "ci95": [
+          -1.9261538461538459,
+          1.5415384615384617
+        ]
+      },
+      "category_wins": {
+        "n": 2,
+        "mean": -0.19230769230769207,
+        "ci95": [
+          -1.9261538461538459,
+          1.5415384615384617
+        ]
+      }
+    },
+    "giannis_open": {
+      "matchup_win_rate": {
+        "n": 2,
+        "mean": -0.0769230769230769,
+        "ci95": [
+          -0.22769230769230758,
+          0.07384615384615378
+        ]
+      },
+      "decisive_matchup_win_rate": {
+        "n": 2,
+        "mean": -0.15384615384615385,
+        "ci95": [
+          -0.7569230769230768,
+          0.4492307692307691
+        ]
+      },
+      "average_matchup_margin": {
+        "n": 2,
+        "mean": -0.34615384615384615,
+        "ci95": [
+          -0.8738461538461538,
+          0.18153846153846154
+        ]
+      },
+      "average_matchup_score": {
+        "n": 2,
+        "mean": -0.3461538461538458,
+        "ci95": [
+          -0.8738461538461534,
+          0.18153846153846176
+        ]
+      },
+      "category_wins": {
+        "n": 2,
+        "mean": -0.3461538461538458,
+        "ci95": [
+          -0.8738461538461534,
+          0.18153846153846176
+        ]
+      }
+    },
+    "johnson_open": {
+      "matchup_win_rate": {
+        "n": 2,
+        "mean": 0.11538461538461542,
+        "ci95": [
+          -0.11076923076923076,
+          0.34153846153846157
+        ]
+      },
+      "decisive_matchup_win_rate": {
+        "n": 2,
+        "mean": -0.038461538461538464,
+        "ci95": [
+          -0.8676923076923078,
+          0.7907692307692309
+        ]
+      },
+      "average_matchup_margin": {
+        "n": 2,
+        "mean": 0.038461538461538436,
+        "ci95": [
+          -1.2430769230769232,
+          1.3199999999999998
+        ]
+      },
+      "average_matchup_score": {
+        "n": 2,
+        "mean": 0.03846153846153877,
+        "ci95": [
+          -1.2430769230769223,
+          1.3199999999999998
+        ]
+      },
+      "category_wins": {
+        "n": 2,
+        "mean": 0.03846153846153877,
+        "ci95": [
+          -1.2430769230769223,
+          1.3199999999999998
+        ]
+      }
+    }
+  },
+  "limitations": [
+    "Opponents are synthetic ESPN draft/ROTO followers with stochastic rank deviations.",
+    "ESPN market pick is a blended indicator, not observed survival in this private league.",
+    "Matchups use projected season totals with GP/stat noise, not weekly schedule.",
+    "DD values are derived estimates; board fallback is the four-punt heuristic."
+  ],
+  "provenance": "2782fcb076d792975fe0b4c3a60f0f5b396caad15495a54a52cfc9b2bcc1ff82"
+}

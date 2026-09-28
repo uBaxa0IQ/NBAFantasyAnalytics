@@ -48,3 +48,14 @@ def test_early_adp_survives_first_pick_and_dies_late():
     assert late["slots"][1]["available"] < 20.0
     assert late["full_rate"] < 20.0
     assert early["core_rate"] == 100.0
+
+
+def test_constructor_does_not_hide_early_adp_behind_late_roto_rank():
+    players = [_player(index, f"P{index}", index) for index in range(1, 21)]
+    split = players[-1]
+    split["espn_adp"] = 2.0
+    split["espn_roto_rank"] = 15
+    split["espn_market_pick"] = 12.0
+    result = simulate_assembly(players, [None, split["player_id"]], slot=4, team_count=4, rounds=2, runs=100)
+    assert result["slots"][1]["pick"] == 5
+    assert result["slots"][1]["available"] < 90.0

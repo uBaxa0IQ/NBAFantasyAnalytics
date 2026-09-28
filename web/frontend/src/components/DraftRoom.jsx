@@ -208,6 +208,7 @@ const DraftRoom = ({
                     onDraftPlayer={onDraftPlayer}
                     highlightedPlayerId={highlightedPlayerId}
                     showMarket
+                    pickGap={picksUntil}
                     emptyLabel="Нет доступных игроков"
                 />
             </section>
@@ -235,7 +236,7 @@ const marketPick = player => {
     return value == null || Number.isNaN(Number(value)) ? null : Number(value);
 };
 
-const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, onDraftPlayer, highlightedPlayerId, showMarket = false, showPick = false, emptyLabel }) => {
+const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, onDraftPlayer, highlightedPlayerId, showMarket = false, showPick = false, pickGap = null, emptyLabel }) => {
     const [sortBy, setSortBy] = useState(showPick ? 'draft_pick' : 'total_z');
     const [sortDir, setSortDir] = useState(showPick ? 'asc' : 'desc');
     const handleSort = column => {
@@ -258,6 +259,13 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
     }), [players, sortBy, sortDir, puntCategories, categories]);
     const generalZ = player => categories.reduce((total, category) => total + Number(player.z_scores?.[category] || 0), 0);
 
+    const columnCount = (showPick ? 1 : 0) + 1 + (showMarket ? 1 : 0) + 1 + categories.length;
+    const gap = Number(pickGap);
+    const pickLineAt = sortBy === 'espn_market_pick' && gap > 0
+        ? (sortDir === 'asc' ? gap : sorted.length - gap)
+        : null;
+    const showPickLine = pickLineAt > 0 && pickLineAt < sorted.length;
+
     if (!sorted.length) return <div className="border-t p-8 text-center text-sm text-gray-400">{emptyLabel}</div>;
     return (
         <div className="overflow-x-auto border-t">
@@ -269,12 +277,17 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
                     <th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
                     {categories.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
                 </tr></thead>
-                <tbody>{sorted.map(player => {
+                <tbody>{sorted.map((player, index) => {
                     const total = strategyZ(player, puntCategories, categories);
                     const highlighted = highlightedPlayerId != null && String(highlightedPlayerId) === String(player.player_id);
                     return (
+                        <React.Fragment key={player.player_id || player.name}>
+                        {showPickLine && index === pickLineAt && (
+                            <tr>
+                                <td colSpan={columnCount} className="border-y border-gray-200 bg-gray-50 px-3 py-1 text-center text-xs text-gray-400">через {gap}</td>
+                            </tr>
+                        )}
                         <tr
-                            key={player.player_id || player.name}
                             onClick={() => (onDraftPlayer || onPlayerClick)?.(player)}
                             className={`cursor-pointer ${highlighted ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                         >
@@ -293,6 +306,7 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
                                 return <td key={category} className={`border p-2 text-center ${tone(value)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{value.toFixed(2)}</td>;
                             })}
                         </tr>
+                        </React.Fragment>
                     );
                 })}</tbody>
             </table>

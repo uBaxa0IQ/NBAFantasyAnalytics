@@ -617,7 +617,14 @@ const AdvicePlayerRow = ({ player, index, onPlayerClick, featured = false }) => 
             </div>
             <div className="text-right">
                 <div className="text-lg font-bold">{Number(player.score ?? player.total_z ?? 0).toFixed(1)}</div>
-                {player.availability_probability != null && <div className="text-xs text-blue-600">{player.availability_probability}%</div>}
+                {player.availability_probability != null && (
+                    <div
+                        className="text-xs text-blue-600"
+                        title="Консервативная оценка доступности: учитывает ESPN ADP и ROTO, не только смешанный рынок. Не является гарантией."
+                    >
+                        {player.availability_probability}%
+                    </div>
+                )}
             </div>
         </div>
     );

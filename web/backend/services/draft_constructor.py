@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from core.config import CATEGORIES
 
-from .draft_benchmark import _identity, _scenario
+from .draft_benchmark import _identity, _rank_value, _scenario
 from .draft_evaluation import projected_team_totals
 from .draft_mock import _public_player
 from .draft_simulation import _market_position, snake_pick_numbers
@@ -91,7 +91,12 @@ def _is_core(player, pick):
 
 
 def simulate_assembly(players, roster_ids, slot, team_count, rounds, runs=AVAILABILITY_RUNS):
-    """Share of noisy-market snakes where each assigned name is still there at its pick."""
+    """Target survival against mixed ADP/ROTO opponent boards.
+
+    A single blended-market order hides early ADP selections (e.g. a player
+    whose ROTO rank is much later). Each opposing seat now follows one of the
+    two boards with per-player scenario noise, as in the benchmark field.
+    """
     by_id = {
         int(player["player_id"]): player
         for player in players
@@ -134,19 +139,28 @@ def simulate_assembly(players, roster_ids, slot, team_count, rounds, runs=AVAILA
     full_hits = 0
     core_hits = 0
 
-    def take_next(order, taken, cursor):
-        while cursor < len(order) and order[cursor] in taken:
-            cursor += 1
-        if cursor < len(order):
-            taken.add(order[cursor])
-            cursor += 1
-        return cursor
+    def take_next(order, taken):
+        for identity in order:
+            if identity not in taken:
+                taken.add(identity)
+                return
 
     for run in range(max(1, int(runs))):
-        market, _opponent = _scenario(players, AVAILABILITY_SEED, run)
-        order = sorted(identities, key=lambda identity: market.get(identity, 10_000))
+        market, opponent_rank = _scenario(players, AVAILABILITY_SEED, run)
+        hero_order = sorted(identities, key=lambda identity: market.get(identity, 10_000))
+        by_identity = {_identity(player): player for player in players}
+        orders = {}
+        for opponent_slot in range(1, team_count + 1):
+            if opponent_slot == slot:
+                continue
+            field = "espn_roto_rank" if opponent_slot % 2 else "espn_adp"
+            orders[opponent_slot] = sorted(identities, key=lambda identity: (
+                _rank_value(by_identity[identity], field)
+                + opponent_rank[identity]
+                - _rank_value(by_identity[identity], "espn_roto_rank"),
+                _rank_value(by_identity[identity], field),
+            ))
         taken = set()
-        cursor = 0
         run_hits = set()
         for overall in range(1, total_picks + 1):
             target = target_at.get(overall)
@@ -158,9 +172,11 @@ def simulate_assembly(players, roster_ids, slot, team_count, rounds, runs=AVAILA
                     run_hits.add(index)
                     slot_hits[index] += 1
                 else:
-                    cursor = take_next(order, taken, cursor)
+                    take_next(hero_order, taken)
                 continue
-            cursor = take_next(order, taken, cursor)
+            round_index, seat_index = divmod(overall - 1, team_count)
+            drafting_slot = seat_index + 1 if round_index % 2 == 0 else team_count - seat_index
+            take_next(hero_order if drafting_slot == slot else orders[drafting_slot], taken)
         if named_indexes <= run_hits:
             full_hits += 1
         if not core_indexes or core_indexes <= run_hits:
