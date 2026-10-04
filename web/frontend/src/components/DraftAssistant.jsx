@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
+import { compareEspnDraftRank, espnDraftRank } from '../utils/espnDraftRank';
 import DraftRoom from './DraftRoom';
 const recommendationsCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
@@ -304,6 +305,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         ));
         players.sort((a, b) => {
             if (sortBy === 'name') return sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+            if (sortBy === 'espn_roto_rank') return compareEspnDraftRank(a, b, sortDir);
             const readValue = player => {
                 if (sortBy === 'total_z') return calculateStrategyZ(player, puntCategories);
                 if (sortBy === 'espn_adp') return player.espn_adp ?? Number.POSITIVE_INFINITY;
@@ -377,7 +379,7 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         if (sortBy === column) setSortDir(current => current === 'asc' ? 'desc' : 'asc');
         else {
             setSortBy(column);
-            setSortDir(column === 'espn_adp' ? 'asc' : 'desc');
+            setSortDir(column === 'espn_adp' || column === 'espn_roto_rank' ? 'asc' : 'desc');
         }
     };
     const SortIcon = ({ column }) => sortBy === column ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ⇅';
@@ -545,12 +547,14 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                         </div>
                         <div className="overflow-x-auto"><table className="min-w-full border-collapse bg-white text-sm"><thead><tr className="bg-gray-100">
                             <th onClick={() => handleSort('name')} className="cursor-pointer whitespace-nowrap border p-2">Игрок<SortIcon column="name" /></th><th className="border p-2">Поз.</th><th className="border p-2">NBA</th><th onClick={() => handleSort('games_played')} className="cursor-pointer border p-2">GP<SortIcon column="games_played" /></th>
+                            {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_roto_rank')} title="Место в общем списке ESPN ROTO" className="cursor-pointer whitespace-nowrap border p-2">ESPN №<SortIcon column="espn_roto_rank" /></th>}
                             {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2">Оценка рынка<SortIcon column="espn_market_pick" /></th>}<th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
                             {CATEGORIES.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
                         </tr></thead><tbody>{visiblePlayers.map(player => {
                             const strategyZ = calculateStrategyZ(player, puntCategories);
                             return <tr key={player.player_id || player.name} className="hover:bg-gray-50">
                             <td className="cursor-pointer whitespace-nowrap border p-2 font-medium text-blue-600 hover:underline" onClick={() => onPlayerClick?.(player)}>{player.name}</td><td className="border p-2 text-center">{player.position}</td><td className="border p-2 text-center">{player.nba_team}</td><td className="border p-2 text-center">{player.games_played || '—'}</td>
+                            {effectivePlayersView === 'draft' && <td className="border p-2 text-center">{espnDraftRank(player) ?? '—'}</td>}
                             {effectivePlayersView === 'draft' && <td className="border p-2 text-center">{player.espn_market_pick?.toFixed(1) || '—'}</td>}<td className={`border p-2 text-center font-bold ${zTextTone(strategyZ)}`}>{strategyZ.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>}</td>
                             {CATEGORIES.map(category => { const value = effectivePlayersView === 'stats' ? player.stats?.[category] : player.z_scores?.[category]; const zScore = Number(player.z_scores?.[category] || 0); return <td key={category} className={`border p-2 text-center ${zTextTone(zScore)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{effectivePlayersView === 'stats' ? formatStat(category, value) : zScore.toFixed(2)}</td>; })}
                         </tr>;

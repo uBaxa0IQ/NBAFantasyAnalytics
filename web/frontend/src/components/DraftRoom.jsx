@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
+import { compareEspnDraftRank, espnDraftRank } from '../utils/espnDraftRank';
 
 const formatStat = (category, value) => {
     if (value == null || Number.isNaN(Number(value))) return '—';
@@ -243,12 +244,13 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
         if (sortBy === column) setSortDir(current => current === 'asc' ? 'desc' : 'asc');
         else {
             setSortBy(column);
-            setSortDir(column === 'name' || column === 'espn_market_pick' || column === 'draft_pick' ? 'asc' : 'desc');
+            setSortDir(column === 'name' || column === 'espn_market_pick' || column === 'espn_roto_rank' || column === 'draft_pick' ? 'asc' : 'desc');
         }
     };
     const SortIcon = ({ column }) => <span className="ml-1 text-gray-400">{sortBy === column ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}</span>;
     const sorted = useMemo(() => [...players].sort((left, right) => {
         if (sortBy === 'name') return sortDir === 'asc' ? left.name.localeCompare(right.name) : right.name.localeCompare(left.name);
+        if (sortBy === 'espn_roto_rank') return compareEspnDraftRank(left, right, sortDir);
         const read = player => {
             if (sortBy === 'total_z') return strategyZ(player, puntCategories, categories);
             if (sortBy === 'espn_market_pick') return marketPick(player) ?? 9999;
@@ -259,7 +261,7 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
     }), [players, sortBy, sortDir, puntCategories, categories]);
     const generalZ = player => categories.reduce((total, category) => total + Number(player.z_scores?.[category] || 0), 0);
 
-    const columnCount = (showPick ? 1 : 0) + 1 + (showMarket ? 1 : 0) + 1 + categories.length;
+    const columnCount = (showPick ? 1 : 0) + 1 + (showMarket ? 2 : 0) + 1 + categories.length;
     const gap = Number(pickGap);
     const pickLineAt = sortBy === 'espn_market_pick' && gap > 0
         ? (sortDir === 'asc' ? gap : sorted.length - gap)
@@ -273,6 +275,7 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
                 <thead><tr className="bg-gray-100">
                     {showPick && <th onClick={() => handleSort('draft_pick')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">Пик<SortIcon column="draft_pick" /></th>}
                     <th onClick={() => handleSort('name')} className="cursor-pointer whitespace-nowrap border p-2 text-left hover:bg-gray-200">Игрок<SortIcon column="name" /></th>
+                    {showMarket && <th onClick={() => handleSort('espn_roto_rank')} title="Место в общем списке ESPN ROTO" className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">ESPN №<SortIcon column="espn_roto_rank" /></th>}
                     {showMarket && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">Рынок<SortIcon column="espn_market_pick" /></th>}
                     <th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
                     {categories.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
@@ -296,6 +299,7 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
                                 <span className="hover:underline">{player.name}</span>
                                 <span className="text-xs font-normal text-gray-500"> ({player.position || '—'})</span>
                             </td>
+                            {showMarket && <td className="border p-2 text-center">{espnDraftRank(player) ?? '—'}</td>}
                             {showMarket && <td className="border p-2 text-center">{marketPick(player)?.toFixed(1) || '—'}</td>}
                             <td className={`border p-2 text-center font-bold ${tone(total)}`}>
                                 {total.toFixed(2)}
