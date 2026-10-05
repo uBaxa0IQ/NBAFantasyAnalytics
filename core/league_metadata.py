@@ -7,9 +7,11 @@ from espn_api.basketball import League
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from time import monotonic
+from threading import Lock
 from espn_api.basketball.constant import STATS_MAP
 
 from .config import CATEGORIES, DEFAULT_CATEGORIES, PERIODS, REVERSE_CATEGORIES, normalize_period
+from .projected_dd import estimate_projected_double_doubles, normalize_projected_stats, previous_season_stats, raw_average
 from .simulation import compare_category_stats
 
 
@@ -42,6 +44,8 @@ class LeagueMetadata:
         self.reverse_categories = {'TO'}
         self.scoring_type = None
         self.category_mode_supported = True
+        self._projected_dd_lock = Lock()
+        self._projected_dd_cache = {}
 
     def _configure_scoring(self):
         """Read the active category set from ESPN and update shared config."""
@@ -99,6 +103,7 @@ class LeagueMetadata:
             self._active_slot_counts = None
             self._snapshot_cache = {}
             self._box_scores_cache = {}
+            self._projected_dd_cache = {}
             self.last_refresh_error = None
             return True
         except Exception as e:
@@ -235,6 +240,38 @@ class LeagueMetadata:
             return []
         
         return team.roster if hasattr(team, 'roster') else []
+
+    def _projected_double_double_rates(self, period: str) -> Dict[int, float]:
+        """Use the draft DD estimator on the current roster and free-agent pool."""
+        with self._projected_dd_lock:
+            cached = self._projected_dd_cache.get(period)
+            if cached is not None:
+                return cached['rates']
+
+            players = [player for team in self.get_teams() for player in self.get_team_roster(team.team_id)]
+            players.extend(self.get_free_agents(size=300))
+            projected = {}
+            all_player_ids = []
+            for player in players:
+                player_id = getattr(player, 'playerId', None)
+                if player_id is None:
+                    continue
+                all_player_ids.append(int(player_id))
+                stats = normalize_projected_stats(raw_average(player, period))
+                if stats:
+                    projected[int(player_id)] = stats
+
+            # Draft calibrates peers on every player card, even when a current
+            # projection is missing or invalid. Keep that exact training pool.
+            historical = previous_season_stats(self, all_player_ids) if projected else {}
+            estimated, sources = estimate_projected_double_doubles(projected, historical)
+            rates = {player_id: stats['DD'] for player_id, stats in estimated.items() if 'DD' in stats}
+            self._projected_dd_cache[period] = {
+                'rates': rates,
+                'sources': sources,
+                'historical': historical,
+            }
+            return rates
     
     def get_player_stats(self, player, period: str, stats_type: str = 'total', custom_weighted_coeffs: Optional[Dict[str, float]] = None) -> Optional[Dict[str, Any]]:
         """
@@ -371,6 +408,23 @@ class LeagueMetadata:
             except (ValueError, TypeError):
                 result[key] = value  # Оставляем как есть, если не число
         
+        if stats_type == 'avg' and period.endswith('_projected') and 'DD' in self.categories and 'DD' not in result:
+            player_id = getattr(player, 'playerId', None)
+            if player_id is not None:
+                player_id = int(player_id)
+                rate = self._projected_double_double_rates(period).get(player_id)
+                if rate is None:
+                    projected = normalize_projected_stats(result)
+                    if projected:
+                        historical = self._projected_dd_cache[period]['historical']
+                        extra_history = previous_season_stats(self, [player_id])
+                        historical = {**historical, **extra_history}
+                        estimated, _ = estimate_projected_double_doubles({player_id: projected}, historical)
+                        rate = estimated[player_id]['DD']
+                        self._projected_dd_cache[period]['rates'][player_id] = rate
+                if rate is not None:
+                    result['DD'] = rate
+
         return result
     
     def filter_stats_by_categories(self, stats: Dict[str, Any], categories: List[str] = None) -> Dict[str, float]:

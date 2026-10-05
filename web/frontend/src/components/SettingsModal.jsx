@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import PlayerSelectionModal from './PlayerSelectionModal';
 import { getSeasonConfig, normalizeSavedPeriod } from '../utils/periods';
@@ -14,6 +14,8 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
     const periods = seasonConfig?.periods || getSeasonConfig().periods;
     const [period, setPeriod] = useState(normalizeSavedPeriod(initialSettings.period, periods));
     const [puntCategories, setPuntCategories] = useState(initialSettings.puntCategories || []);
+    const [puntsEnabled, setPuntsEnabled] = useState(initialSettings.puntsEnabled !== false);
+    const previouslyOpen = useRef(false);
     const [simulationMode, setSimulationMode] = useState(initialSettings.simulationMode || 'top_n');
     const [calculationEngine, setCalculationEngine] = useState(initialSettings.calculationEngine || 'calendar');
     const [mainTeam, setMainTeam] = useState(initialSettings.mainTeam || '');
@@ -116,9 +118,10 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
 
     useEffect(() => {
         // Обновляем локальные состояния при изменении initialSettings
-        if (initialSettings) {
+        if (isOpen && !previouslyOpen.current && initialSettings) {
             setPeriod(normalizeSavedPeriod(initialSettings.period, periods));
             setPuntCategories(initialSettings.puntCategories || []);
+            setPuntsEnabled(initialSettings.puntsEnabled !== false);
             setMainTeam(initialSettings.mainTeam || '');
             setSimulationMode(initialSettings.simulationMode || 'top_n');
             setCalculationEngine(initialSettings.calculationEngine || 'calendar');
@@ -126,7 +129,12 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
                 setColorByTrend(initialSettings.colorByTrend);
             }
         }
-    }, [initialSettings, periods]);
+        previouslyOpen.current = isOpen;
+    }, [isOpen, initialSettings, periods]);
+
+    useEffect(() => {
+        if (isOpen) setPuntsEnabled(initialSettings.puntsEnabled !== false);
+    }, [isOpen, initialSettings.puntsEnabled]);
 
     useEffect(() => {
         setLeagueId(String(seasonConfig?.league_id || ''));
@@ -215,6 +223,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
         const settings = {
             period,
             puntCategories,
+            puntsEnabled,
             simulationMode,
             mainTeam: effectiveMainTeam,
             colorByTrend,
@@ -330,8 +339,9 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
 
                         {/* Punt Categories */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Punt Categories:
+                            <label className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                                <input type="checkbox" role="switch" checked={puntsEnabled} onChange={event => setPuntsEnabled(event.target.checked)} />
+                                Панты
                             </label>
                             <div className="flex gap-2 flex-wrap">
                                 {CATEGORIES.map(cat => (
@@ -348,9 +358,6 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
                                     </label>
                                 ))}
                             </div>
-                            <p className="mt-2 text-xs text-gray-500">
-                                Для драфта: пустой список включает автоматический выбор стратегии. Любая отмеченная категория фиксирует ручной пант и отключает автоматическое переключение.
-                            </p>
                         </div>
 
                         <div>

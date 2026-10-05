@@ -7,7 +7,6 @@ import PositionHistoryChart from './PositionHistoryChart';
 import TeamTrendsChart from './TeamTrendsChart';
 import SeasonProjectionModal from './SeasonProjectionModal';
 import PuntAdvisor from './PuntAdvisor';
-import LineupOptimizerModal from './LineupOptimizerModal';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
@@ -19,7 +18,6 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
     const [projectionLoading, setProjectionLoading] = useState(false);
     const [engineValidation, setEngineValidation] = useState(null);
     const [showProjectionModal, setShowProjectionModal] = useState(false);
-    const [showLineupOptimizer, setShowLineupOptimizer] = useState(false);
     const [compareTeamId, setCompareTeamId] = useState(() => {
         const saved = loadState(StorageKeys.DASHBOARD, {});
         return saved.compareTeamId || '';
@@ -241,14 +239,6 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                             </div>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => setShowLineupOptimizer(true)}
-                            className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
-                        >
-                            Оптимизировать состав
-                        </button>
-
                         {/* Injured Players */}
                         <div className="bg-white border rounded-lg p-6 shadow-sm">
                             <h3 className="text-lg font-semibold text-gray-700 mb-4">Травмированные</h3>
@@ -372,15 +362,6 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                     projection={seasonProjection}
                     onClose={() => setShowProjectionModal(false)}
                     isPlayoff={isPlayoff}
-                />
-            )}
-            {showLineupOptimizer && (
-                <LineupOptimizerModal
-                    teamId={mainTeam}
-                    onClose={() => setShowLineupOptimizer(false)}
-                    puntCategories={puntCategories}
-                    period={period}
-                    calculationEngine={calculationEngine}
                 />
             )}
         </div>

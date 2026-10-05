@@ -54,10 +54,36 @@ function App() {
     return normalizeSavedPeriod(localStorage.getItem('period'), season.periods);
   });
 
-  const [puntCategories, setPuntCategories] = useState(() => {
+  const [configuredPuntCategories, setConfiguredPuntCategories] = useState(() => {
     const saved = localStorage.getItem('puntCategories');
     return saved ? JSON.parse(saved) : [];
   });
+  const [puntsEnabled, setPuntsEnabled] = useState(() => localStorage.getItem('puntsEnabled') !== 'false');
+  const puntCategories = puntsEnabled ? configuredPuntCategories : [];
+  const [enteredSeasonKeys, setEnteredSeasonKeys] = useState({});
+  const seasonModeKey = `season-mode:${seasonConfig.league_id}:${seasonConfig.periods.projected}`;
+  const seasonModeEntered = Boolean(enteredSeasonKeys[seasonModeKey]) || localStorage.getItem(seasonModeKey) === 'true';
+
+  useEffect(() => {
+    const handlePuntShortcut = event => {
+      if (event.code !== 'KeyP' || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
+      event.preventDefault();
+      setPuntsEnabled(current => !current);
+    };
+    window.addEventListener('keydown', handlePuntShortcut);
+    return () => window.removeEventListener('keydown', handlePuntShortcut);
+  }, []);
+
+  const enterSeasonMode = () => {
+    localStorage.setItem(seasonModeKey, 'true');
+    setEnteredSeasonKeys(current => ({ ...current, [seasonModeKey]: true }));
+    setPeriod(seasonConfig.periods.projected);
+  };
+
+  const applyPuntStrategy = categories => {
+    setConfiguredPuntCategories(categories);
+    setPuntsEnabled(categories.length > 0);
+  };
 
   const [colorByTrend, setColorByTrend] = useState(() => {
     const saved = localStorage.getItem('colorByTrend');
@@ -83,8 +109,12 @@ function App() {
   }, [period]);
 
   useEffect(() => {
-    localStorage.setItem('puntCategories', JSON.stringify(puntCategories));
-  }, [puntCategories]);
+    localStorage.setItem('puntCategories', JSON.stringify(configuredPuntCategories));
+  }, [configuredPuntCategories]);
+
+  useEffect(() => {
+    localStorage.setItem('puntsEnabled', String(puntsEnabled));
+  }, [puntsEnabled]);
 
   useEffect(() => {
     localStorage.setItem('simulationMode', simulationMode);
@@ -115,7 +145,7 @@ function App() {
           saveSeasonConfig(season);
           setSeasonConfig(season);
           setPeriod(current => normalizeSavedPeriod(current, season.periods));
-          setPuntCategories(current => current.filter(category => (season.categories || []).includes(category)));
+          setConfiguredPuntCategories(current => current.filter(category => (season.categories || []).includes(category)));
 
           const teamsResponse = await api.get('/teams');
           if (cancelled) return;
@@ -181,7 +211,8 @@ function App() {
 
   const handleSaveSettings = (settings) => {
     setPeriod(settings.period);
-    setPuntCategories(settings.puntCategories);
+    setConfiguredPuntCategories(settings.puntCategories);
+    setPuntsEnabled(settings.puntsEnabled);
     setSimulationMode(settings.simulationMode);
     setMainTeam(settings.mainTeam);
     setCalculationEngine(settings.calculationEngine);
@@ -274,14 +305,14 @@ function App() {
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
           onSave={handleSaveSettings}
-          initialSettings={{ period, puntCategories, simulationMode, mainTeam, colorByTrend, calculationEngine }}
+          initialSettings={{ period, puntCategories: configuredPuntCategories, puntsEnabled, simulationMode, mainTeam, colorByTrend, calculationEngine }}
           seasonConfig={seasonConfig}
         />
       </div>
     );
   }
 
-  if (draftState?.status === 'live' || draftState?.status === 'upcoming' || draftState?.postdraft) {
+  if (draftState?.status === 'live' || draftState?.status === 'upcoming' || (draftState?.status === 'completed' && !seasonModeEntered)) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-blue-900 text-white p-4 shadow-md">
@@ -298,10 +329,11 @@ function App() {
             puntCategories={puntCategories}
             projectedPeriod={seasonConfig.periods.projected}
             leagueId={seasonConfig.league_id}
-            onPuntCategoriesChange={setPuntCategories}
+            onPuntCategoriesChange={applyPuntStrategy}
             onOpenSettings={() => setShowSettingsModal(true)}
             onPlayerClick={handlePlayerClick}
             onDraftState={setDraftState}
+            onEnterSeasonMode={enterSeasonMode}
           />
         </main>
         {selectedPlayer && (
@@ -331,7 +363,7 @@ function App() {
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
           onSave={handleSaveSettings}
-          initialSettings={{ period, puntCategories, simulationMode, mainTeam, colorByTrend, calculationEngine }}
+          initialSettings={{ period, puntCategories: configuredPuntCategories, puntsEnabled, simulationMode, mainTeam, colorByTrend, calculationEngine }}
           seasonConfig={seasonConfig}
         />
       </div>
@@ -411,7 +443,7 @@ function App() {
               isPlayoff={isPlayoff}
               calculationEngine={calculationEngine}
               puntCategories={puntCategories}
-              onApplyPuntStrategy={setPuntCategories}
+              onApplyPuntStrategy={applyPuntStrategy}
             />
           )}
           {activeTab === 'analytics' && (
@@ -493,7 +525,8 @@ function App() {
         onSave={handleSaveSettings}
         initialSettings={{
           period,
-          puntCategories,
+          puntCategories: configuredPuntCategories,
+          puntsEnabled,
           simulationMode,
           mainTeam,
           colorByTrend,
