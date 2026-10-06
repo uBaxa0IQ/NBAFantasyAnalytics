@@ -146,6 +146,10 @@ App URLs:
 
 ### Run Locally
 
+On Windows, after creating `.env`, run `start_app.bat` from Explorer or a terminal. It creates a local `.venv`, installs backend dependencies, runs `npm ci` when frontend dependencies are missing, and opens separate backend and frontend windows. Close both windows to stop the app. The frontend is available at `http://127.0.0.1:5173`.
+
+To start the services manually:
+
 Backend:
 
 ```bash
