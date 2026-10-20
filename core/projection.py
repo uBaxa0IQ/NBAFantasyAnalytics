@@ -1,7 +1,7 @@
 """Проекция фэнтези-состава по NBA-календарю и доступным lineup slots."""
 
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 
 
 DEFAULT_LINEUP_SLOTS: Tuple[str, ...] = (
@@ -197,12 +197,49 @@ def project_team_stats(
 
 
 def get_matchup_scoring_periods(league, matchup_period: int) -> List[int]:
-    periods = getattr(league, "matchup_ids", {}).get(int(matchup_period), [])
-    return sorted(int(period) for period in periods)
+    matchup_period = int(matchup_period)
+    settings = getattr(league, "settings", None)
+    scheduled = getattr(settings, "matchup_periods", {}) or {}
+    periods = scheduled.get(str(matchup_period)) or scheduled.get(matchup_period) or []
+    if periods:
+        # ESPN settings map fantasy matchups to scoring *weeks*. Player schedules
+        # use daily scoring periods. matchup_ids has daily IDs, but contains only
+        # days for which ESPN has already published matchup scores.
+        first = int(getattr(league, "firstScoringPeriod", 1) or 1)
+        final = int(getattr(league, "finalScoringPeriod", 0) or 0)
+        all_weeks = [int(week) for weeks in scheduled.values() for week in weeks]
+        if final and all_weeks and max(all_weeks) <= (final - first + 6) // 7 + 1:
+            opening_games = [game["date"]
+                             for team_games in (getattr(league, "pro_schedule", {}) or {}).values()
+                             for game in team_games.get(str(first), [])
+                             if game.get("date")]
+            # ESPN's daily IDs start on opening night; matchup weeks end Sunday.
+            # UTC-5 is sufficient to recover the NBA game date across US timezones.
+            opening_week_days = 7
+            if opening_games:
+                opening_date = datetime.fromtimestamp(
+                    min(opening_games) / 1000, timezone(timedelta(hours=-5))
+                ).date()
+                opening_week_days = 7 - opening_date.weekday()
+
+            def week_days(week):
+                week = int(week)
+                start = first if week == 1 else first + opening_week_days + (week - 2) * 7
+                length = opening_week_days if week == 1 else 7
+                return range(start, min(start + length, final + 1))
+
+            return sorted({day for week in periods for day in week_days(week)})
+        return sorted(int(period) for period in periods)
+    return sorted(int(period) for period in
+                  (getattr(league, "matchup_ids", {}).get(matchup_period) or []))
 
 
 def get_remaining_scoring_periods(league, matchup_period: int) -> List[int]:
-    current_scoring_period = int(getattr(league, "current_week", 0) or 0)
+    current_scoring_period = int(
+        getattr(league, "scoringPeriodId", 0)
+        or getattr(league, "current_week", 0)
+        or 0
+    )
     return [
         period
         for period in get_matchup_scoring_periods(league, matchup_period)

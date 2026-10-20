@@ -1,0 +1,1316 @@
+{
+  "as_of": "2026-10-19T18:25:15.360485+00:00",
+  "league_id": 203950642,
+  "season": 2027,
+  "team_id": 12,
+  "regular_season_weeks": 16,
+  "matchup_trials": 250,
+  "season_trials": 4000,
+  "assumptions": [
+    "All non-target rosters and their present OUT/IR designations remain fixed.",
+    "Current day-to-day players become available from week 2.",
+    "Nic Claxton returns in week 3 in all three scenarios.",
+    "In add scenarios, Collin Murray-Boyles is removed from week 3 to make legal room.",
+    "Ben Simmons remains out for the full regular season.",
+    "No subsequent transactions, trades, or changes in player roles are modeled.",
+    "Daily NBA scoring periods grouped as seven days per fantasy week."
+  ],
+  "scenarios": {
+    "base": {
+      "user": {
+        "team_id": 12,
+        "team_name": "uBaxa",
+        "p_playoff": 0.84725,
+        "p_title": 0.08075,
+        "p_seed": {
+          "1": 0.014,
+          "2": 0.04125,
+          "3": 0.08225,
+          "4": 0.16025,
+          "5": 0.1665,
+          "6": 0.153,
+          "7": 0.132,
+          "8": 0.098,
+          "9": 0.06575,
+          "10": 0.0445,
+          "11": 0.0225,
+          "12": 0.0145,
+          "13": 0.00425,
+          "14": 0.00125
+        },
+        "expected_seed": 5.97375,
+        "expected_record": {
+          "wins": 8.70625,
+          "losses": 6.493,
+          "ties": 0.80075
+        }
+      },
+      "standings": [
+        {
+          "team_id": 11,
+          "team_name": "Saint-P Splashers",
+          "expected_seed": 2.02,
+          "p_playoff": 0.99925
+        },
+        {
+          "team_id": 18,
+          "team_name": "Miami huiami ",
+          "expected_seed": 2.45,
+          "p_playoff": 0.998
+        },
+        {
+          "team_id": 8,
+          "team_name": "Maxoncheck",
+          "expected_seed": 2.77,
+          "p_playoff": 0.9925
+        },
+        {
+          "team_id": 15,
+          "team_name": "Traktor Chelyabinsk",
+          "expected_seed": 5.64,
+          "p_playoff": 0.88075
+        },
+        {
+          "team_id": 1,
+          "team_name": "denver cogets",
+          "expected_seed": 5.85,
+          "p_playoff": 0.86025
+        },
+        {
+          "team_id": 12,
+          "team_name": "uBaxa",
+          "expected_seed": 5.97,
+          "p_playoff": 0.84725
+        },
+        {
+          "team_id": 6,
+          "team_name": "LAKERS NEW",
+          "expected_seed": 6.78,
+          "p_playoff": 0.76975
+        },
+        {
+          "team_id": 17,
+          "team_name": "DAYUM",
+          "expected_seed": 8.7,
+          "p_playoff": 0.45725
+        },
+        {
+          "team_id": 13,
+          "team_name": "ivan's Impressive Team",
+          "expected_seed": 9.0,
+          "p_playoff": 0.40225
+        },
+        {
+          "team_id": 7,
+          "team_name": "Rusichi Kursk",
+          "expected_seed": 9.3,
+          "p_playoff": 0.36425
+        },
+        {
+          "team_id": 9,
+          "team_name": "Leenchixx's Lucrative Team",
+          "expected_seed": 10.03,
+          "p_playoff": 0.2485
+        },
+        {
+          "team_id": 16,
+          "team_name": "ZAL UPA",
+          "expected_seed": 10.97,
+          "p_playoff": 0.1385
+        },
+        {
+          "team_id": 14,
+          "team_name": "Tuma's Talented Team",
+          "expected_seed": 12.26,
+          "p_playoff": 0.03575
+        },
+        {
+          "team_id": 5,
+          "team_name": "Analniy's Astounding Team",
+          "expected_seed": 13.27,
+          "p_playoff": 0.00575
+        }
+      ],
+      "category_ranks": {
+        "PTS": 14,
+        "REB": 2,
+        "AST": 4,
+        "STL": 2,
+        "BLK": 1,
+        "3PM": 14,
+        "DD": 3,
+        "FG%": 2,
+        "FT%": 14,
+        "3PT%": 14,
+        "A/TO": 3
+      },
+      "matchups": [
+        {
+          "week": 1,
+          "opponent": "denver cogets",
+          "p_win": 0.308,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.328,
+            "AST": 0.52,
+            "STL": 0.58,
+            "BLK": 0.904,
+            "3PM": 0.0,
+            "DD": 0.572,
+            "FG%": 0.668,
+            "FT%": 0.024,
+            "3PT%": 0.388,
+            "A/TO": 0.704
+          }
+        },
+        {
+          "week": 2,
+          "opponent": "ZAL UPA",
+          "p_win": 0.584,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.668,
+            "AST": 0.988,
+            "STL": 0.956,
+            "BLK": 0.688,
+            "3PM": 0.004,
+            "DD": 0.804,
+            "FG%": 0.5,
+            "FT%": 0.024,
+            "3PT%": 0.136,
+            "A/TO": 0.9
+          }
+        },
+        {
+          "week": 3,
+          "opponent": "Analniy's Astounding Team",
+          "p_win": 0.45599999999999996,
+          "category_p_win": {
+            "PTS": 0.04400000000000004,
+            "REB": 0.912,
+            "AST": 0.616,
+            "STL": 0.64,
+            "BLK": 0.972,
+            "3PM": 0.01200000000000001,
+            "DD": 0.6679999999999999,
+            "FG%": 0.756,
+            "FT%": 0.09199999999999997,
+            "3PT%": 0.392,
+            "A/TO": 0.42800000000000005
+          }
+        },
+        {
+          "week": 4,
+          "opponent": "ivan's Impressive Team",
+          "p_win": 0.508,
+          "category_p_win": {
+            "PTS": 0.004,
+            "REB": 0.692,
+            "AST": 0.516,
+            "STL": 0.392,
+            "BLK": 0.952,
+            "3PM": 0.0,
+            "DD": 0.72,
+            "FG%": 0.916,
+            "FT%": 0.024,
+            "3PT%": 0.448,
+            "A/TO": 0.688
+          }
+        },
+        {
+          "week": 5,
+          "opponent": "Saint-P Splashers",
+          "p_win": 0.536,
+          "category_p_win": {
+            "PTS": 0.008000000000000007,
+            "REB": 0.992,
+            "AST": 0.536,
+            "STL": 0.84,
+            "BLK": 1.0,
+            "3PM": 0.0,
+            "DD": 0.788,
+            "FG%": 0.852,
+            "FT%": 0.0040000000000000036,
+            "3PT%": 0.31200000000000006,
+            "A/TO": 0.352
+          }
+        },
+        {
+          "week": 6,
+          "opponent": "denver cogets",
+          "p_win": 0.752,
+          "category_p_win": {
+            "PTS": 0.020000000000000018,
+            "REB": 0.9359999999999999,
+            "AST": 0.952,
+            "STL": 0.964,
+            "BLK": 1.0,
+            "3PM": 0.0040000000000000036,
+            "DD": 0.856,
+            "FG%": 0.6719999999999999,
+            "FT%": 0.03600000000000003,
+            "3PT%": 0.42000000000000004,
+            "A/TO": 0.5800000000000001
+          }
+        },
+        {
+          "week": 7,
+          "opponent": "Rusichi Kursk",
+          "p_win": 0.572,
+          "category_p_win": {
+            "PTS": 0.032,
+            "REB": 0.796,
+            "AST": 0.66,
+            "STL": 0.796,
+            "BLK": 0.908,
+            "3PM": 0.0,
+            "DD": 0.564,
+            "FG%": 0.808,
+            "FT%": 0.068,
+            "3PT%": 0.428,
+            "A/TO": 0.588
+          }
+        },
+        {
+          "week": 8,
+          "opponent": "Leenchixx's Lucrative Team",
+          "p_win": 0.5720000000000001,
+          "category_p_win": {
+            "PTS": 0.0040000000000000036,
+            "REB": 0.848,
+            "AST": 0.848,
+            "STL": 0.956,
+            "BLK": 0.868,
+            "3PM": 0.132,
+            "DD": 0.7,
+            "FG%": 0.484,
+            "FT%": 0.19599999999999995,
+            "3PT%": 0.368,
+            "A/TO": 0.752
+          }
+        },
+        {
+          "week": 9,
+          "opponent": "Tuma's Talented Team",
+          "p_win": 0.648,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.924,
+            "AST": 0.888,
+            "STL": 0.644,
+            "BLK": 0.892,
+            "3PM": 0.004,
+            "DD": 0.824,
+            "FG%": 0.748,
+            "FT%": 0.02,
+            "3PT%": 0.368,
+            "A/TO": 0.716
+          }
+        },
+        {
+          "week": 10,
+          "opponent": "DAYUM",
+          "p_win": 0.6799999999999999,
+          "category_p_win": {
+            "PTS": 0.16400000000000003,
+            "REB": 0.9359999999999999,
+            "AST": 0.888,
+            "STL": 0.888,
+            "BLK": 0.9,
+            "3PM": 0.04800000000000004,
+            "DD": 0.852,
+            "FG%": 0.656,
+            "FT%": 0.10799999999999998,
+            "3PT%": 0.376,
+            "A/TO": 0.512
+          }
+        },
+        {
+          "week": 11,
+          "opponent": "Maxoncheck",
+          "p_win": 0.308,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.66,
+            "AST": 0.12,
+            "STL": 0.88,
+            "BLK": 0.988,
+            "3PM": 0.012,
+            "DD": 0.268,
+            "FG%": 0.732,
+            "FT%": 0.068,
+            "3PT%": 0.372,
+            "A/TO": 0.584
+          }
+        },
+        {
+          "week": 12,
+          "opponent": "Miami huiami ",
+          "p_win": 0.41200000000000003,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.976,
+            "AST": 0.08399999999999996,
+            "STL": 0.808,
+            "BLK": 0.984,
+            "3PM": 0.0,
+            "DD": 0.604,
+            "FG%": 0.92,
+            "FT%": 0.0,
+            "3PT%": 0.364,
+            "A/TO": 0.7
+          }
+        },
+        {
+          "week": 13,
+          "opponent": "LAKERS NEW",
+          "p_win": 0.484,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.724,
+            "AST": 0.6,
+            "STL": 0.8280000000000001,
+            "BLK": 0.972,
+            "3PM": 0.0,
+            "DD": 0.704,
+            "FG%": 0.76,
+            "FT%": 0.03200000000000003,
+            "3PT%": 0.43600000000000005,
+            "A/TO": 0.544
+          }
+        },
+        {
+          "week": 14,
+          "opponent": "Traktor Chelyabinsk",
+          "p_win": 0.208,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.456,
+            "AST": 0.504,
+            "STL": 0.176,
+            "BLK": 0.548,
+            "3PM": 0.0,
+            "DD": 0.668,
+            "FG%": 0.784,
+            "FT%": 0.04,
+            "3PT%": 0.46,
+            "A/TO": 0.688
+          }
+        },
+        {
+          "week": 15,
+          "opponent": "ZAL UPA",
+          "p_win": 0.876,
+          "category_p_win": {
+            "PTS": 0.15200000000000002,
+            "REB": 0.972,
+            "AST": 1.0,
+            "STL": 0.988,
+            "BLK": 0.972,
+            "3PM": 0.01200000000000001,
+            "DD": 0.904,
+            "FG%": 0.7,
+            "FT%": 0.008000000000000007,
+            "3PT%": 0.21999999999999997,
+            "A/TO": 0.924
+          }
+        },
+        {
+          "week": 16,
+          "opponent": "Analniy's Astounding Team",
+          "p_win": 0.824,
+          "category_p_win": {
+            "PTS": 0.472,
+            "REB": 1.0,
+            "AST": 0.924,
+            "STL": 0.904,
+            "BLK": 0.992,
+            "3PM": 0.032,
+            "DD": 0.72,
+            "FG%": 0.804,
+            "FT%": 0.072,
+            "3PT%": 0.42,
+            "A/TO": 0.46
+          }
+        }
+      ],
+      "category_season_totals": {
+        "PTS": 8305.148,
+        "REB": 4228.924,
+        "AST": 2700.952,
+        "STL": 821.268,
+        "BLK": 652.572,
+        "3PM": 594.812,
+        "DD": 145.1,
+        "FG%": 0.507,
+        "FT%": 0.71,
+        "3PT%": 0.349,
+        "A/TO": 2.104
+      }
+    },
+    "Collier": {
+      "user": {
+        "team_id": 12,
+        "team_name": "uBaxa",
+        "p_playoff": 0.9085,
+        "p_title": 0.1015,
+        "p_seed": {
+          "1": 0.0305,
+          "2": 0.066,
+          "3": 0.1225,
+          "4": 0.19625,
+          "5": 0.18,
+          "6": 0.14275,
+          "7": 0.1,
+          "8": 0.0705,
+          "9": 0.045,
+          "10": 0.02525,
+          "11": 0.0115,
+          "12": 0.007,
+          "13": 0.00225,
+          "14": 0.0005
+        },
+        "expected_seed": 5.23975,
+        "expected_record": {
+          "wins": 9.36075,
+          "losses": 5.96075,
+          "ties": 0.6785
+        }
+      },
+      "standings": [
+        {
+          "team_id": 11,
+          "team_name": "Saint-P Splashers",
+          "expected_seed": 2.08,
+          "p_playoff": 0.99925
+        },
+        {
+          "team_id": 18,
+          "team_name": "Miami huiami ",
+          "expected_seed": 2.49,
+          "p_playoff": 0.99825
+        },
+        {
+          "team_id": 8,
+          "team_name": "Maxoncheck",
+          "expected_seed": 2.81,
+          "p_playoff": 0.99225
+        },
+        {
+          "team_id": 12,
+          "team_name": "uBaxa",
+          "expected_seed": 5.24,
+          "p_playoff": 0.9085
+        },
+        {
+          "team_id": 15,
+          "team_name": "Traktor Chelyabinsk",
+          "expected_seed": 5.64,
+          "p_playoff": 0.88725
+        },
+        {
+          "team_id": 1,
+          "team_name": "denver cogets",
+          "expected_seed": 6.13,
+          "p_playoff": 0.839
+        },
+        {
+          "team_id": 6,
+          "team_name": "LAKERS NEW",
+          "expected_seed": 6.89,
+          "p_playoff": 0.764
+        },
+        {
+          "team_id": 17,
+          "team_name": "DAYUM",
+          "expected_seed": 8.69,
+          "p_playoff": 0.45775
+        },
+        {
+          "team_id": 13,
+          "team_name": "ivan's Impressive Team",
+          "expected_seed": 9.15,
+          "p_playoff": 0.36875
+        },
+        {
+          "team_id": 7,
+          "team_name": "Rusichi Kursk",
+          "expected_seed": 9.3,
+          "p_playoff": 0.35975
+        },
+        {
+          "team_id": 9,
+          "team_name": "Leenchixx's Lucrative Team",
+          "expected_seed": 10.02,
+          "p_playoff": 0.251
+        },
+        {
+          "team_id": 16,
+          "team_name": "ZAL UPA",
+          "expected_seed": 10.98,
+          "p_playoff": 0.13575
+        },
+        {
+          "team_id": 14,
+          "team_name": "Tuma's Talented Team",
+          "expected_seed": 12.29,
+          "p_playoff": 0.0335
+        },
+        {
+          "team_id": 5,
+          "team_name": "Analniy's Astounding Team",
+          "expected_seed": 13.29,
+          "p_playoff": 0.005
+        }
+      ],
+      "category_ranks": {
+        "PTS": 14,
+        "REB": 2,
+        "AST": 4,
+        "STL": 2,
+        "BLK": 1,
+        "3PM": 14,
+        "DD": 3,
+        "FG%": 2,
+        "FT%": 14,
+        "3PT%": 14,
+        "A/TO": 2
+      },
+      "matchups": [
+        {
+          "week": 1,
+          "opponent": "denver cogets",
+          "p_win": 0.46,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.432,
+            "AST": 0.868,
+            "STL": 0.82,
+            "BLK": 0.888,
+            "3PM": 0.0,
+            "DD": 0.584,
+            "FG%": 0.6,
+            "FT%": 0.032,
+            "3PT%": 0.324,
+            "A/TO": 0.764
+          }
+        },
+        {
+          "week": 2,
+          "opponent": "ZAL UPA",
+          "p_win": 0.636,
+          "category_p_win": {
+            "PTS": 0.012,
+            "REB": 0.66,
+            "AST": 1.0,
+            "STL": 0.976,
+            "BLK": 0.712,
+            "3PM": 0.004,
+            "DD": 0.772,
+            "FG%": 0.544,
+            "FT%": 0.024,
+            "3PT%": 0.164,
+            "A/TO": 0.936
+          }
+        },
+        {
+          "week": 3,
+          "opponent": "Analniy's Astounding Team",
+          "p_win": 0.552,
+          "category_p_win": {
+            "PTS": 0.04400000000000004,
+            "REB": 0.888,
+            "AST": 0.732,
+            "STL": 0.612,
+            "BLK": 0.98,
+            "3PM": 0.0040000000000000036,
+            "DD": 0.6599999999999999,
+            "FG%": 0.72,
+            "FT%": 0.09199999999999997,
+            "3PT%": 0.43999999999999995,
+            "A/TO": 0.496
+          }
+        },
+        {
+          "week": 4,
+          "opponent": "ivan's Impressive Team",
+          "p_win": 0.616,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.656,
+            "AST": 0.796,
+            "STL": 0.448,
+            "BLK": 0.944,
+            "3PM": 0.0,
+            "DD": 0.78,
+            "FG%": 0.932,
+            "FT%": 0.028,
+            "3PT%": 0.472,
+            "A/TO": 0.756
+          }
+        },
+        {
+          "week": 5,
+          "opponent": "Saint-P Splashers",
+          "p_win": 0.616,
+          "category_p_win": {
+            "PTS": 0.016000000000000014,
+            "REB": 0.984,
+            "AST": 0.8,
+            "STL": 0.884,
+            "BLK": 0.996,
+            "3PM": 0.0,
+            "DD": 0.788,
+            "FG%": 0.764,
+            "FT%": 0.0,
+            "3PT%": 0.272,
+            "A/TO": 0.44799999999999995
+          }
+        },
+        {
+          "week": 6,
+          "opponent": "denver cogets",
+          "p_win": 0.768,
+          "category_p_win": {
+            "PTS": 0.03200000000000003,
+            "REB": 0.92,
+            "AST": 0.98,
+            "STL": 0.956,
+            "BLK": 0.996,
+            "3PM": 0.0040000000000000036,
+            "DD": 0.904,
+            "FG%": 0.644,
+            "FT%": 0.028000000000000025,
+            "3PT%": 0.42400000000000004,
+            "A/TO": 0.604
+          }
+        },
+        {
+          "week": 7,
+          "opponent": "Rusichi Kursk",
+          "p_win": 0.564,
+          "category_p_win": {
+            "PTS": 0.032,
+            "REB": 0.716,
+            "AST": 0.836,
+            "STL": 0.8,
+            "BLK": 0.832,
+            "3PM": 0.004,
+            "DD": 0.648,
+            "FG%": 0.788,
+            "FT%": 0.06,
+            "3PT%": 0.332,
+            "A/TO": 0.664
+          }
+        },
+        {
+          "week": 8,
+          "opponent": "Leenchixx's Lucrative Team",
+          "p_win": 0.5800000000000001,
+          "category_p_win": {
+            "PTS": 0.008000000000000007,
+            "REB": 0.768,
+            "AST": 0.912,
+            "STL": 0.94,
+            "BLK": 0.804,
+            "3PM": 0.132,
+            "DD": 0.6719999999999999,
+            "FG%": 0.45999999999999996,
+            "FT%": 0.22399999999999998,
+            "3PT%": 0.356,
+            "A/TO": 0.8
+          }
+        },
+        {
+          "week": 9,
+          "opponent": "Tuma's Talented Team",
+          "p_win": 0.704,
+          "category_p_win": {
+            "PTS": 0.008,
+            "REB": 0.916,
+            "AST": 0.948,
+            "STL": 0.6,
+            "BLK": 0.904,
+            "3PM": 0.004,
+            "DD": 0.848,
+            "FG%": 0.768,
+            "FT%": 0.02,
+            "3PT%": 0.356,
+            "A/TO": 0.744
+          }
+        },
+        {
+          "week": 10,
+          "opponent": "DAYUM",
+          "p_win": 0.6679999999999999,
+          "category_p_win": {
+            "PTS": 0.09999999999999998,
+            "REB": 0.904,
+            "AST": 0.872,
+            "STL": 0.852,
+            "BLK": 0.836,
+            "3PM": 0.05600000000000005,
+            "DD": 0.864,
+            "FG%": 0.5880000000000001,
+            "FT%": 0.136,
+            "3PT%": 0.376,
+            "A/TO": 0.548
+          }
+        },
+        {
+          "week": 11,
+          "opponent": "Maxoncheck",
+          "p_win": 0.336,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.612,
+            "AST": 0.336,
+            "STL": 0.856,
+            "BLK": 0.964,
+            "3PM": 0.016,
+            "DD": 0.32,
+            "FG%": 0.696,
+            "FT%": 0.088,
+            "3PT%": 0.396,
+            "A/TO": 0.664
+          }
+        },
+        {
+          "week": 12,
+          "opponent": "Miami huiami ",
+          "p_win": 0.46799999999999997,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.948,
+            "AST": 0.22799999999999998,
+            "STL": 0.752,
+            "BLK": 0.928,
+            "3PM": 0.0,
+            "DD": 0.5920000000000001,
+            "FG%": 0.864,
+            "FT%": 0.01200000000000001,
+            "3PT%": 0.32799999999999996,
+            "A/TO": 0.76
+          }
+        },
+        {
+          "week": 13,
+          "opponent": "LAKERS NEW",
+          "p_win": 0.552,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.6,
+            "AST": 0.812,
+            "STL": 0.804,
+            "BLK": 0.96,
+            "3PM": 0.0,
+            "DD": 0.712,
+            "FG%": 0.712,
+            "FT%": 0.04400000000000004,
+            "3PT%": 0.42800000000000005,
+            "A/TO": 0.648
+          }
+        },
+        {
+          "week": 14,
+          "opponent": "Traktor Chelyabinsk",
+          "p_win": 0.172,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.172,
+            "AST": 0.684,
+            "STL": 0.112,
+            "BLK": 0.304,
+            "3PM": 0.0,
+            "DD": 0.708,
+            "FG%": 0.712,
+            "FT%": 0.032,
+            "3PT%": 0.472,
+            "A/TO": 0.8
+          }
+        },
+        {
+          "week": 15,
+          "opponent": "ZAL UPA",
+          "p_win": 0.856,
+          "category_p_win": {
+            "PTS": 0.14,
+            "REB": 0.948,
+            "AST": 1.0,
+            "STL": 0.996,
+            "BLK": 0.9319999999999999,
+            "3PM": 0.02400000000000002,
+            "DD": 0.9,
+            "FG%": 0.628,
+            "FT%": 0.008000000000000007,
+            "3PT%": 0.19199999999999995,
+            "A/TO": 0.948
+          }
+        },
+        {
+          "week": 16,
+          "opponent": "Analniy's Astounding Team",
+          "p_win": 0.82,
+          "category_p_win": {
+            "PTS": 0.48,
+            "REB": 0.988,
+            "AST": 0.96,
+            "STL": 0.88,
+            "BLK": 0.98,
+            "3PM": 0.028,
+            "DD": 0.776,
+            "FG%": 0.788,
+            "FT%": 0.052,
+            "3PT%": 0.436,
+            "A/TO": 0.58
+          }
+        }
+      ],
+      "category_season_totals": {
+        "PTS": 8358.18,
+        "REB": 4110.48,
+        "AST": 2906.528,
+        "STL": 822.936,
+        "BLK": 617.756,
+        "3PM": 604.112,
+        "DD": 148.84,
+        "FG%": 0.503,
+        "FT%": 0.713,
+        "3PT%": 0.348,
+        "A/TO": 2.176
+      }
+    },
+    "Missi": {
+      "user": {
+        "team_id": 12,
+        "team_name": "uBaxa",
+        "p_playoff": 0.8645,
+        "p_title": 0.09275,
+        "p_seed": {
+          "1": 0.0165,
+          "2": 0.04475,
+          "3": 0.0875,
+          "4": 0.17025,
+          "5": 0.1735,
+          "6": 0.157,
+          "7": 0.12675,
+          "8": 0.08825,
+          "9": 0.06125,
+          "10": 0.03775,
+          "11": 0.022,
+          "12": 0.01025,
+          "13": 0.00375,
+          "14": 0.0005
+        },
+        "expected_seed": 5.80175,
+        "expected_record": {
+          "wins": 8.87875,
+          "losses": 6.40775,
+          "ties": 0.7135
+        }
+      },
+      "standings": [
+        {
+          "team_id": 11,
+          "team_name": "Saint-P Splashers",
+          "expected_seed": 1.97,
+          "p_playoff": 0.99925
+        },
+        {
+          "team_id": 18,
+          "team_name": "Miami huiami ",
+          "expected_seed": 2.47,
+          "p_playoff": 0.99825
+        },
+        {
+          "team_id": 8,
+          "team_name": "Maxoncheck",
+          "expected_seed": 2.8,
+          "p_playoff": 0.9925
+        },
+        {
+          "team_id": 15,
+          "team_name": "Traktor Chelyabinsk",
+          "expected_seed": 5.57,
+          "p_playoff": 0.88925
+        },
+        {
+          "team_id": 12,
+          "team_name": "uBaxa",
+          "expected_seed": 5.8,
+          "p_playoff": 0.8645
+        },
+        {
+          "team_id": 1,
+          "team_name": "denver cogets",
+          "expected_seed": 6.07,
+          "p_playoff": 0.845
+        },
+        {
+          "team_id": 6,
+          "team_name": "LAKERS NEW",
+          "expected_seed": 6.75,
+          "p_playoff": 0.77225
+        },
+        {
+          "team_id": 17,
+          "team_name": "DAYUM",
+          "expected_seed": 8.66,
+          "p_playoff": 0.46025
+        },
+        {
+          "team_id": 13,
+          "team_name": "ivan's Impressive Team",
+          "expected_seed": 8.98,
+          "p_playoff": 0.39875
+        },
+        {
+          "team_id": 7,
+          "team_name": "Rusichi Kursk",
+          "expected_seed": 9.2,
+          "p_playoff": 0.376
+        },
+        {
+          "team_id": 9,
+          "team_name": "Leenchixx's Lucrative Team",
+          "expected_seed": 10.03,
+          "p_playoff": 0.24625
+        },
+        {
+          "team_id": 16,
+          "team_name": "ZAL UPA",
+          "expected_seed": 11.13,
+          "p_playoff": 0.11925
+        },
+        {
+          "team_id": 14,
+          "team_name": "Tuma's Talented Team",
+          "expected_seed": 12.29,
+          "p_playoff": 0.033
+        },
+        {
+          "team_id": 5,
+          "team_name": "Analniy's Astounding Team",
+          "expected_seed": 13.27,
+          "p_playoff": 0.0055
+        }
+      ],
+      "category_ranks": {
+        "PTS": 14,
+        "REB": 1,
+        "AST": 4,
+        "STL": 2,
+        "BLK": 1,
+        "3PM": 14,
+        "DD": 3,
+        "FG%": 2,
+        "FT%": 14,
+        "3PT%": 14,
+        "A/TO": 2
+      },
+      "matchups": [
+        {
+          "week": 1,
+          "opponent": "denver cogets",
+          "p_win": 0.44,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.548,
+            "AST": 0.6,
+            "STL": 0.68,
+            "BLK": 0.976,
+            "3PM": 0.0,
+            "DD": 0.6,
+            "FG%": 0.684,
+            "FT%": 0.02,
+            "3PT%": 0.404,
+            "A/TO": 0.656
+          }
+        },
+        {
+          "week": 2,
+          "opponent": "ZAL UPA",
+          "p_win": 0.684,
+          "category_p_win": {
+            "PTS": 0.028,
+            "REB": 0.796,
+            "AST": 0.996,
+            "STL": 0.976,
+            "BLK": 0.824,
+            "3PM": 0.0,
+            "DD": 0.808,
+            "FG%": 0.528,
+            "FT%": 0.008,
+            "3PT%": 0.144,
+            "A/TO": 0.912
+          }
+        },
+        {
+          "week": 3,
+          "opponent": "Analniy's Astounding Team",
+          "p_win": 0.496,
+          "category_p_win": {
+            "PTS": 0.03200000000000003,
+            "REB": 0.952,
+            "AST": 0.648,
+            "STL": 0.56,
+            "BLK": 0.988,
+            "3PM": 0.008000000000000007,
+            "DD": 0.704,
+            "FG%": 0.78,
+            "FT%": 0.07199999999999995,
+            "3PT%": 0.48,
+            "A/TO": 0.43600000000000005
+          }
+        },
+        {
+          "week": 4,
+          "opponent": "ivan's Impressive Team",
+          "p_win": 0.5,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.832,
+            "AST": 0.504,
+            "STL": 0.372,
+            "BLK": 0.976,
+            "3PM": 0.0,
+            "DD": 0.74,
+            "FG%": 0.916,
+            "FT%": 0.032,
+            "3PT%": 0.48,
+            "A/TO": 0.616
+          }
+        },
+        {
+          "week": 5,
+          "opponent": "Saint-P Splashers",
+          "p_win": 0.46799999999999997,
+          "category_p_win": {
+            "PTS": 0.01200000000000001,
+            "REB": 0.992,
+            "AST": 0.472,
+            "STL": 0.744,
+            "BLK": 1.0,
+            "3PM": 0.0,
+            "DD": 0.736,
+            "FG%": 0.872,
+            "FT%": 0.0,
+            "3PT%": 0.33199999999999996,
+            "A/TO": 0.33999999999999997
+          }
+        },
+        {
+          "week": 6,
+          "opponent": "denver cogets",
+          "p_win": 0.788,
+          "category_p_win": {
+            "PTS": 0.028000000000000025,
+            "REB": 0.964,
+            "AST": 0.964,
+            "STL": 0.968,
+            "BLK": 1.0,
+            "3PM": 0.0,
+            "DD": 0.876,
+            "FG%": 0.62,
+            "FT%": 0.028000000000000025,
+            "3PT%": 0.41200000000000003,
+            "A/TO": 0.628
+          }
+        },
+        {
+          "week": 7,
+          "opponent": "Rusichi Kursk",
+          "p_win": 0.448,
+          "category_p_win": {
+            "PTS": 0.028,
+            "REB": 0.732,
+            "AST": 0.576,
+            "STL": 0.688,
+            "BLK": 0.884,
+            "3PM": 0.0,
+            "DD": 0.584,
+            "FG%": 0.76,
+            "FT%": 0.076,
+            "3PT%": 0.304,
+            "A/TO": 0.624
+          }
+        },
+        {
+          "week": 8,
+          "opponent": "Leenchixx's Lucrative Team",
+          "p_win": 0.612,
+          "category_p_win": {
+            "PTS": 0.008000000000000007,
+            "REB": 0.888,
+            "AST": 0.864,
+            "STL": 0.9,
+            "BLK": 0.92,
+            "3PM": 0.12,
+            "DD": 0.692,
+            "FG%": 0.45199999999999996,
+            "FT%": 0.20799999999999996,
+            "3PT%": 0.38,
+            "A/TO": 0.6799999999999999
+          }
+        },
+        {
+          "week": 9,
+          "opponent": "Tuma's Talented Team",
+          "p_win": 0.708,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.944,
+            "AST": 0.892,
+            "STL": 0.624,
+            "BLK": 0.96,
+            "3PM": 0.0,
+            "DD": 0.824,
+            "FG%": 0.736,
+            "FT%": 0.008,
+            "3PT%": 0.372,
+            "A/TO": 0.704
+          }
+        },
+        {
+          "week": 10,
+          "opponent": "DAYUM",
+          "p_win": 0.656,
+          "category_p_win": {
+            "PTS": 0.07999999999999996,
+            "REB": 0.956,
+            "AST": 0.856,
+            "STL": 0.836,
+            "BLK": 0.928,
+            "3PM": 0.02400000000000002,
+            "DD": 0.836,
+            "FG%": 0.54,
+            "FT%": 0.14400000000000002,
+            "3PT%": 0.36,
+            "A/TO": 0.512
+          }
+        },
+        {
+          "week": 11,
+          "opponent": "Maxoncheck",
+          "p_win": 0.308,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.824,
+            "AST": 0.1,
+            "STL": 0.808,
+            "BLK": 0.988,
+            "3PM": 0.008,
+            "DD": 0.268,
+            "FG%": 0.74,
+            "FT%": 0.036,
+            "3PT%": 0.416,
+            "A/TO": 0.624
+          }
+        },
+        {
+          "week": 12,
+          "opponent": "Miami huiami ",
+          "p_win": 0.42400000000000004,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.984,
+            "AST": 0.08799999999999997,
+            "STL": 0.756,
+            "BLK": 0.972,
+            "3PM": 0.0,
+            "DD": 0.612,
+            "FG%": 0.9,
+            "FT%": 0.0040000000000000036,
+            "3PT%": 0.384,
+            "A/TO": 0.728
+          }
+        },
+        {
+          "week": 13,
+          "opponent": "LAKERS NEW",
+          "p_win": 0.45599999999999996,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.616,
+            "AST": 0.508,
+            "STL": 0.716,
+            "BLK": 0.972,
+            "3PM": 0.0040000000000000036,
+            "DD": 0.688,
+            "FG%": 0.736,
+            "FT%": 0.04400000000000004,
+            "3PT%": 0.508,
+            "A/TO": 0.5640000000000001
+          }
+        },
+        {
+          "week": 14,
+          "opponent": "Traktor Chelyabinsk",
+          "p_win": 0.14,
+          "category_p_win": {
+            "PTS": 0.0,
+            "REB": 0.304,
+            "AST": 0.412,
+            "STL": 0.064,
+            "BLK": 0.432,
+            "3PM": 0.0,
+            "DD": 0.64,
+            "FG%": 0.744,
+            "FT%": 0.02,
+            "3PT%": 0.496,
+            "A/TO": 0.692
+          }
+        },
+        {
+          "week": 15,
+          "opponent": "ZAL UPA",
+          "p_win": 0.948,
+          "category_p_win": {
+            "PTS": 0.15600000000000003,
+            "REB": 0.996,
+            "AST": 0.996,
+            "STL": 0.992,
+            "BLK": 0.996,
+            "3PM": 0.020000000000000018,
+            "DD": 0.892,
+            "FG%": 0.756,
+            "FT%": 0.020000000000000018,
+            "3PT%": 0.268,
+            "A/TO": 0.924
+          }
+        },
+        {
+          "week": 16,
+          "opponent": "Analniy's Astounding Team",
+          "p_win": 0.82,
+          "category_p_win": {
+            "PTS": 0.48,
+            "REB": 1.0,
+            "AST": 0.916,
+            "STL": 0.864,
+            "BLK": 0.996,
+            "3PM": 0.016,
+            "DD": 0.796,
+            "FG%": 0.82,
+            "FT%": 0.052,
+            "3PT%": 0.42,
+            "A/TO": 0.484
+          }
+        }
+      ],
+      "category_season_totals": {
+        "PTS": 8269.58,
+        "REB": 4332.116,
+        "AST": 2688.2,
+        "STL": 794.024,
+        "BLK": 694.272,
+        "3PM": 582.244,
+        "DD": 147.516,
+        "FG%": 0.506,
+        "FT%": 0.707,
+        "3PT%": 0.351,
+        "A/TO": 2.109
+      }
+    }
+  }
+}

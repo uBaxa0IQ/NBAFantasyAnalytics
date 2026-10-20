@@ -99,10 +99,15 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
                     records[team2_id]["ties"] += 1
 
                 projected_matchups[team1_id].append(
-                    {"week": matchup_period, "opponent_id": team2_id, "result": result1, "score": f"{wins1}-{wins2}"}
+                    {"week": matchup_period, "opponent_id": team2_id, "result": result1,
+                     "score": f"{wins1}-{wins2}", "categories": comparison["categories"]}
                 )
                 projected_matchups[team2_id].append(
-                    {"week": matchup_period, "opponent_id": team1_id, "result": result2, "score": f"{wins2}-{wins1}"}
+                    {"week": matchup_period, "opponent_id": team1_id, "result": result2,
+                     "score": f"{wins2}-{wins1}", "categories": {
+                         category: "loss" if outcome == "win" else "win" if outcome == "loss" else "tie"
+                         for category, outcome in comparison["categories"].items()
+                     }}
                 )
 
     standings = []

@@ -6,10 +6,13 @@ import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'calendar' }) => {
     const savedState = loadState(StorageKeys.SIMULATION, {});
     const [weeks, setWeeks] = useState([]);
-    const [currentWeek, setCurrentWeek] = useState(1);
+    const [forecastWeeks, setForecastWeeks] = useState([]);
+    const [currentWeek, setCurrentWeek] = useState(null);
     const [selectedWeek, setSelectedWeek] = useState(savedState.selectedWeek || '');
     const [weeksCount, setWeeksCount] = useState(savedState.weeksCount !== undefined ? savedState.weeksCount : null);
     const [results, setResults] = useState(null);
+    const [resultsKind, setResultsKind] = useState(null);
+    const [calendarView, setCalendarView] = useState(savedState.calendarView === 'week' ? 'week' : 'season');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [matchupOdds, setMatchupOdds] = useState(null);
@@ -24,22 +27,30 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
     useEffect(() => {
         api.get('/weeks').then(res => {
             setWeeks(res.data.weeks);
+            setForecastWeeks(res.data.forecast_weeks || [res.data.current_week]);
             setCurrentWeek(res.data.current_week);
-            // Используем сохраненное значение или текущую неделю
-            setSelectedWeek(current => current || res.data.current_week);
+            setSelectedWeek(current => {
+                const week = Number(current);
+                if (effectiveSimulationType === 'schedule_projection') {
+                    return week >= res.data.current_week && (res.data.forecast_weeks || []).includes(week)
+                        ? week : res.data.current_week;
+                }
+                return week >= 1 && week <= res.data.current_week ? week : res.data.current_week;
+            });
             // Используем сохраненное значение или текущую неделю
             setWeeksCount(current => current ?? res.data.current_week);
         });
-    }, []);
+    }, [effectiveSimulationType]);
 
     // Сохранение состояния при изменении
     useEffect(() => {
         saveState(StorageKeys.SIMULATION, {
             simulationType: effectiveSimulationType,
             selectedWeek,
-            weeksCount
+            weeksCount,
+            calendarView,
         });
-    }, [effectiveSimulationType, selectedWeek, weeksCount]);
+    }, [effectiveSimulationType, selectedWeek, weeksCount, calendarView]);
 
     useEffect(() => {
         // каждый новый запрос сбрасывает предыдущую ошибку
@@ -62,6 +73,7 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                             setResults(null);
                         } else {
                             setResults(res.data.results);
+                            setResultsKind('matchup');
                         }
                         setLoading(false);
                     })
@@ -77,21 +89,42 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                     });
             }
         } else if (effectiveSimulationType === 'schedule_projection') {
+            if (!currentWeek) return;
+            let active = true;
             setLoading(true);
-            api.get('/projections/league', {
-                params: {
-                    period,
-                    matchup_period: selectedWeek || currentWeek,
-                    remaining_only: parseInt(selectedWeek || currentWeek, 10) === currentWeek
-                }
+            setResults(null);
+            const isSeason = calendarView === 'season';
+            api.get(isSeason ? '/projections/season' : '/projections/matchups', {
+                params: isSeason
+                    ? { period, calculation_engine: calculationEngine }
+                    : { period, matchup_period: selectedWeek || currentWeek }
             })
-                .then(res => setResults(res.data.results))
+                .then(res => {
+                    if (!active) return;
+                    if (isSeason) {
+                        const names = new Map(res.data.standings.map(team => [team.team_id, team.team_name]));
+                        setResults(res.data.standings.map(team => ({
+                            ...team,
+                            name: team.team_name,
+                            isSeasonProjection: true,
+                            matchups: (team.projected_matchups || []).map(matchup => ({
+                                ...matchup,
+                                opponent_name: names.get(matchup.opponent_id) || `Команда ${matchup.opponent_id}`,
+                            })),
+                        })));
+                    } else {
+                        setResults(res.data.matchups);
+                    }
+                    setResultsKind(isSeason ? 'schedule_season' : 'schedule_week');
+                })
                 .catch(err => {
+                    if (!active) return;
                     console.error(err);
                     setError('Не удалось построить календарный прогноз.');
                     setResults(null);
                 })
-                .finally(() => setLoading(false));
+                .finally(() => { if (active) setLoading(false); });
+            return () => { active = false; };
         } else {
             // Для других режимов нужен период
             setLoading(true);
@@ -135,6 +168,7 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                         setResults(null);
                     } else {
                         setResults(res.data.results);
+                        setResultsKind(effectiveSimulationType);
                     }
                     setLoading(false);
                 })
@@ -144,11 +178,11 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                     setLoading(false);
                 });
         }
-    }, [selectedWeek, weeksCount, effectiveSimulationType, period, simulationMode, mainTeam, currentWeek]);
+    }, [selectedWeek, weeksCount, effectiveSimulationType, calendarView, calculationEngine, period, simulationMode, mainTeam, currentWeek]);
 
     useEffect(() => {
         let cancelled = false;
-        if (calculationEngine !== 'probabilistic' || !mainTeam || !currentWeek) {
+        if (calculationEngine !== 'probabilistic' || calendarView !== 'week' || !mainTeam || !currentWeek) {
             setMatchupOdds(null);
             return () => { cancelled = true; };
         }
@@ -156,7 +190,7 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
             .then(response => { if (!cancelled) setMatchupOdds(response.data); })
             .catch(() => { if (!cancelled) setMatchupOdds(null); });
         return () => { cancelled = true; };
-    }, [calculationEngine, mainTeam, selectedWeek, currentWeek, period]);
+    }, [calculationEngine, calendarView, mainTeam, selectedWeek, currentWeek, period]);
 
     // Генерируем опции для количества недель
     const weeksOptions = selectedWeek ? Array.from({ length: parseInt(selectedWeek) }, (_, i) => i + 1) : [];
@@ -165,18 +199,36 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
         setSelectedTeam(team);
     };
 
+    const formatCategory = (category, value) => {
+        if (value == null) return '—';
+        return category.endsWith('%') ? `${(value * 100).toFixed(1)}%` : Number(value).toFixed(1);
+    };
+
+    const expectedResultsKind = effectiveSimulationType === 'schedule_projection'
+        ? `schedule_${calendarView}` : effectiveSimulationType;
+    const visibleResults = resultsKind === expectedResultsKind ? results : null;
+
+    const selectSimulationType = (type) => {
+        if (type === 'matchup' && Number(selectedWeek) > currentWeek) {
+            setSelectedWeek(currentWeek);
+        } else if (type === projectionMode && Number(selectedWeek) < currentWeek) {
+            setSelectedWeek(currentWeek);
+        }
+        setSimulationType(type);
+    };
+
     return (
         <div className="p-4">
             <div className="mb-4 flex gap-4 items-center flex-wrap">
                 <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
                     <button
-                        onClick={() => setSimulationType('matchup')}
+                        onClick={() => selectSimulationType('matchup')}
                         className={`px-4 py-2 rounded-md font-medium transition-colors ${effectiveSimulationType === 'matchup' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         По матчапам
                     </button>
                     <button
-                        onClick={() => setSimulationType(projectionMode)}
+                        onClick={() => selectSimulationType(projectionMode)}
                         className={`px-4 py-2 rounded-md font-medium transition-colors ${effectiveSimulationType === projectionMode ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
                         {calculationEngine === 'legacy' ? 'По средним значениям' : calculationEngine === 'probabilistic' ? 'Вероятностный прогноз' : 'Прогноз по календарю'}
@@ -189,23 +241,36 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                     </button>
                 </div>
 
-                {(effectiveSimulationType === 'matchup' || effectiveSimulationType === 'schedule_projection') && (
+                {effectiveSimulationType === 'schedule_projection' && (
+                    <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+                        <button type="button" onClick={() => setCalendarView('season')}
+                            className={`px-4 py-2 rounded-md font-medium ${calendarView === 'season' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                            Итог сезона
+                        </button>
+                        <button type="button" onClick={() => setCalendarView('week')}
+                            className={`px-4 py-2 rounded-md font-medium ${calendarView === 'week' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                            Неделя
+                        </button>
+                    </div>
+                )}
+
+                {(effectiveSimulationType === 'matchup' || (effectiveSimulationType === 'schedule_projection' && calendarView === 'week')) && (
                     <>
-                        {effectiveSimulationType === 'matchup' && <div>
-                            <label className="mr-2 font-bold">Выберите неделю:</label>
+                        <div>
+                            <label className="mr-2 font-bold">{effectiveSimulationType === 'matchup' ? 'Неделя статистики:' : 'Неделя прогноза:'}</label>
                             <select
                                 className="border p-2 rounded"
                                 value={selectedWeek}
                                 onChange={e => setSelectedWeek(e.target.value)}
                             >
-                                {weeks.map(w => (
+                                {(effectiveSimulationType === 'matchup' ? weeks : forecastWeeks).map(w => (
                                     <option key={w} value={w}>Неделя {w}</option>
                                 ))}
                             </select>
-                        </div>}
+                        </div>
 
-                        <div>
-                            <label className="mr-2 font-bold">Средние за:</label>
+                        {effectiveSimulationType === 'matchup' && <div>
+                            <label className="mr-2 font-bold">Усреднить последние:</label>
                             <select
                                 className="border p-2 rounded"
                                 value={weeksCount || ''}
@@ -217,12 +282,12 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                                     </option>
                                 ))}
                             </select>
-                        </div>
+                        </div>}
                     </>
                 )}
             </div>
 
-            {loading && <div>Симуляция матчапов...</div>}
+            {loading && <div>Считаем прогноз...</div>}
             {error && !loading && (
                 <div className="mb-4 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-3">
                     {error}
@@ -238,11 +303,41 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                 </div>
             )}
 
-            {results && (
+            {visibleResults && effectiveSimulationType === 'schedule_projection' && calendarView === 'week' && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-800">Неделя {selectedWeek || currentWeek}</h2>
+                        <span className="text-sm text-gray-500">{visibleResults.length} матчапов</span>
+                    </div>
+                    {visibleResults.length === 0 && <p className="rounded-xl border bg-white p-5 text-gray-500">На эту неделю нет матчапов.</p>}
+                    {[...visibleResults].sort((a, b) => Number(String(b.team1_id) === String(mainTeam) || String(b.team2_id) === String(mainTeam)) - Number(String(a.team1_id) === String(mainTeam) || String(a.team2_id) === String(mainTeam))).map((matchup, index) => {
+                        const isMyMatchup = String(mainTeam) === String(matchup.team1_id) || String(mainTeam) === String(matchup.team2_id);
+                        return <div key={`${matchup.team1_id}-${matchup.team2_id}`} className={`overflow-hidden rounded-xl border bg-white shadow-sm ${isMyMatchup ? 'border-blue-300' : 'border-gray-200'}`}>
+                            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-2 text-xs font-medium text-gray-500">
+                                <span>Матчап {index + 1}</span>
+                                {isMyMatchup && <span className="rounded-full bg-blue-100 px-2.5 py-1 text-blue-700">Ваша команда</span>}
+                            </div>
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-5 py-5">
+                                <div className={`min-w-0 text-right font-semibold ${matchup.team1_wins > matchup.team2_wins ? 'text-gray-900' : 'text-gray-600'}`}>{matchup.team1_name}</div>
+                                <div className="rounded-lg bg-blue-50 px-4 py-2 text-center text-xl font-bold tabular-nums text-blue-800">{matchup.team1_wins} : {matchup.team2_wins}</div>
+                                <div className={`min-w-0 font-semibold ${matchup.team2_wins > matchup.team1_wins ? 'text-gray-900' : 'text-gray-600'}`}>{matchup.team2_name}</div>
+                            </div>
+                            <details className="border-t border-gray-100 text-sm">
+                                <summary className="cursor-pointer px-5 py-3 font-medium text-blue-700 hover:bg-blue-50">Категории</summary>
+                                <div className="overflow-x-auto px-5 pb-4">
+                                    <table className="min-w-full text-sm">
+                                        <thead><tr className="bg-gray-50 text-gray-600"><th className="p-2 text-left">Категория</th><th className="p-2 text-right">{matchup.team1_name}</th><th className="p-2 text-right">{matchup.team2_name}</th></tr></thead>
+                                        <tbody>{matchup.categories.map(row => <tr key={row.name} className="border-t border-gray-100"><td className="p-2 font-medium">{row.name}</td><td className={`p-2 text-right tabular-nums ${row.winner === 'win' ? 'font-semibold text-green-700' : ''}`}>{formatCategory(row.name, row.team1)}</td><td className={`p-2 text-right tabular-nums ${row.winner === 'loss' ? 'font-semibold text-green-700' : ''}`}>{formatCategory(row.name, row.team2)}</td></tr>)}</tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        </div>;
+                    })}
+                </div>
+            )}
+
+            {visibleResults && !(effectiveSimulationType === 'schedule_projection' && calendarView === 'week') && (
                 <div className="overflow-x-auto">
-                    {calculationEngine === 'probabilistic' && (
-                        <div className="mb-2 text-xs text-gray-500">Таблица ниже — календарная проверка силы против всей лиги; персональный прогноз находится в карточке выше.</div>
-                    )}
                     <table className="min-w-full bg-white border">
                         <thead>
                             <tr className="bg-gray-100">
@@ -255,7 +350,7 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                             </tr>
                         </thead>
                         <tbody>
-                            {results.map((team, index) => (
+                            {visibleResults.map((team, index) => (
                                 <tr
                                     key={team.name}
                                     className="hover:bg-blue-50 cursor-pointer transition-colors"

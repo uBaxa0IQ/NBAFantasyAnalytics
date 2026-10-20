@@ -9,7 +9,7 @@ from core.projection import (
     project_team_stats,
 )
 from core.snapshot import build_league_snapshot
-from core.simulation import simulate_all_vs_all
+from core.simulation import compare_category_stats, simulate_all_vs_all
 from core.matchup_value import combine_stats, add_matchup_values
 
 
@@ -117,6 +117,57 @@ def project_league_matchup(
         "results": simulate_all_vs_all(team_stats),
         "team_projections": team_projections,
         "snapshot_created_at": snapshot.created_at.isoformat(),
+    }
+
+
+def project_scheduled_matchups(league_metadata, period: str, matchup_period: int) -> Dict[str, Any]:
+    """Project only the pairs on ESPN's schedule for one fantasy week."""
+    league = league_metadata.league
+    matchup_period = int(matchup_period)
+    current_period = int(league.currentMatchupPeriod)
+    remaining_only = matchup_period == current_period
+    scoring_periods = (
+        get_remaining_scoring_periods(league, matchup_period)
+        if remaining_only else get_matchup_scoring_periods(league, matchup_period)
+    )
+    snapshot = build_league_snapshot(league_metadata, period)
+    team_stats, _ = project_snapshot_for_matchup(
+        snapshot, league_metadata.get_teams(), scoring_periods,
+        future_only=remaining_only,
+    )
+    if remaining_only:
+        for team_id, team in team_stats.items():
+            actual = league_metadata.get_matchup_box_score(matchup_period, team_id)
+            if actual:
+                team["stats"] = combine_stats(actual["totals"], team["stats"])
+
+    categories = league_metadata.get_categories()
+    reverse = league_metadata.reverse_categories
+    matchups = []
+    for pair in league_metadata.get_schedule_matchups(matchup_period, matchup_period):
+        team1 = team_stats[pair["team1_id"]]
+        team2 = team_stats[pair["team2_id"]]
+        comparison = compare_category_stats(team1["stats"], team2["stats"], categories, reverse)
+        matchups.append({
+            "team1_id": pair["team1_id"], "team1_name": team1["name"],
+            "team2_id": pair["team2_id"], "team2_name": team2["name"],
+            "team1_wins": comparison["team1_wins"],
+            "team2_wins": comparison["team2_wins"],
+            "ties": len(categories) - comparison["team1_wins"] - comparison["team2_wins"],
+            "categories": [
+                {"name": category,
+                 "team1": team1["stats"].get(category, 0.0),
+                 "team2": team2["stats"].get(category, 0.0),
+                 "winner": comparison["categories"][category]}
+                for category in categories
+            ],
+        })
+    return {
+        "period": period,
+        "matchup_period": matchup_period,
+        "remaining_only": remaining_only,
+        "scoring_periods": scoring_periods,
+        "matchups": matchups,
     }
 
 

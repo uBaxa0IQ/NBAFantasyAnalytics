@@ -184,3 +184,6 @@ def test_season_uses_accrued_score_and_only_remaining_days(monkeypatch):
     result = season.project_regular_season(metadata, 'total')
     assert result['standings'][0]['team_id'] == 1
     assert result['standings'][0]['wins'] == 1
+    by_team = {row['team_id']: row for row in result['standings']}
+    assert by_team[1]['projected_matchups'][0]['categories']['PTS'] == 'win'
+    assert by_team[2]['projected_matchups'][0]['categories']['PTS'] == 'loss'

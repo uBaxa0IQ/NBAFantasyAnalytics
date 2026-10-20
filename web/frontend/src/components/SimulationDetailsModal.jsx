@@ -8,9 +8,10 @@ const SimulationDetailsModal = ({ team, onClose }) => {
             return <span className="px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">П</span>;
         } else if (result === 'loss') {
             return <span className="px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-800">Пор</span>;
-        } else {
+        } else if (result === 'tie') {
             return <span className="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">Н</span>;
         }
+        return <span className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Прогноз</span>;
     };
 
     const getCategoryBadge = (result) => {
@@ -28,7 +29,7 @@ const SimulationDetailsModal = ({ team, onClose }) => {
             <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
                 {/* Header */}
                 <div className="bg-blue-900 text-white p-4 flex justify-between items-center">
-                    <h2 className="text-xl font-bold">{team.name} - Детали симуляции</h2>
+                    <h2 className="text-xl font-bold">{team.name} — {team.isSeasonProjection ? 'прогноз матчапов' : 'детали симуляции'}</h2>
                     <button
                         onClick={onClose}
                         className="text-white hover:text-gray-200 text-2xl font-bold"
@@ -66,16 +67,17 @@ const SimulationDetailsModal = ({ team, onClose }) => {
                             <div key={index} className="border rounded-lg p-4 hover:bg-gray-50">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-3">
+                                        {matchup.week && <span className="text-sm font-medium text-gray-500">Неделя {matchup.week}</span>}
                                         {getResultBadge(matchup.result)}
                                         <span className="font-semibold">vs {matchup.opponent_name}</span>
                                     </div>
                                     <div className="text-lg font-bold text-blue-600">
-                                        {matchup.score}
+                                        {matchup.score || (matchup.p_win != null ? `${(matchup.p_win * 100).toFixed(1)}% победы` : '—')}
                                     </div>
                                 </div>
 
                                 {/* Category Breakdown */}
-                                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2">
+                                {matchup.categories && Object.keys(matchup.categories).length > 0 && <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2">
                                     {matchup.categories && Object.entries(matchup.categories).map(([category, result]) => (
                                         <div key={category} className="text-center">
                                             <div className={`text-xs font-semibold ${getCategoryBadge(result)}`}>
@@ -86,7 +88,7 @@ const SimulationDetailsModal = ({ team, onClose }) => {
                                             </div>
                                         </div>
                                     ))}
-                                </div>
+                                </div>}
                             </div>
                         ))}
                     </div>

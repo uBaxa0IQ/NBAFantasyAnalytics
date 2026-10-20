@@ -153,7 +153,9 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
                             {sortedPlayers.map(player => (
                                 <tr
                                     key={player.name}
-                                    className="hover:bg-gray-50 cursor-pointer"
+                                    className={player.is_ir
+                                        ? 'bg-red-100/50 hover:bg-red-100/70 cursor-pointer'
+                                        : 'hover:bg-gray-50 cursor-pointer'}
                                     onClick={() => onPlayerClick && onPlayerClick(player)}
                                 >
                                     <td className="p-2 border font-medium text-blue-600 hover:underline">

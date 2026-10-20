@@ -29,11 +29,15 @@ def get_analytics(
     
     # Добавляем полную статистику к игрокам
     all_players_with_stats = league_meta.get_all_players_stats(period, 'avg', exclude_ir=exclude_ir)
-    stats_by_name = {p['name']: p['stats'] for p in all_players_with_stats}
+    players_by_team_and_name = {
+        (p['team_id'], p['name']): p for p in all_players_with_stats
+    }
     
     # Добавляем статистику к каждому игроку
     for player in team_players:
-        player_stats = stats_by_name.get(player['name'], {})
+        player_data = players_by_team_and_name.get((team_id, player['name']), {})
+        player_stats = player_data.get('stats', {})
+        player['is_ir'] = player_data.get('lineup_slot') == 'IR'
         # Очищаем stats от inf/nan
         clean_stats = {}
         if player_stats:

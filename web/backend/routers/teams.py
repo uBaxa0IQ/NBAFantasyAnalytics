@@ -52,10 +52,15 @@ def refresh_league(league_meta=Depends(get_league_meta)):
 @router.get("/weeks")
 def get_weeks(league_meta=Depends(get_league_meta)):
     """Получает список всех недель и текущую неделю."""
-    weeks = list(range(1, league_meta.league.currentMatchupPeriod + 1))
+    league = league_meta.league
+    current_week = int(league.currentMatchupPeriod)
+    weeks = list(range(1, current_week + 1))
+    scheduled = getattr(league.settings, "matchup_periods", {}) or {}
+    last_week = max((int(week) for week in scheduled), default=current_week)
     return {
         "weeks": weeks,
-        "current_week": league_meta.league.currentMatchupPeriod
+        "forecast_weeks": list(range(current_week, max(current_week, last_week) + 1)),
+        "current_week": current_week,
     }
 
 

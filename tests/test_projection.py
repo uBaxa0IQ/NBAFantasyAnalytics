@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from core.projection import (
     build_matchup_lineups,
+    get_matchup_scoring_periods,
     get_remaining_scoring_periods,
     optimize_daily_lineup,
     project_team_stats,
@@ -74,3 +76,22 @@ def test_remaining_periods_use_espn_scoring_period_mapping():
     league = SimpleNamespace(current_week=135, matchup_ids={19: ["133", "134", "135", "136"]})
 
     assert get_remaining_scoring_periods(league, 19) == [135, 136]
+
+
+def test_matchup_expands_espn_week_settings_to_daily_scoring_periods():
+    opening_tipoff = int(datetime(2026, 10, 20, 23, tzinfo=timezone.utc).timestamp() * 1000)
+    league = SimpleNamespace(
+        matchup_ids={1: ["1"]},
+        settings=SimpleNamespace(matchup_periods={"1": [1], "2": [2], "19": [19, 20]}),
+        firstScoringPeriod=1,
+        finalScoringPeriod=146,
+        scoringPeriodId=4,
+        pro_schedule={1: {"1": [{"date": opening_tipoff}]}},
+    )
+
+    assert get_matchup_scoring_periods(league, 1) == list(range(1, 7))
+    assert get_remaining_scoring_periods(league, 1) == list(range(4, 7))
+    assert get_matchup_scoring_periods(league, 2) == list(range(7, 14))
+    assert get_matchup_scoring_periods(league, 19) == list(range(126, 140))
+    league.matchup_ids[2] = ["2"]
+    assert get_matchup_scoring_periods(league, 2) == list(range(7, 14))

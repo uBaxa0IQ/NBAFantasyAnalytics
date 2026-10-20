@@ -4,6 +4,7 @@ import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import PlayerFiltersModal from './PlayerFiltersModal';
 import { getTrendColor } from '../utils/trendColors';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
+import { mergeFreeAgentPlayers } from '../utils/freeAgentMarket';
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'];
 
 const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = false, mainTeam, calculationEngine = 'calendar' }) => {
@@ -26,25 +27,66 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
     }, [personalized]);
 
     useEffect(() => {
+        let cancelled = false;
         setLoading(true);
-        const endpoint = personalized ? `/free-agent-recommendations/${mainTeam}` : '/free-agents';
-        api.get(endpoint, { params: {
-            period,
-            position: position || undefined,
-            punt_categories: puntCategories.join(','),
-            calculation_engine: calculationEngine,
-            max_transactions: maxTransactions,
-            acquisitions_remaining: acquisitionsRemaining,
-            waiver_delay_days: waiverDelayDays,
-        } })
-            .then(res => {
-                setData(res.data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error(err);
-                setLoading(false);
-            });
+        setData(null);
+
+        const load = async () => {
+            try {
+                const recommendationRequest = personalized
+                    ? api.get(`/free-agent-recommendations/${mainTeam}`, { params: {
+                        period,
+                        position: position || undefined,
+                        punt_categories: puntCategories.join(','),
+                        calculation_engine: calculationEngine,
+                        max_transactions: maxTransactions,
+                        acquisitions_remaining: acquisitionsRemaining,
+                        waiver_delay_days: waiverDelayDays,
+                    } }).then(response => ({ data: response.data })).catch(error => ({ error }))
+                    : null;
+                const marketResponse = await api.get('/free-agents', {
+                    params: { period, position: position || undefined },
+                });
+                if (cancelled) return;
+                const market = marketResponse.data;
+                if (!Array.isArray(market.players)) throw new Error(market.error || 'Free-agent market unavailable');
+                if (!personalized) {
+                    setData(market);
+                    return;
+                }
+
+                setData({
+                    ...market,
+                    note: 'Рынок свободных агентов доступен; эффект замены рассчитывается.',
+                });
+                const recommendationResult = await recommendationRequest;
+                if (cancelled) return;
+                const recommendations = recommendationResult.data || null;
+                if (recommendationResult.error) {
+                    console.error('Free-agent recommendations unavailable:', recommendationResult.error);
+                }
+                setData({
+                    ...market,
+                    ...recommendations,
+                    players: mergeFreeAgentPlayers(market.players, recommendations?.players),
+                    note: !recommendations
+                        ? 'Рынок свободных агентов доступен; расчёт эффекта замены временно недоступен.'
+                        : recommendations.players?.length
+                            ? recommendations.note
+                            : 'Рынок свободных агентов доступен; на оставшиеся игровые дни выгодных замен не найдено.',
+                });
+            } catch (err) {
+                if (!cancelled) {
+                    console.error(err);
+                    setData(null);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        load();
+        return () => { cancelled = true; };
     }, [period, position, mainTeam, puntCategories, personalized, calculationEngine, maxTransactions, acquisitionsRemaining, waiverDelayDays]);
 
     // Загружаем тренды, если включена окраска по тренду
@@ -80,14 +122,14 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
         let total = 0;
         CATEGORIES.forEach(cat => {
             if (!puntCategories.includes(cat)) {
-                total += player.z_scores[cat] || 0;
+                total += player.z_scores?.[cat] || 0;
             }
         });
         return total;
     };
 
     const calculateGeneralZ = (player) => CATEGORIES.reduce(
-        (total, cat) => total + (player.z_scores[cat] || 0),
+        (total, cat) => total + (player.z_scores?.[cat] || 0),
         0,
     );
 
@@ -107,16 +149,22 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
             valA = calculateTotalZ(a);
             valB = calculateTotalZ(b);
         } else if (sortBy === 'calendar_fit') {
-            valA = a.delta_p_win ?? a.matchup_gain ?? a.lineup_gain ?? 0;
-            valB = b.delta_p_win ?? b.matchup_gain ?? b.lineup_gain ?? 0;
+            valA = a.delta_p_win ?? a.matchup_gain ?? a.lineup_gain;
+            valB = b.delta_p_win ?? b.matchup_gain ?? b.lineup_gain;
+            if (valA == null && valB == null) {
+                const zDifference = calculateTotalZ(a) - calculateTotalZ(b);
+                return sortDir === 'asc' ? zDifference : -zDifference;
+            }
+            if (valA == null) return 1;
+            if (valB == null) return -1;
         } else if (sortBy === 'lineup_gain' || sortBy === 'selected_games') {
             valA = a[sortBy] || 0;
             valB = b[sortBy] || 0;
         } else if (sortBy === 'name') {
             return sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
         } else {
-            valA = a.z_scores[sortBy] || 0;
-            valB = b.z_scores[sortBy] || 0;
+            valA = a.z_scores?.[sortBy] || 0;
+            valB = b.z_scores?.[sortBy] || 0;
         }
 
         return sortDir === 'asc' ? valA - valB : valB - valA;
@@ -252,18 +300,22 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                     <td className="p-2 border text-center text-sm">{player.nba_team}</td>
                                     {personalized && (
                                         <>
-                                            <td className={`p-2 border text-center font-bold ${(player.delta_p_win ?? player.lineup_gain) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {player.delta_p_win !== undefined ? (
-                                                    <div>{player.delta_p_win >= 0 ? '+' : ''}{(player.delta_p_win * 100).toFixed(1)} п.п. P(win)</div>
-                                                ) : (
-                                                    <div>{player.matchup_gain > 0 ? '+' : ''}{(player.matchup_gain ?? player.lineup_gain).toFixed(3)} {data.method === 'opponent_category_utility' ? 'балла категорий' : 'Z'}</div>
-                                                )}
-                                                <div className="text-xs font-normal text-gray-500">
-                                                    {player.player_games_delta > 0 ? '+' : ''}{player.player_games_delta} player-games
-                                                </div>
+                                        <td className={`p-2 border text-center font-bold ${player.drop_player ? 'text-green-600' : 'text-gray-400'}`}>
+                                                {player.drop_player ? (
+                                                    <>
+                                                        {player.delta_p_win !== undefined ? (
+                                                            <div>{player.delta_p_win >= 0 ? '+' : ''}{(player.delta_p_win * 100).toFixed(1)} п.п. P(win)</div>
+                                                        ) : (
+                                                            <div>{player.matchup_gain > 0 ? '+' : ''}{(player.matchup_gain ?? player.lineup_gain).toFixed(3)} {data.method === 'opponent_category_utility' ? 'балла категорий' : 'Z'}</div>
+                                                        )}
+                                                        <div className="text-xs font-normal text-gray-500">
+                                                            {player.player_games_delta > 0 ? '+' : ''}{player.player_games_delta} player-games
+                                                        </div>
+                                                    </>
+                                                ) : '—'}
                                             </td>
-                                            <td className="p-2 border text-center text-sm">{player.drop_player}</td>
-                                            <td className="p-2 border text-center">{player.selected_games}</td>
+                                            <td className="p-2 border text-center text-sm">{player.drop_player || '—'}</td>
+                                            <td className="p-2 border text-center">{player.selected_games ?? '—'}</td>
                                         </>
                                     )}
                                     <td className="p-2 border font-bold text-center">
@@ -279,7 +331,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                                         )}
                                     </td>
                                     {CATEGORIES.map(cat => {
-                                        const val = player.z_scores[cat] || 0;
+                                        const val = player.z_scores?.[cat] || 0;
                                         const isPunted = puntCategories.includes(cat);
                                         let colorClass = val > 0 ? 'text-green-600' : 'text-red-600';
                                         if (val === 0) colorClass = 'text-gray-400';
@@ -295,7 +347,7 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                             {sortedPlayers.length === 0 && (
                                 <tr>
                                     <td colSpan={CATEGORIES.length + (personalized ? 7 : 4)} className="p-6 text-center text-gray-500">
-                                        На оставшихся игровых днях нет кандидатов, которые попадут в активный состав.
+                                        Свободных агентов по выбранным условиям нет.
                                     </td>
                                 </tr>
                             )}
