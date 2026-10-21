@@ -13,6 +13,7 @@ from espn_api.basketball.constant import STATS_MAP
 from .config import CATEGORIES, DEFAULT_CATEGORIES, PERIODS, REVERSE_CATEGORIES, normalize_period
 from .projected_dd import estimate_projected_double_doubles, normalize_projected_stats, previous_season_stats, raw_average
 from .simulation import compare_category_stats
+from .espn_transport import BoundedEspnRequests
 
 
 CATEGORY_DISPLAY_ORDER = [
@@ -108,8 +109,15 @@ class LeagueMetadata:
                 league_id=self.league_id,
                 year=self.year,
                 espn_s2=self.espn_s2,
-                swid=self.swid
+                swid=self.swid,
+                fetch_league=False,
             )
+            candidate.espn_request = BoundedEspnRequests(
+                sport='nba', year=self.year, league_id=self.league_id,
+                cookies=candidate.espn_request.cookies,
+                logger=candidate.espn_request.logger,
+            )
+            candidate.fetch_league()
             self.league = candidate
             self.teams = candidate.teams
             self._configure_scoring()
@@ -394,8 +402,17 @@ class LeagueMetadata:
         if not hasattr(player, 'stats') or not player.stats:
             return None
         
-        # Ищем статистику по указанному периоду
+        # Only per-game season estimates may fall back to projections. Actual
+        # totals (including matchup history) must never contain forecast data.
         period_data = player.stats.get(period)
+        if period == PERIODS['total'] and stats_type == 'avg':
+            season_avg = period_data.get('avg') if isinstance(period_data, dict) else None
+            season_total = period_data.get('total') if isinstance(period_data, dict) else None
+            games = (season_avg or {}).get('GP', (season_total or {}).get('GP'))
+            no_games = isinstance(games, (int, float)) and games <= 0
+            if not season_avg or no_games:
+                return self.get_player_stats(player, PERIODS['projected'], 'avg')
+
         if not period_data or not isinstance(period_data, dict):
             return None
         

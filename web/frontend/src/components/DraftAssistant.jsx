@@ -348,31 +348,17 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
         : (isLive ? snapshotRoster : (recommendations?.roster || []));
     const ownPick = isLive ? nextOwnPick(pickCount, viewState?.settings?.pick_order, mainTeam) : null;
     const rosterLimit = viewState?.roster_size || recommendations?.roster_limit || roster.length;
-    const rosterTotalZ = roster.reduce((sum, player) => sum + Number(player.total_z || 0), 0);
-    const rosterCategoryStrength = useMemo(() => Object.fromEntries(CATEGORIES.map(category => [
-        category,
-        roster.reduce((sum, player) => sum + Number(player.z_scores?.[category] || 0), 0),
-    ])), [roster]);
     const balancedRound = recommendations?.round_balanced_comparison;
-    const balancedComparison = balancedRound?.comparison;
     const liveStandings = useMemo(() => (
         Number(balancedRound?.completed_rounds) > 0 ? (balancedRound.standings || []) : []
     ), [balancedRound]);
     const youStanding = liveStandings.find(row => row.is_you) || null;
     const inspectedStanding = inspectedTeamId == null ? null : (liveStandings.find(row => String(row.team_id) === String(inspectedTeamId)) || null);
-    const completedTeamStats = isLive && Number(balancedRound?.completed_rounds) > 0 ? balancedRound : null;
-    const displayedTotalZ = isLive ? (completedTeamStats ? Number(completedTeamStats.total_z || 0) : null) : rosterTotalZ;
-    const displayedCategoryStrength = isLive ? (completedTeamStats?.category_strength || {}) : rosterCategoryStrength;
     const pickAdvice = recommendations?.pick_advice;
     const calculatedPickCount = recommendations?.draft_pick_count;
     const recommendationsAreStale = isLive && recommendations && Number(calculatedPickCount) !== Number(pickCount);
     const waitingForScheduledCalculation = isLive && !recommendations && !recommendationsLoading && !recommendationTrigger;
     const projectedTurns = (selectedSimulation?.round_targets || []).slice(0, 3);
-    const categoryRanks = balancedComparison?.category_ranks || {};
-    const rankedCategories = [...CATEGORIES].filter(category => categoryRanks[category] != null).sort((a, b) => categoryRanks[a] - categoryRanks[b]);
-    const strongestCategories = rankedCategories.slice(0, 3);
-    const weakestCategories = rankedCategories.slice(-3).reverse();
-    const roundProgress = pickCount ? (pickCount % teamCount || teamCount) : 0;
     const displayRound = viewState?.next_round || (pickCount ? Math.ceil(pickCount / teamCount) : 1);
 
     const handleSort = column => {
@@ -548,15 +534,15 @@ const DraftAssistant = ({ draftState, mainTeam, puntCategories = [], projectedPe
                         </div>
                         <div className="overflow-x-auto"><table className="min-w-full border-collapse bg-white text-sm"><thead><tr className="bg-gray-100">
                             <th onClick={() => handleSort('name')} className="cursor-pointer whitespace-nowrap border p-2">Игрок<SortIcon column="name" /></th><th className="border p-2">Поз.</th><th className="border p-2">NBA</th><th onClick={() => handleSort('games_played')} className="cursor-pointer border p-2">GP<SortIcon column="games_played" /></th>
-                            {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_roto_rank')} title="Место в общем списке ESPN ROTO" className="cursor-pointer whitespace-nowrap border p-2">ESPN №<SortIcon column="espn_roto_rank" /></th>}
-                            {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2">Оценка рынка<SortIcon column="espn_market_pick" /></th>}<th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
+                            {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_roto_rank')} title="Место в общем списке ESPN ROTO" className="cursor-pointer whitespace-nowrap border px-1 py-2 text-xs">ESPN №<SortIcon column="espn_roto_rank" /></th>}
+                            {effectivePlayersView === 'draft' && <th onClick={() => handleSort('espn_market_pick')} title="Оценка рынка ESPN" className="cursor-pointer whitespace-nowrap border px-1 py-2 text-xs">Рынок<SortIcon column="espn_market_pick" /></th>}<th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
                             {CATEGORIES.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
                         </tr></thead><tbody>{visiblePlayers.map(player => {
                             const strategyZ = calculateStrategyZ(player, puntCategories);
                             return <tr key={player.player_id || player.name} className="hover:bg-gray-50">
                             <td className="cursor-pointer whitespace-nowrap border p-2 font-medium text-blue-600 hover:underline" onClick={() => onPlayerClick?.(player)}>{player.name}</td><td className="border p-2 text-center">{player.position}</td><td className="border p-2 text-center">{player.nba_team}</td><td className="border p-2 text-center">{player.games_played || '—'}</td>
-                            {effectivePlayersView === 'draft' && <td className="border p-2 text-center">{espnDraftRank(player) ?? '—'}</td>}
-                            {effectivePlayersView === 'draft' && <td className="border p-2 text-center">{player.espn_market_pick?.toFixed(1) || '—'}</td>}<td className={`border p-2 text-center font-bold ${zTextTone(strategyZ)}`}>{strategyZ.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>}</td>
+                            {effectivePlayersView === 'draft' && <td className="border px-1 py-2 text-center">{espnDraftRank(player) ?? '—'}</td>}
+                            {effectivePlayersView === 'draft' && <td className="border px-1 py-2 text-center">{player.espn_market_pick?.toFixed(1) || '—'}</td>}<td className={`border p-2 text-center font-bold ${zTextTone(strategyZ)}`}>{strategyZ.toFixed(2)}{puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>}</td>
                             {CATEGORIES.map(category => { const value = effectivePlayersView === 'stats' ? player.stats?.[category] : player.z_scores?.[category]; const zScore = Number(player.z_scores?.[category] || 0); return <td key={category} className={`border p-2 text-center ${zTextTone(zScore)} ${puntCategories.includes(category) ? 'opacity-30' : ''}`}>{effectivePlayersView === 'stats' ? formatStat(category, value) : zScore.toFixed(2)}</td>; })}
                         </tr>;
                         })}</tbody></table></div>
@@ -625,7 +611,7 @@ const AdvicePlayerRow = ({ player, index, onPlayerClick, featured = false }) => 
                 {player.availability_probability != null && (
                     <div
                         className="text-xs text-blue-600"
-                        title="Консервативная оценка доступности: учитывает ESPN ADP и ROTO, не только смешанный рынок. Не является гарантией."
+                        title="Вероятность доступности к вашему пику"
                     >
                         {player.availability_probability}%
                     </div>
@@ -635,7 +621,7 @@ const AdvicePlayerRow = ({ player, index, onPlayerClick, featured = false }) => 
     );
 };
 
-const AdviceLane = ({ lane, players, onPlayerClick, isPostDraft, startIndex }) => {
+const AdviceLane = ({ lane, players, onPlayerClick, startIndex }) => {
     if (!players?.length) return null;
     const meta = laneMeta[lane] || lane;
     return (
@@ -697,7 +683,7 @@ const RecommendedPicks = ({ advice, players, onPlayerClick, isPostDraft }) => {
             {!isPostDraft && lanes.map(([lane, lanePlayers]) => {
                 const startIndex = cursor;
                 cursor += lanePlayers.length;
-                return <AdviceLane key={lane} lane={lane} players={lanePlayers} onPlayerClick={onPlayerClick} isPostDraft={isPostDraft} startIndex={startIndex} />;
+                return <AdviceLane key={lane} lane={lane} players={lanePlayers} onPlayerClick={onPlayerClick} startIndex={startIndex} />;
             })}
             {!list.length && <div className="p-8 text-center text-sm text-gray-400">Нет доступных рекомендаций</div>}
         </section>

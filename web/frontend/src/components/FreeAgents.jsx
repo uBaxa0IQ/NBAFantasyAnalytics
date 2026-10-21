@@ -242,11 +242,12 @@ const FreeAgents = ({ onPlayerClick, period, puntCategories, colorByTrend = fals
                 </>)}
             </div>
 
-            {personalized && data && (
+            {personalized && data && (data.transaction_plans?.[0] || data.method === 'season_complete' || (calculationEngine === 'probabilistic' && acquisitionsRemaining === 0)) && (
                 <div className="mb-4 p-3 rounded bg-blue-50 text-sm text-blue-900">
-                    {data.note || 'Прирост после одиночной замены по оставшемуся календарю и слотам лиги.'}
+                    {data.method === 'season_complete' && 'Нет оставшихся игровых дней.'}
+                    {data.method !== 'season_complete' && calculationEngine === 'probabilistic' && acquisitionsRemaining === 0 && 'Лимит доступных добавлений исчерпан.'}
                     {data.transaction_plans?.[0] && (
-                        <div className="mt-2 font-semibold">
+                        <div className="font-semibold">
                             Лучший план: {data.transaction_plans[0].actions.map(action => `${action.order}) +${action.add} / −${action.drop}`).join(' → ')}; ΔP(win) {data.transaction_plans[0].delta_p_win >= 0 ? '+' : ''}{(data.transaction_plans[0].delta_p_win * 100).toFixed(1)} п.п.
                         </div>
                     )}

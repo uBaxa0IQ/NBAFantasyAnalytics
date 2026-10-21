@@ -1,4 +1,4 @@
-import React, { lazy, useState, useEffect } from 'react';
+import React, { lazy, useState, useEffect, useMemo } from 'react';
 import api from './api';
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Analytics = lazy(() => import('./components/Analytics'));
@@ -59,10 +59,17 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
   const [puntsEnabled, setPuntsEnabled] = useState(() => localStorage.getItem('puntsEnabled') !== 'false');
-  const puntCategories = puntsEnabled ? configuredPuntCategories : [];
+  const puntCategories = useMemo(() => puntsEnabled ? configuredPuntCategories : [], [puntsEnabled, configuredPuntCategories]);
   const [enteredSeasonKeys, setEnteredSeasonKeys] = useState({});
   const seasonModeKey = `season-mode:${seasonConfig.league_id}:${seasonConfig.periods.projected}`;
   const seasonModeEntered = Boolean(enteredSeasonKeys[seasonModeKey]) || localStorage.getItem(seasonModeKey) === 'true';
+
+  useEffect(() => {
+    if (draftState?.status === 'completed' && draftState.season_started === false) {
+      setPeriod(current => Object.values(seasonConfig.periods).includes(current) && current !== seasonConfig.periods.projected
+        ? seasonConfig.periods.projected : current);
+    }
+  }, [draftState?.status, draftState?.season_started, seasonConfig.periods]);
 
   useEffect(() => {
     const handlePuntShortcut = event => {

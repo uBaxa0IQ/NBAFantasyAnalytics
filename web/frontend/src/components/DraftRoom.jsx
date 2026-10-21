@@ -275,8 +275,8 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
                 <thead><tr className="bg-gray-100">
                     {showPick && <th onClick={() => handleSort('draft_pick')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">Пик<SortIcon column="draft_pick" /></th>}
                     <th onClick={() => handleSort('name')} className="cursor-pointer whitespace-nowrap border p-2 text-left hover:bg-gray-200">Игрок<SortIcon column="name" /></th>
-                    {showMarket && <th onClick={() => handleSort('espn_roto_rank')} title="Место в общем списке ESPN ROTO" className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">ESPN №<SortIcon column="espn_roto_rank" /></th>}
-                    {showMarket && <th onClick={() => handleSort('espn_market_pick')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">Рынок<SortIcon column="espn_market_pick" /></th>}
+                    {showMarket && <th onClick={() => handleSort('espn_roto_rank')} title="Место в общем списке ESPN ROTO" className="cursor-pointer whitespace-nowrap border px-1 py-2 text-xs hover:bg-gray-200">ESPN №<SortIcon column="espn_roto_rank" /></th>}
+                    {showMarket && <th onClick={() => handleSort('espn_market_pick')} title="Оценка рынка ESPN" className="cursor-pointer whitespace-nowrap border px-1 py-2 text-xs hover:bg-gray-200">Рынок<SortIcon column="espn_market_pick" /></th>}
                     <th onClick={() => handleSort('total_z')} className="cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200">{puntCategories.length ? 'Z стратегии' : 'Total Z'}<SortIcon column="total_z" /></th>
                     {categories.map(category => <th key={category} onClick={() => handleSort(category)} className={`cursor-pointer whitespace-nowrap border p-2 hover:bg-gray-200 ${puntCategories.includes(category) ? 'opacity-50' : ''}`}>{category}<SortIcon column={category} /></th>)}
                 </tr></thead>
@@ -299,8 +299,8 @@ const CategoryZTable = ({ players, categories, puntCategories, onPlayerClick, on
                                 <span className="hover:underline">{player.name}</span>
                                 <span className="text-xs font-normal text-gray-500"> ({player.position || '—'})</span>
                             </td>
-                            {showMarket && <td className="border p-2 text-center">{espnDraftRank(player) ?? '—'}</td>}
-                            {showMarket && <td className="border p-2 text-center">{marketPick(player)?.toFixed(1) || '—'}</td>}
+                            {showMarket && <td className="border px-1 py-2 text-center">{espnDraftRank(player) ?? '—'}</td>}
+                            {showMarket && <td className="border px-1 py-2 text-center">{marketPick(player)?.toFixed(1) || '—'}</td>}
                             <td className={`border p-2 text-center font-bold ${tone(total)}`}>
                                 {total.toFixed(2)}
                                 {puntCategories.length > 0 && <div className="text-xs font-normal text-gray-400">общий {generalZ(player).toFixed(2)}</div>}

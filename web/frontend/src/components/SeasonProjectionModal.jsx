@@ -27,7 +27,6 @@ const SeasonProjectionModal = ({ projection, onClose, isPlayoff }) => {
                     </div>
 
                     {/* Table */}
-                    {!isPlayoff && <p className="mb-4 text-sm text-amber-800">{projection.assumptions}</p>}
                     <div className="overflow-x-auto">
                         <table className="min-w-full bg-white border">
                             <thead>

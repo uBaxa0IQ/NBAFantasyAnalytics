@@ -4,5 +4,6 @@ espn-api==0.45.1
 pydantic==2.9.2
 python-dotenv==1.0.1
 pytz==2024.1
+numpy>=1.26,<3
 
 

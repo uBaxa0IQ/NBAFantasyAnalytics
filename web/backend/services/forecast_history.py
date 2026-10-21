@@ -59,13 +59,19 @@ def connect():
 def record(league, season, week, team1, team2, period, stats1, stats2, categories, reverse, odds=None):
     with connect() as db:
         odds = odds or {}
+        # Monte Carlo seeds are unsigned 64-bit; SQLite INTEGER is signed.
+        seed = odds.get('seed')
+        if seed is not None:
+            seed = int(seed)
+            if seed >= 1 << 63:
+                seed -= 1 << 64
         db.execute('''INSERT OR IGNORE INTO forecasts
             (league,season,week,team1,team2,period,categories,reverse_cats,prediction,actual,created,
              p_win,p_tie,p_loss,engine_version,seed,trials)
             VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?)''',
             (league, season, week, team1, team2, period, json.dumps(list(categories)), json.dumps(list(reverse)),
              json.dumps([stats1, stats2]), datetime.now(timezone.utc).isoformat(), odds.get('p_win'),
-             odds.get('p_tie'), odds.get('p_loss'), odds.get('engine_version'), odds.get('seed'), odds.get('trials')))
+             odds.get('p_tie'), odds.get('p_loss'), odds.get('engine_version'), seed, odds.get('trials')))
 
 
 def validate(league_metadata):

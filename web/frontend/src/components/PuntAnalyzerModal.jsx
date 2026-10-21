@@ -60,7 +60,6 @@ const PuntAnalyzerModal = ({ data, activePunts, onApply, onClose }) => {
                 </div>
 
                 <div className="p-4 space-y-5">
-                    <p className="text-sm text-amber-800">Диагностика текущего состава: исключение категорий повышает средний контроль оставшихся, но само по себе не усиливает команду. Для победы нужно {data.winning_categories} категорий.</p>
                     <div>
                         <div className="text-sm font-medium text-gray-700 mb-2">Глубина стратегии</div>
                         <div className="grid grid-cols-6 gap-2">
@@ -84,7 +83,7 @@ const PuntAnalyzerModal = ({ data, activePunts, onApply, onClose }) => {
                                 {strategy.punt_count ? `Punt ${strategy.punt_categories.join(' + ')}` : 'Сбалансированная стратегия'}
                             </div>
                             <p className="text-sm text-gray-500">
-                                Нужно выиграть 6 из {strategy.available_categories} оставшихся категорий · риск {strategy.risk}
+                                {strategy.available_categories} категорий · риск {strategy.risk}
                             </p>
                         </div>
                         <button
@@ -171,9 +170,6 @@ const PuntAnalyzerModal = ({ data, activePunts, onApply, onClose }) => {
                         </div>
                     )}
 
-                    <p className="text-xs text-gray-400 border-t pt-3">
-                        Больше пантов обычно повышает контроль оставшегося ядра, но уменьшает запас на ошибку. Анализ не меняет статистику состава и не исключает категории из правил ESPN.
-                    </p>
                 </div>
             </div>
         </div>

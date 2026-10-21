@@ -78,7 +78,6 @@ const LineupOptimizerModal = ({ teamId, onClose, puntCategories = [], period = g
                 <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
 
-            {data.note && <p className="mb-3 text-sm text-amber-800">{data.note}</p>}
             {data.baseline_odds && (
                 <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
                     <span className="text-sm text-gray-600">Шанс победы: </span>

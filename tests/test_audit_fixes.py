@@ -79,7 +79,10 @@ def test_refresh_retains_successful_state_on_scoring_failure(monkeypatch):
     metadata = module.LeagueMetadata()
     old_league = SimpleNamespace(teams=['old'])
     metadata.league, metadata.teams = old_league, ['old']
-    monkeypatch.setattr(module, 'League', lambda **kwargs: SimpleNamespace(teams=['new']))
+    monkeypatch.setattr(module, 'League', lambda **kwargs: SimpleNamespace(
+        teams=['new'], espn_request=SimpleNamespace(cookies={}, logger=None),
+        fetch_league=lambda: None,
+    ))
     monkeypatch.setattr(metadata, '_configure_scoring', lambda: (_ for _ in ()).throw(RuntimeError('offline')))
     assert metadata.connect_to_league() is False
     assert metadata.league is old_league
@@ -106,6 +109,14 @@ def test_forecasts_are_frozen_and_validated_without_lookahead(tmp_path, monkeypa
     assert result['resolved'] == 1
     assert result['matchup_accuracy'] == 1
     assert result['category_mae']['TO'] == 1.5
+
+
+def test_forecast_accepts_unsigned_64_bit_simulation_seed(tmp_path, monkeypatch):
+    from web.backend.services.forecast_history import record, connect
+    monkeypatch.setenv('FORECAST_DB', str(tmp_path / 'unsigned-seed.db'))
+    record(1, 2027, 2, 1, 2, 'projected', {}, {}, ['PTS'], [], {'seed': (1 << 64) - 1})
+    with connect() as db:
+        assert db.execute('SELECT seed FROM forecasts').fetchone()[0] == -1
 
 
 def test_access_token_is_required_when_configured(monkeypatch):

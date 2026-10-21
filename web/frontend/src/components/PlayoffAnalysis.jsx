@@ -437,7 +437,6 @@ const PlayoffAnalysis = ({ period, mainTeam, simulationMode, calculationEngine =
                                     </div>
                                 ))}
                             </div>
-                            {data.probabilistic_note && <p className="mt-3 text-xs text-gray-600">{data.probabilistic_note}</p>}
                         </div>
                     )}
                     <BracketSection title="Чемпионский путь" matchups={championshipMatchups} seedsByTeamId={seedsByTeamId} onSelect={setSelectedMatchup} accent />

@@ -102,7 +102,6 @@ const PlayerModal = ({ player, onClose, onAddToComparison, onRemoveFromCompariso
                                 {isDraftProfile && <span>GP: <strong>{player.games_played || player.stats?.GP || '—'}</strong></span>}
                                 {isDraftProfile && player.espn_adp != null && <span>ESPN ADP: <strong>{player.espn_adp.toFixed(1)}</strong></span>}
                             </div>
-                            {isDraftProfile && <div className="mt-2 text-xs text-gray-500">Профиль для драфта · источник статистики: {player.stats_source || 'проекция / прошлый сезон'}</div>}
                         </div>
                         <div className="flex items-center gap-3">
                             {onAddToComparison && (

@@ -116,7 +116,7 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
                             ))}
                         </div>
                     )}
-                    <div className="mt-2 text-xs text-gray-500">{odds.trials} сценариев · оценка модели, не гарантия</div>
+                    <div className="mt-2 text-xs text-gray-500">{odds.trials} сценариев</div>
                 </div>
             )}
             

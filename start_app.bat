@@ -61,8 +61,12 @@ if not exist "%FRONTEND_DIR%\node_modules" (
 )
 
 echo Starting backend and frontend in separate windows...
-start "NBA Backend" /D "%PROJECT_ROOT%" cmd /k ""%VENV_PYTHON%" -m uvicorn web.backend.main:app --reload --host 127.0.0.1 --port 8000"
-start "NBA Frontend" /D "%FRONTEND_DIR%" cmd /k "npm.cmd run dev"
+"%VENV_PYTHON%" "%PROJECT_ROOT%scripts\check_local_server.py" backend 8000
+if errorlevel 2 goto :fail
+if errorlevel 1 start "NBA Backend" /D "%PROJECT_ROOT%" cmd /k ""%VENV_PYTHON%" -m uvicorn web.backend.main:app --reload --host 127.0.0.1 --port 8000"
+"%VENV_PYTHON%" "%PROJECT_ROOT%scripts\check_local_server.py" frontend 5173
+if errorlevel 2 goto :fail
+if errorlevel 1 start "NBA Frontend" /D "%FRONTEND_DIR%" cmd /k "npm.cmd run dev -- --port 5173 --strictPort"
 
 echo Backend API: http://localhost:8000/docs
 echo Frontend:    http://127.0.0.1:5173

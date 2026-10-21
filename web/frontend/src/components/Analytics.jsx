@@ -8,6 +8,7 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
     const [teams, setTeams] = useState([]);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [sortBy, setSortBy] = useState('total_z');
     const [sortDir, setSortDir] = useState('desc');
     const [selectedTeam, setSelectedTeam] = useState(() => {
@@ -28,14 +29,17 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
     useEffect(() => {
         if (selectedTeam) {
             setLoading(true);
+            setError(null);
             // В аналитике команды IR игроки всегда включены
             api.get(`/analytics/${selectedTeam}?period=${period}&exclude_ir=false`)
                 .then(res => {
-                    setData(res.data);
+                    setData(res.data?.players ? res.data : null);
+                    if (!res.data?.players) setError('За выбранный период пока нет статистики. Выберите прогноз в настройках.');
                     setLoading(false);
                 })
                 .catch(err => {
                     console.error(err);
+                    setError('Не удалось загрузить аналитику команды. Попробуйте ещё раз.');
                     setLoading(false);
                 });
         }
@@ -83,7 +87,7 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
         }
     };
 
-    const sortedPlayers = data ? [...data.players].sort((a, b) => {
+    const sortedPlayers = data?.players ? [...data.players].sort((a, b) => {
         let valA, valB;
 
         if (sortBy === 'total_z') {
@@ -120,6 +124,7 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
             </div>
 
             {loading && <div>Загрузка...</div>}
+            {error && <div role="alert">{error}</div>}
 
             {data && (
                 <div className="overflow-x-auto">

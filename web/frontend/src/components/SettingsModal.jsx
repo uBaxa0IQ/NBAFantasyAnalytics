@@ -292,6 +292,7 @@ const SettingsModal = ({ isOpen, onClose, onSave, initialSettings, seasonConfig 
                                 onChange={e => setPeriod(e.target.value)}
                             >
                                 <option value={periods.total}>Весь сезон</option>
+                                <option value={periods.projected}>Прогноз ESPN (Projected)</option>
                                 <option value={periods.last_30}>Последние 30 дней</option>
                                 <option value={periods.last_15}>Последние 15 дней</option>
                                 <option value={periods.last_7}>Последние 7 дней</option>
