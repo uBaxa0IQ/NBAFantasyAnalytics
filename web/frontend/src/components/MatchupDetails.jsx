@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 
 const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'calendar' }) => {
+    const [expanded, setExpanded] = useState(false);
     const [matchupData, setMatchupData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [odds, setOdds] = useState(null);
     const matchupWeek = currentMatchup?.week;
+    const myGames = matchupData?.game_usage?.[teamId];
+    const opponentGames = matchupData?.game_usage?.[currentMatchup?.opponent_id];
 
     useEffect(() => {
+        if (!expanded) return;
         let cancelled = false;
         if (!teamId || !matchupWeek) {
             setMatchupData(null);
@@ -44,7 +48,7 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
             setOdds(null);
         }
         return () => { cancelled = true; };
-    }, [teamId, matchupWeek, period, calculationEngine]);
+    }, [expanded, teamId, matchupWeek, period, calculationEngine]);
 
     const formatValue = (category, value) => {
         if (category === 'FG%' || category === 'FT%' || category === '3PT%') {
@@ -61,31 +65,33 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
         }
     };
 
-    if (loading) {
-        return (
-            <div className="bg-white border rounded-lg p-6 shadow-sm">
-                <div className="text-center text-gray-500">Загрузка данных матчапа...</div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="bg-white border rounded-lg p-6 shadow-sm">
-                <div className="text-center text-red-500">{error}</div>
-            </div>
-        );
-    }
-
-    if (!matchupData) {
-        return null;
-    }
-
     return (
         <div className="bg-white border rounded-lg p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-700">Детали матчапа</h3>
-            </div>
+            <button
+                type="button"
+                aria-expanded={expanded}
+                aria-controls="dashboard-matchup-details"
+                onClick={() => setExpanded(value => !value)}
+                className="flex w-full items-center justify-between gap-4 text-left"
+            >
+                <span>
+                    <span className="block text-lg font-semibold text-gray-700">Детали матчапа</span>
+                    <span className="block text-sm text-gray-500">
+                        Неделя {matchupWeek} · {currentMatchup.opponent_name}
+                    </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-500">
+                    {expanded ? 'Свернуть' : 'Развернуть'}
+                    <span aria-hidden="true" className={`inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
+                </span>
+            </button>
+
+            {expanded && <div id="dashboard-matchup-details" className="mt-4">
+            {loading ? (
+                <div className="text-center text-gray-500">Загрузка данных матчапа...</div>
+            ) : error ? (
+                <div className="text-center text-red-500">{error}</div>
+            ) : matchupData ? (<>
 
             {odds && (
                 <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -118,6 +124,11 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
             <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex-1 min-w-[200px]">
                     <div className="font-bold text-lg">{matchupData.my_team.name}</div>
+                    {myGames && (
+                        <div className="mt-1 text-sm tabular-nums text-gray-500" aria-label={`Игры: ${myGames.played} сыграно, прогноз ${myGames.projected_total} к концу недели`}>
+                            {myGames.played} · {myGames.projected_total}
+                        </div>
+                    )}
                     {matchupData.my_team.overall_record && (
                         <div className="text-sm text-gray-600">
                             {matchupData.my_team.overall_record}
@@ -136,6 +147,11 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
                 </div>
                 <div className="flex-1 min-w-[200px] text-right">
                     <div className="font-bold text-lg">{matchupData.opponent.name}</div>
+                    {opponentGames && (
+                        <div className="mt-1 text-sm tabular-nums text-gray-500" aria-label={`Игры: ${opponentGames.played} сыграно, прогноз ${opponentGames.projected_total} к концу недели`}>
+                            {opponentGames.played} · {opponentGames.projected_total}
+                        </div>
+                    )}
                     {matchupData.opponent.overall_record && (
                         <div className="text-sm text-gray-600">
                             {matchupData.opponent.overall_record}
@@ -148,7 +164,7 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
                 </div>
             </div>
 
-            {/* Таблица сравнения всегда открыта */}
+            {/* Таблица сравнения категорий */}
             <div className="mt-4 overflow-x-auto">
                 <table className="min-w-full">
                     <thead>
@@ -198,6 +214,8 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
                     </tbody>
                 </table>
             </div>
+            </>) : null}
+            </div>}
         </div>
     );
 };

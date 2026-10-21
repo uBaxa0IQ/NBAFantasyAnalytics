@@ -21,6 +21,19 @@ CATEGORY_DISPLAY_ORDER = [
 ]
 
 
+def _box_score_team_totals(box, team_id: int) -> Optional[Dict[str, float]]:
+    """Read the fantasy team's credited category totals from ESPN's scoreboard."""
+    side = 'home' if box.home_team.team_id == team_id else 'away'
+    score = getattr(box, f'{side}_stats', None)
+    if not isinstance(score, dict):
+        return None
+    return {
+        category: float(entry.get('value') or 0)
+        for category, entry in score.items()
+        if isinstance(entry, dict)
+    }
+
+
 
 
 
@@ -752,6 +765,10 @@ class LeagueMetadata:
         if total_to > 0:
             totals['A/TO'] = total_ast / total_to
         
+        official_totals = _box_score_team_totals(matchup_box, team_id)
+        if official_totals is not None:
+            totals = official_totals
+
         return {
             'week': week,
             'team_id': team_id,
@@ -794,14 +811,28 @@ class LeagueMetadata:
             # Обрабатываем домашнюю команду
             home_team_id = box.home_team.team_id
             home_lineup = box.home_lineup
-            home_stats = self._extract_team_stats_from_lineup(home_lineup, box.home_team.team_name)
+            home_totals = _box_score_team_totals(box, home_team_id)
+            home_stats = (
+                {'name': box.home_team.team_name,
+                 'stats': self.filter_stats_by_categories(home_totals),
+                 'totals': home_totals, 'players': []}
+                if home_totals is not None else
+                self._extract_team_stats_from_lineup(home_lineup, box.home_team.team_name)
+            )
             if home_stats:
                 teams_stats[home_team_id] = home_stats
             
             # Обрабатываем гостевую команду
             away_team_id = box.away_team.team_id
             away_lineup = box.away_lineup
-            away_stats = self._extract_team_stats_from_lineup(away_lineup, box.away_team.team_name)
+            away_totals = _box_score_team_totals(box, away_team_id)
+            away_stats = (
+                {'name': box.away_team.team_name,
+                 'stats': self.filter_stats_by_categories(away_totals),
+                 'totals': away_totals, 'players': []}
+                if away_totals is not None else
+                self._extract_team_stats_from_lineup(away_lineup, box.away_team.team_name)
+            )
             if away_stats:
                 teams_stats[away_team_id] = away_stats
         

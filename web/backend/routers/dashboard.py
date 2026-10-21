@@ -6,6 +6,7 @@ from dependencies import get_league_meta
 from core.z_score import calculate_z_scores
 from core.config import CATEGORIES, DEFAULT_PERIOD, REVERSE_CATEGORIES
 from utils.calculations import calculate_team_raw_stats, select_top_n_players
+from services.game_usage import get_week_game_usage
 from typing import Optional, List
 import math
 
@@ -392,7 +393,8 @@ def get_matchup_details(
             'wins': opponent_wins
         },
         'score': f"{my_wins}-{opponent_wins}-{ties}",
-        'categories': categories_data
+        'categories': categories_data,
+        'game_usage': get_week_game_usage(league_meta, (team_id, opponent_id)),
     }
 
 

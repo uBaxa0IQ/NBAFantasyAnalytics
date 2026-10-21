@@ -161,7 +161,7 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
                                     <td className="p-2 border font-medium text-blue-600 hover:underline">
                                         {player.name} <span className="text-xs text-gray-500">({player.position})</span>
                                     </td>
-                                    <td className="p-2 border font-bold text-center">
+                                    <td className="p-2 border font-bold text-center whitespace-nowrap">
                                         {colorByTrend && playerTrends[player.name] !== undefined ? (
                                             <span style={{ color: getTrendColor(playerTrends[player.name]) }}>
                                                 {calculateTotalZ(player).toFixed(2)}
@@ -170,7 +170,12 @@ const Analytics = ({ onPlayerClick, period, puntCategories, colorByTrend = false
                                             calculateTotalZ(player).toFixed(2)
                                         )}
                                         {puntCategories.length > 0 && (
-                                            <div className="text-xs font-normal text-gray-400">общий {calculateGeneralZ(player).toFixed(2)}</div>
+                                            <span
+                                                className="ml-1.5 text-xs font-normal text-gray-500"
+                                                title="Общий Z по всем категориям"
+                                            >
+                                                · {calculateGeneralZ(player).toFixed(2)}
+                                            </span>
                                         )}
                                     </td>
                                     {CATEGORIES.map(cat => {
