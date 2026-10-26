@@ -22,7 +22,8 @@ def _project(players, scoring_periods, punts, slots):
     return value, stats, sum(lineup["selected_games"].values())
 
 
-def analyze_calendar_trade(league_metadata, period, team_moves, punt_categories=()):
+def analyze_calendar_trade(league_metadata, period, team_moves, punt_categories=(),
+                           selected_before=None, selected_after=None):
     """Evaluate roster moves in the actual remaining matchup calendar."""
     snapshot = build_league_snapshot(league_metadata, period)
     league = league_metadata.league
@@ -40,6 +41,10 @@ def analyze_calendar_trade(league_metadata, period, team_moves, punt_categories=
         before = [{**player.as_projection_player(), 'future_only': True} for player in snapshot.team_players(team_id)]
         after = [player for player in before if player["name"] not in move["give"]]
         after.extend(all_players[name] for name in move["receive"] if name in all_players)
+        if selected_before and team_id in selected_before:
+            before = [player for player in before if player['name'] in selected_before[team_id]]
+        if selected_after and team_id in selected_after:
+            after = [player for player in after if player['name'] in selected_after[team_id]]
         before_value, before_stats, before_games = _project(before, scoring_periods, punt_categories, snapshot.active_slots)
         after_value, after_stats, after_games = _project(after, scoring_periods, punt_categories, snapshot.active_slots)
         teams[team_id] = {
@@ -97,6 +102,8 @@ def analyze_probabilistic_trade(
     team_moves,
     punt_categories=(),
     processing_delay_days: int = 0,
+    selected_before=None,
+    selected_after=None,
 ):
     """Evaluate both sides against current opponents and the remaining season."""
     inputs = build_engine_inputs(league_metadata, period)
@@ -106,27 +113,44 @@ def analyze_probabilistic_trade(
         for player in roster
     }
     effective_date = date.today() + timedelta(days=max(0, int(processing_delay_days)))
+    before_rosters = {}
     after_rosters = {}
     roster_adjustments = {}
     for team_id, move in team_moves.items():
         team_id = int(team_id)
-        before = list(inputs["players_by_team"].get(team_id, []))
+        full_before = list(inputs["players_by_team"].get(team_id, []))
+        before = (
+            [player for player in full_before if player['name'] in selected_before[team_id]]
+            if selected_before and team_id in selected_before else full_before
+        )
+        before_rosters[team_id] = before
         received_names = set(move.get("receive", ()))
-        after = [player for player in before if player["name"] not in set(move.get("give", ()))]
+        after = [player for player in full_before if player["name"] not in set(move.get("give", ()))]
         for name in received_names:
             if name in all_players:
                 after.append({**all_players[name], "available_from": effective_date.isoformat()})
         auto_drops = []
-        while len(after) > len(before):
-            choices = [player for player in after if player["name"] not in received_names] or after
-            dropped = min(choices, key=player_value)
-            auto_drops.append(dropped["name"])
-            after.remove(dropped)
         replacements = []
-        while len(after) < len(before) and after:
-            replacement = _replacement_player(after, len(replacements) + 1)
-            replacements.append(replacement["name"])
-            after.append(replacement)
+        if selected_after and team_id in selected_after:
+            after = [player for player in after if player['name'] in selected_after[team_id]]
+            auto_drops = sorted(
+                (set(player['name'] for player in before) - set(player['name'] for player in after) - set(move.get('give', ())))
+                | (received_names - set(player['name'] for player in after))
+            )
+            replacements = sorted(
+                set(player['name'] for player in after)
+                - set(player['name'] for player in before) - received_names
+            )
+        else:
+            while len(after) > len(before):
+                choices = [player for player in after if player["name"] not in received_names] or after
+                dropped = min(choices, key=player_value)
+                auto_drops.append(dropped["name"])
+                after.remove(dropped)
+            while len(after) < len(before) and after:
+                replacement = _replacement_player(after, len(replacements) + 1)
+                replacements.append(replacement["name"])
+                after.append(replacement)
         after_rosters[team_id] = after
         roster_adjustments[team_id] = {"auto_drops": auto_drops, "replacement_adds": replacements}
 
@@ -138,7 +162,7 @@ def analyze_probabilistic_trade(
             continue
         baseline = simulate_pair(
             league_metadata, inputs, team_id, opponent_id, current_period,
-            remaining_only=True, trials=180,
+            remaining_only=True, trials=180, roster_overrides=before_rosters,
         )
         after = simulate_pair(
             league_metadata, inputs, team_id, opponent_id, current_period,
@@ -153,7 +177,8 @@ def analyze_probabilistic_trade(
         }
 
     before_season = project_regular_season_probabilistic(
-        league_metadata, period, pair_trials=100, season_trials=300, persist_forecasts=False,
+        league_metadata, period, roster_overrides=before_rosters,
+        pair_trials=100, season_trials=300, persist_forecasts=False,
     )
     after_season = project_regular_season_probabilistic(
         league_metadata, period, roster_overrides=after_rosters,
@@ -171,7 +196,7 @@ def analyze_probabilistic_trade(
         }
     return {
         "method": "probabilistic_trade_mc",
-        "scope_note": "Обе стороны оценены общими сценариями текущего матчапа и остатка регулярного сезона; 2-for-1 включает обязательный дроп или replacement-level место.",
+        "scope_note": "Обе стороны оценены общими сценариями текущего матчапа и остатка регулярного сезона; состав для симуляций применяется к обоим вариантам трейда.",
         "matchup_period": current_period,
         "processing_date": effective_date.isoformat(),
         "teams": team_results,

@@ -6,7 +6,7 @@ from dependencies import get_league_meta
 from models import TradeAnalysisRequest, MultiTeamTradeRequest
 from core.z_score import calculate_z_scores
 from core.config import CATEGORIES
-from core.trade_roster import selected_names_after_trade, validate_ownership
+from core.trade_roster import selected_roster_after_trade, validate_ownership
 from utils.calculations import (
     calculate_total_z,
     calculate_category_z,
@@ -57,21 +57,10 @@ def analyze_trade(
         player['stats'] = stats_by_name.get(player['name'], {})
     
     # Хелпер выбора состава в соответствии с режимом симуляции
-    def select_roster(team_players, team_id, allow_custom=True):
+    def select_roster(team_players, team_id, custom_map):
         if request.simulation_mode == "top_n":
-            custom_map = request.custom_team_players
             if custom_map and team_id in custom_map:
-                selected_names = custom_map[team_id]
-                if not allow_custom:
-                    if hasattr(request, 'trades'):
-                        move = next(item for item in request.trades if item.team_id == team_id)
-                        give, receive = move.give, move.receive
-                    else:
-                        give, receive = (request.i_give, request.i_receive) if team_id == request.my_team_id else (request.i_receive, request.i_give)
-                    selected_names = selected_names_after_trade(selected_names, give, receive)
-                team_players = [p for p in team_players if p['name'] in selected_names]
-                if len(team_players) > request.top_n_players:
-                    team_players = select_top_n_players(team_players, request.top_n_players, punt_categories=request.punt_categories, z_scores_data=z_scores_by_name)
+                team_players = [p for p in team_players if p['name'] in custom_map[team_id]]
             else:
                 team_players = select_top_n_players(
                     team_players,
@@ -86,8 +75,8 @@ def analyze_trade(
     their_team_players_full = [p for p in data['players'] if p['team_id'] == request.their_team_id]
     
     # Preserve manual roster membership, replacing traded-out players with incoming players.
-    my_team_players = select_roster(my_team_players_full, request.my_team_id, allow_custom=True)
-    their_team_players = select_roster(their_team_players_full, request.their_team_id, allow_custom=True)
+    my_team_players = select_roster(my_team_players_full, request.my_team_id, request.custom_team_players)
+    their_team_players = select_roster(their_team_players_full, request.their_team_id, request.custom_team_players)
     
     # Расчет "До трейда"
     my_before_z = calculate_total_z(my_team_players, request.punt_categories)
@@ -106,14 +95,27 @@ def analyze_trade(
     # Расчет "После трейда" на полных составах, затем применение режима симуляции
     # Моя команда: убрать отдаваемых, добавить получаемых
     my_after_players_full = [p for p in my_team_players_full if p['name'] not in request.i_give] + players_i_receive
-    my_after_players = select_roster(my_after_players_full, request.my_team_id, allow_custom=False)
+    after_custom_map = None
+    if request.simulation_mode == "top_n" and request.custom_team_players:
+        after_custom_map = {}
+        for team_id, give, receive, roster in (
+            (request.my_team_id, request.i_give, request.i_receive, my_after_players_full),
+            (request.their_team_id, request.i_receive, request.i_give,
+             [p for p in their_team_players_full if p['name'] not in request.i_receive] + players_i_give),
+        ):
+            if team_id in request.custom_team_players:
+                after_custom_map[team_id] = selected_roster_after_trade(
+                    request.custom_team_players[team_id], give, receive, roster,
+                    request.top_n_players, request.punt_categories,
+                )
+    my_after_players = select_roster(my_after_players_full, request.my_team_id, after_custom_map)
     my_after_z = calculate_total_z(my_after_players, request.punt_categories)
     my_after_cats = calculate_category_z(my_after_players, request.punt_categories)
     my_after_raw = calculate_raw_stats(my_after_players, request.punt_categories)
     
     # Их команда: убрать отдаваемых, добавить получаемых
     their_after_players_full = [p for p in their_team_players_full if p['name'] not in request.i_receive] + players_i_give
-    their_after_players = select_roster(their_after_players_full, request.their_team_id, allow_custom=False)
+    their_after_players = select_roster(their_after_players_full, request.their_team_id, after_custom_map)
     their_after_z = calculate_total_z(their_after_players, request.punt_categories)
     their_after_cats = calculate_category_z(their_after_players, request.punt_categories)
     their_after_raw = calculate_raw_stats(their_after_players, request.punt_categories)
@@ -248,8 +250,7 @@ def analyze_trade(
             all_players_after.append(player_copy)
     
     # Рассчитываем места для обоих режимов ДО и ПОСЛЕ трейда
-    # ДО трейда: используем custom_team_players (если задан)
-    # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
+    # Keep the same manual roster policy in raw totals and league rankings.
     # Пант-категории не влияют на симуляции - используем пустой список
     ranks_before_z = calculate_simulation_ranks(
         all_players_before, 'z_scores', league_meta, request.period, request.simulation_mode, [],
@@ -257,7 +258,7 @@ def analyze_trade(
     )
     ranks_after_z = calculate_simulation_ranks(
         all_players_after, 'z_scores', league_meta, request.period, request.simulation_mode, [],
-        request.top_n_players, None  # После трейда не используем custom_team_players
+        request.top_n_players, after_custom_map
     )
     ranks_before_avg = calculate_simulation_ranks(
         all_players_before, 'team_stats_avg', league_meta, request.period, request.simulation_mode, [],
@@ -265,7 +266,7 @@ def analyze_trade(
     )
     ranks_after_avg = calculate_simulation_ranks(
         all_players_after, 'team_stats_avg', league_meta, request.period, request.simulation_mode, [],
-        request.top_n_players, None  # После трейда не используем custom_team_players
+        request.top_n_players, after_custom_map
     )
     
     # Формируем данные о местах для ответа
@@ -297,8 +298,7 @@ def analyze_trade(
     }
     
     # Рассчитываем позиции по категориям ДО и ПОСЛЕ трейда
-    # ДО трейда: используем custom_team_players (если задан)
-    # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
+    # Use the same post-trade selection for category ranks as for raw totals.
     # Пант-категории не влияют на симуляции - используем пустой список
     category_rankings_before = calculate_category_rankings(
         all_players_before, request.my_team_id, league_meta, request.period, request.simulation_mode, [],
@@ -306,7 +306,7 @@ def analyze_trade(
     )
     category_rankings_after = calculate_category_rankings(
         all_players_after, request.my_team_id, league_meta, request.period, request.simulation_mode, [],
-        request.top_n_players, None  # После трейда не используем custom_team_players
+        request.top_n_players, after_custom_map
     )
     
     their_category_rankings_before = calculate_category_rankings(
@@ -315,7 +315,7 @@ def analyze_trade(
     )
     their_category_rankings_after = calculate_category_rankings(
         all_players_after, request.their_team_id, league_meta, request.period, request.simulation_mode, [],
-        request.top_n_players, None  # После трейда не используем custom_team_players
+        request.top_n_players, after_custom_map
     )
     
     # Формируем данные о позициях по категориям
@@ -401,14 +401,25 @@ def analyze_trade(
         request.my_team_id: {"give": request.i_give, "receive": request.i_receive},
         request.their_team_id: {"give": request.i_receive, "receive": request.i_give},
     }
+    selected_before = selected_after = None
+    if request.simulation_mode == 'top_n':
+        selected_before = {
+            request.my_team_id: {player['name'] for player in my_team_players},
+            request.their_team_id: {player['name'] for player in their_team_players},
+        }
+        selected_after = {
+            request.my_team_id: {player['name'] for player in my_after_players},
+            request.their_team_id: {player['name'] for player in their_after_players},
+        }
     calendar_impact = (analyze_probabilistic_trade(
         league_meta, request.period, trade_moves, request.punt_categories,
-        request.processing_delay_days,
+        request.processing_delay_days, selected_before, selected_after,
     ) if request.calculation_engine == "probabilistic" else analyze_calendar_trade(
         league_meta,
         request.period,
         trade_moves,
         request.punt_categories,
+        selected_before, selected_after,
     )) if request.calculation_engine in {"calendar", "probabilistic"} else None
 
     return {
@@ -536,21 +547,25 @@ def analyze_multi_team_trade(
     for player in data['players']:
         player['stats'] = stats_by_name.get(player['name'], {})
     
-    def select_roster(team_players, team_id, allow_custom=True):
+    after_custom_map = None
+    if request.simulation_mode == "top_n" and request.custom_team_players:
+        after_custom_map = {}
+        for trade in request.trades:
+            if trade.team_id not in request.custom_team_players:
+                continue
+            roster_after = [
+                player for player in data['players']
+                if player_movements.get(player['name'], player['team_id']) == trade.team_id
+            ]
+            after_custom_map[trade.team_id] = selected_roster_after_trade(
+                request.custom_team_players[trade.team_id], trade.give, trade.receive,
+                roster_after, request.top_n_players, request.punt_categories,
+            )
+
+    def select_roster(team_players, team_id, custom_map):
         if request.simulation_mode == "top_n":
-            custom_map = request.custom_team_players
             if custom_map and team_id in custom_map:
-                selected_names = custom_map[team_id]
-                if not allow_custom:
-                    if hasattr(request, 'trades'):
-                        move = next(item for item in request.trades if item.team_id == team_id)
-                        give, receive = move.give, move.receive
-                    else:
-                        give, receive = (request.i_give, request.i_receive) if team_id == request.my_team_id else (request.i_receive, request.i_give)
-                    selected_names = selected_names_after_trade(selected_names, give, receive)
-                team_players = [p for p in team_players if p['name'] in selected_names]
-                if len(team_players) > request.top_n_players:
-                    team_players = select_top_n_players(team_players, request.top_n_players, punt_categories=request.punt_categories, z_scores_data=z_scores_by_name)
+                team_players = [p for p in team_players if p['name'] in custom_map[team_id]]
             else:
                 team_players = select_top_n_players(
                     team_players,
@@ -566,6 +581,8 @@ def analyze_multi_team_trade(
     
     # Рассчитываем для каждой команды
     teams_results = []
+    selected_before = {} if request.simulation_mode == 'top_n' else None
+    selected_after = {} if request.simulation_mode == 'top_n' else None
     
     for trade in request.trades:
         team_id = trade.team_id
@@ -573,7 +590,7 @@ def analyze_multi_team_trade(
         
         # Игроки команды ДО трейда (полный состав)
         team_players_before_full = [p for p in data['players'] if p['team_id'] == team_id]
-        team_players_before = select_roster(team_players_before_full, team_id, allow_custom=True)
+        team_players_before = select_roster(team_players_before_full, team_id, request.custom_team_players)
         
         # Рассчитываем ДО
         before_z = calculate_total_z(team_players_before, request.punt_categories)
@@ -584,7 +601,10 @@ def analyze_multi_team_trade(
         team_players_after_full = [p for p in team_players_before_full if p['name'] not in trade.give]
         players_received = [p for p in data['players'] if p['name'] in trade.receive]
         team_players_after_full.extend(players_received)
-        team_players_after = select_roster(team_players_after_full, team_id, allow_custom=False)
+        team_players_after = select_roster(team_players_after_full, team_id, after_custom_map)
+        if selected_before is not None:
+            selected_before[team_id] = {player['name'] for player in team_players_before}
+            selected_after[team_id] = {player['name'] for player in team_players_after}
         
         # Рассчитываем ПОСЛЕ
         after_z = calculate_total_z(team_players_after, request.punt_categories)
@@ -677,8 +697,7 @@ def analyze_multi_team_trade(
             player_copy['team_name'] = team_names.get(player_movements[player['name']], f"Team {player_movements[player['name']]}")
         all_players_after.append(player_copy)
     
-    # ДО трейда: используем custom_team_players (если задан)
-    # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
+    # Keep manual selections consistent across the team totals and rankings.
     # Пант-категории не влияют на симуляции - используем пустой список
     ranks_before_z = calculate_simulation_ranks(
         all_players_before, 'z_scores', league_meta, request.period, request.simulation_mode, [],
@@ -686,7 +705,7 @@ def analyze_multi_team_trade(
     )
     ranks_after_z = calculate_simulation_ranks(
         all_players_after, 'z_scores', league_meta, request.period, request.simulation_mode, [],
-        request.top_n_players, None  # После трейда не используем custom_team_players
+        request.top_n_players, after_custom_map
     )
     ranks_before_avg = calculate_simulation_ranks(
         all_players_before, 'team_stats_avg', league_meta, request.period, request.simulation_mode, [],
@@ -694,7 +713,7 @@ def analyze_multi_team_trade(
     )
     ranks_after_avg = calculate_simulation_ranks(
         all_players_after, 'team_stats_avg', league_meta, request.period, request.simulation_mode, [],
-        request.top_n_players, None  # После трейда не используем custom_team_players
+        request.top_n_players, after_custom_map
     )
     
     # Формируем данные о местах для каждой команды
@@ -720,8 +739,7 @@ def analyze_multi_team_trade(
     category_rankings = {}
     for trade in request.trades:
         team_id = trade.team_id
-        # ДО трейда: используем custom_team_players (если задан)
-        # ПОСЛЕ трейда: НЕ используем custom_team_players, всегда пересчитываем топ-13 автоматически
+        # Compare category places using that same post-trade selection.
         # Пант-категории не влияют на симуляции - используем пустой список
         category_rankings_before = calculate_category_rankings(
             all_players_before, team_id, league_meta, request.period, request.simulation_mode, [],
@@ -729,7 +747,7 @@ def analyze_multi_team_trade(
         )
         category_rankings_after = calculate_category_rankings(
             all_players_after, team_id, league_meta, request.period, request.simulation_mode, [],
-            request.top_n_players, None  # После трейда не используем custom_team_players
+            request.top_n_players, after_custom_map
         )
         
         # Формируем данные о позициях по категориям
@@ -799,12 +817,13 @@ def analyze_multi_team_trade(
     }
     calendar_impact = (analyze_probabilistic_trade(
         league_meta, request.period, trade_moves, request.punt_categories,
-        request.processing_delay_days,
+        request.processing_delay_days, selected_before, selected_after,
     ) if request.calculation_engine == "probabilistic" else analyze_calendar_trade(
         league_meta,
         request.period,
         trade_moves,
         request.punt_categories,
+        selected_before, selected_after,
     )) if request.calculation_engine in {"calendar", "probabilistic"} else None
 
     return {
