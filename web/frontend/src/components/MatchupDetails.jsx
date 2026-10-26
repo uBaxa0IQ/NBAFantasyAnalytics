@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 
-const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'calendar' }) => {
+const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'calendar', simulationMode = 'all', customPlayersKey = 0 }) => {
     const [expanded, setExpanded] = useState(false);
     const [matchupData, setMatchupData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -41,14 +41,24 @@ const MatchupDetails = ({ teamId, currentMatchup, period, calculationEngine = 'c
                 setLoading(false);
             });
         if (calculationEngine === 'probabilistic') {
-            api.get('/matchup/odds', { params: { team_id: teamId, week: matchupWeek, period, remaining_only: true } })
+            const oddsParams = { team_id: teamId, week: matchupWeek, period, remaining_only: true, simulation_mode: simulationMode };
+            if (simulationMode === 'top_n') {
+                oddsParams.top_n_players = 13;
+                try {
+                    const saved = JSON.parse(localStorage.getItem(`customTeamPlayers_${teamId}`) || '[]');
+                    if (Array.isArray(saved) && saved.length) oddsParams.custom_team_players = saved.join(',');
+                } catch (error) {
+                    console.error('Invalid saved player selection', error);
+                }
+            }
+            api.get('/matchup/odds', { params: oddsParams })
                 .then(response => { if (!cancelled) setOdds(response.data); })
                 .catch(() => { if (!cancelled) setOdds(null); });
         } else {
             setOdds(null);
         }
         return () => { cancelled = true; };
-    }, [expanded, teamId, matchupWeek, period, calculationEngine]);
+    }, [expanded, teamId, matchupWeek, period, calculationEngine, simulationMode, customPlayersKey]);
 
     const formatValue = (category, value) => {
         if (category === 'FG%' || category === 'FT%' || category === '3PT%') {

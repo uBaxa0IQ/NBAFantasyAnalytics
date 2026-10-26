@@ -7,7 +7,7 @@ from core.projection import get_matchup_scoring_periods, get_remaining_scoring_p
 from core.matchup_value import combine_stats
 from core.simulation import compare_category_stats
 from core.snapshot import build_league_snapshot
-from services.projections import project_snapshot_for_matchup
+from services.projections import project_snapshot_for_matchup, select_projection_roster
 from .forecast_history import record
 from core.config import CATEGORIES, REVERSE_CATEGORIES
 from core.config import MATCHUP_MC_TRIALS, SEASON_MC_TRIALS
@@ -17,9 +17,15 @@ import logging
 import sqlite3
 
 
-def project_regular_season(league_metadata, period: str, calculation_engine: str = "calendar") -> Dict[str, Any]:
+def project_regular_season(league_metadata, period: str, calculation_engine: str = "calendar",
+                           simulation_mode="all", top_n_players=13,
+                           custom_team_id=None, custom_team_players=()) -> Dict[str, Any]:
     if calculation_engine == "probabilistic":
-        return project_regular_season_probabilistic(league_metadata, period)
+        return project_regular_season_probabilistic(
+            league_metadata, period, simulation_mode=simulation_mode,
+            top_n_players=top_n_players, custom_team_id=custom_team_id,
+            custom_team_players=custom_team_players,
+        )
     league = league_metadata.league
     teams = league_metadata.get_teams()
     regular_season_end = int(league.settings.reg_season_count)
@@ -43,7 +49,11 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
         if calculation_engine == "legacy":
             legacy_team_stats = {}
             for team in teams:
-                players = [player.as_projection_player() for player in snapshot.team_players(team.team_id)]
+                players = select_projection_roster(
+                    [player.as_projection_player() for player in snapshot.team_players(team.team_id)],
+                    simulation_mode, top_n_players,
+                    custom_team_players if team.team_id == custom_team_id else (),
+                )
                 selected_games = {player["name"]: 1 for player in players if player.get("available", True)}
                 legacy_team_stats[team.team_id] = {
                     "name": team.team_name,
@@ -64,7 +74,11 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
             else:
                 if matchup_period == current_period:
                     scoring_periods = get_remaining_scoring_periods(league, matchup_period)
-                team_stats, _ = project_snapshot_for_matchup(snapshot, teams, scoring_periods, future_only=matchup_period == current_period)
+                team_stats, _ = project_snapshot_for_matchup(
+                    snapshot, teams, scoring_periods, future_only=matchup_period == current_period,
+                    simulation_mode=simulation_mode, top_n_players=top_n_players,
+                    custom_team_id=custom_team_id, custom_team_players=custom_team_players,
+                )
                 if matchup_period == current_period:
                     for team in teams:
                         actual = league_metadata.get_matchup_box_score(matchup_period, team.team_id)
@@ -73,7 +87,7 @@ def project_regular_season(league_metadata, period: str, calculation_engine: str
             for matchup in schedule_by_period[matchup_period]:
                 team1_id = matchup["team1_id"]
                 team2_id = matchup["team2_id"]
-                if matchup_period > current_period and calculation_engine == 'calendar':
+                if matchup_period > current_period and calculation_engine == 'calendar' and simulation_mode == 'all':
                     try:
                         record(league_metadata.league_id, league_metadata.year, matchup_period, team1_id, team2_id, period,
                                team_stats[team1_id]['stats'], team_stats[team2_id]['stats'], CATEGORIES, REVERSE_CATEGORIES)
@@ -152,6 +166,10 @@ def project_regular_season_probabilistic(
     pair_trials: int | None = None,
     season_trials: int | None = None,
     persist_forecasts: bool = True,
+    simulation_mode: str = "all",
+    top_n_players: int = 13,
+    custom_team_id: int | None = None,
+    custom_team_players=(),
 ) -> Dict[str, Any]:
     """Propagate calibrated matchup uncertainty through the remaining schedule."""
     from .matchup_engine import build_engine_inputs, simulate_pair
@@ -169,6 +187,16 @@ def project_regular_season_probabilistic(
     } for team in teams]
     schedule = league_metadata.get_schedule_matchups(current_period, regular_season_end)
     inputs = build_engine_inputs(league_metadata, period)
+    if simulation_mode != "all":
+        selected_rosters = {
+            team.team_id: select_projection_roster(
+                (roster_overrides or {}).get(team.team_id, inputs["players_by_team"].get(team.team_id, [])),
+                simulation_mode, top_n_players,
+                custom_team_players if team.team_id == custom_team_id else (),
+            )
+            for team in teams
+        }
+        roster_overrides = selected_rosters
     odds_rows = []
     per_team = defaultdict(list)
     pair_trials = max(100, min(500, int(pair_trials or max(100, min(180, MATCHUP_MC_TRIALS // 2)))))

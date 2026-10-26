@@ -49,22 +49,24 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
         checkStorage();
 
         // Слушаем события storage (для обновлений из других вкладок)
-        window.addEventListener('storage', (e) => {
+        const onStorage = (e) => {
             if (e.key === storageKey) {
                 checkStorage();
             }
-        });
+        };
 
         // Слушаем кастомное событие для обновлений в той же вкладке
-        window.addEventListener('customTeamPlayersUpdated', (e) => {
-            if (e.detail && e.detail.teamId === mainTeam) {
+        const onSelection = (e) => {
+            if (e.detail && String(e.detail.teamId) === String(mainTeam)) {
                 checkStorage();
             }
-        });
+        };
+        window.addEventListener('storage', onStorage);
+        window.addEventListener('customTeamPlayersUpdated', onSelection);
 
         return () => {
-            window.removeEventListener('storage', checkStorage);
-            window.removeEventListener('customTeamPlayersUpdated', checkStorage);
+            window.removeEventListener('storage', onStorage);
+            window.removeEventListener('customTeamPlayersUpdated', onSelection);
         };
     }, [mainTeam, simulationMode]);
 
@@ -150,7 +152,7 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                 setSeasonProjection(null);
                 setProjectionLoading(false);
             });
-    }, [mainTeam, period, simulationMode, isPlayoff, calculationEngine]);
+    }, [mainTeam, period, simulationMode, isPlayoff, calculationEngine, customPlayersKey]);
 
     useEffect(() => {
         if (calculationEngine !== 'probabilistic') {
@@ -288,6 +290,8 @@ const Dashboard = ({ period, mainTeam, simulationMode, isPlayoff, calculationEng
                             currentMatchup={dashboardData.current_matchup}
                             period={period}
                             calculationEngine={calculationEngine}
+                            simulationMode={simulationMode}
+                            customPlayersKey={customPlayersKey}
                         />
                     ) : (
                         <div className="bg-white border rounded-lg p-6 shadow-sm">

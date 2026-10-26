@@ -27,7 +27,7 @@ def test_weekly_projection_uses_only_official_pairs(monkeypatch):
     monkeypatch.setattr(projections, "build_league_snapshot", lambda metadata, period: object())
     monkeypatch.setattr(
         projections, "project_snapshot_for_matchup",
-        lambda snapshot, teams, days, future_only: (stats, {}),
+        lambda snapshot, teams, days, **kwargs: (stats, {}),
     )
 
     result = projections.project_scheduled_matchups(metadata, "2027_projected", 1)

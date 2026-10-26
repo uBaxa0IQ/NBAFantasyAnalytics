@@ -1,6 +1,7 @@
 """Оркестрация snapshot и projection engine для API."""
 
 from typing import Any, Dict, Iterable, Optional
+import math
 
 from core.projection import (
     build_matchup_lineups,
@@ -11,6 +12,28 @@ from core.projection import (
 from core.snapshot import build_league_snapshot
 from core.simulation import compare_category_stats, simulate_all_vs_all
 from core.matchup_value import combine_stats, add_matchup_values
+
+
+def select_projection_roster(players, simulation_mode="all", top_n_players=13, custom_team_players=()):
+    """Apply the roster setting before choosing legal starters for each day."""
+    if simulation_mode not in {"all", "exclude_ir", "top_n"}:
+        raise ValueError("Unknown roster mode")
+    selected = list(players)
+    if simulation_mode == "exclude_ir":
+        return [player for player in selected if str(player.get("lineup_slot") or "").upper() != "IR"]
+    if simulation_mode == "top_n":
+        names = set(custom_team_players)
+        if names:
+            return [player for player in selected if player.get("name") in names]
+        return sorted(
+            selected,
+            key=lambda player: sum(
+                float(value) for value in (player.get("z_scores") or {}).values()
+                if isinstance(value, (int, float)) and math.isfinite(value)
+            ),
+            reverse=True,
+        )[:top_n_players]
+    return selected
 
 
 def project_team_matchup(
@@ -120,7 +143,9 @@ def project_league_matchup(
     }
 
 
-def project_scheduled_matchups(league_metadata, period: str, matchup_period: int) -> Dict[str, Any]:
+def project_scheduled_matchups(league_metadata, period: str, matchup_period: int,
+                               simulation_mode="all", top_n_players=13,
+                               custom_team_id=None, custom_team_players=()) -> Dict[str, Any]:
     """Project only the pairs on ESPN's schedule for one fantasy week."""
     league = league_metadata.league
     matchup_period = int(matchup_period)
@@ -133,7 +158,9 @@ def project_scheduled_matchups(league_metadata, period: str, matchup_period: int
     snapshot = build_league_snapshot(league_metadata, period)
     team_stats, _ = project_snapshot_for_matchup(
         snapshot, league_metadata.get_teams(), scoring_periods,
-        future_only=remaining_only,
+        future_only=remaining_only, simulation_mode=simulation_mode,
+        top_n_players=top_n_players, custom_team_id=custom_team_id,
+        custom_team_players=custom_team_players,
     )
     if remaining_only:
         for team_id, team in team_stats.items():
@@ -171,15 +198,18 @@ def project_scheduled_matchups(league_metadata, period: str, matchup_period: int
     }
 
 
-def project_snapshot_for_matchup(snapshot, teams, scoring_periods, punt_categories=(), future_only=False):
+def project_snapshot_for_matchup(snapshot, teams, scoring_periods, punt_categories=(), future_only=False,
+                                 simulation_mode="all", top_n_players=13,
+                                 custom_team_id=None, custom_team_players=()):
     """Проецирует все команды из одного snapshot для заданных scoring days."""
     team_stats = {}
     team_projections = {}
     for team in teams:
-        players = [
+        players = select_projection_roster([
             {**player.as_projection_player(), 'future_only': future_only}
             for player in snapshot.team_players(team.team_id)
-        ]
+        ], simulation_mode, top_n_players,
+            custom_team_players if team.team_id == custom_team_id else ())
         lineup = build_matchup_lineups(players, scoring_periods, slots=snapshot.active_slots, punt_categories=punt_categories)
         stats = project_team_stats(players, lineup["selected_games"])
         team_stats[team.team_id] = {"name": team.team_name, "stats": stats}

@@ -762,12 +762,20 @@ def get_season_projection(
     team_id: int,
     period: str = DEFAULT_PERIOD,
     calculation_engine: str = "calendar",
+    simulation_mode: str = "all",
+    top_n_players: int = 13,
+    custom_team_players: Optional[str] = None,
     league_meta=Depends(get_league_meta)
 ):
     """Прогнозирует итог регулярки по официальному schedule и lineup projections."""
     from services.season import project_regular_season
 
-    projection = project_regular_season(league_meta, period, calculation_engine)
+    projection = project_regular_season(
+        league_meta, period, calculation_engine,
+        simulation_mode=simulation_mode, top_n_players=top_n_players,
+        custom_team_id=team_id,
+        custom_team_players=tuple(custom_team_players.split(',')) if custom_team_players else (),
+    )
     target = next(
         (standing for standing in projection["standings"] if standing["team_id"] == team_id),
         None,

@@ -4,6 +4,7 @@ import SimulationDetailsModal from './SimulationDetailsModal';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 
 const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'calendar' }) => {
+    const [customPlayersKey, setCustomPlayersKey] = useState(0);
     const savedState = loadState(StorageKeys.SIMULATION, {});
     const [weeks, setWeeks] = useState([]);
     const [forecastWeeks, setForecastWeeks] = useState([]);
@@ -23,6 +24,23 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
         ? projectionMode
         : simulationType;
     const [selectedTeam, setSelectedTeam] = useState(null);  // Для модального окна
+
+    useEffect(() => {
+        if (!mainTeam || simulationMode !== 'top_n') return;
+        const storageKey = `customTeamPlayers_${mainTeam}`;
+        const onStorage = event => {
+            if (event.key === storageKey) setCustomPlayersKey(key => key + 1);
+        };
+        const onSelection = event => {
+            if (String(event.detail?.teamId) === String(mainTeam)) setCustomPlayersKey(key => key + 1);
+        };
+        window.addEventListener('storage', onStorage);
+        window.addEventListener('customTeamPlayersUpdated', onSelection);
+        return () => {
+            window.removeEventListener('storage', onStorage);
+            window.removeEventListener('customTeamPlayersUpdated', onSelection);
+        };
+    }, [mainTeam, simulationMode]);
 
     useEffect(() => {
         api.get('/weeks').then(res => {
@@ -94,10 +112,23 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
             setLoading(true);
             setResults(null);
             const isSeason = calendarView === 'season';
+            const rosterParams = { simulation_mode: simulationMode };
+            if (simulationMode === 'top_n') {
+                rosterParams.top_n_players = 13;
+                if (mainTeam) {
+                    rosterParams.custom_team_id = mainTeam;
+                    try {
+                        const selected = JSON.parse(localStorage.getItem(`customTeamPlayers_${mainTeam}`) || '[]');
+                        if (Array.isArray(selected) && selected.length) rosterParams.custom_team_players = selected.join(',');
+                    } catch (error) {
+                        console.error('Invalid saved player selection', error);
+                    }
+                }
+            }
             api.get(isSeason ? '/projections/season' : '/projections/matchups', {
                 params: isSeason
-                    ? { period, calculation_engine: calculationEngine }
-                    : { period, matchup_period: selectedWeek || currentWeek }
+                    ? { period, calculation_engine: calculationEngine, ...rosterParams }
+                    : { period, matchup_period: selectedWeek || currentWeek, ...rosterParams }
             })
                 .then(res => {
                     if (!active) return;
@@ -178,7 +209,7 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
                     setLoading(false);
                 });
         }
-    }, [selectedWeek, weeksCount, effectiveSimulationType, calendarView, calculationEngine, period, simulationMode, mainTeam, currentWeek]);
+    }, [selectedWeek, weeksCount, effectiveSimulationType, calendarView, calculationEngine, period, simulationMode, mainTeam, currentWeek, customPlayersKey]);
 
     useEffect(() => {
         let cancelled = false;
@@ -186,11 +217,25 @@ const Simulation = ({ period, simulationMode, mainTeam, calculationEngine = 'cal
             setMatchupOdds(null);
             return () => { cancelled = true; };
         }
-        api.get('/matchup/odds', { params: { team_id: mainTeam, week: selectedWeek || currentWeek, period, remaining_only: parseInt(selectedWeek || currentWeek, 10) === currentWeek } })
+        const oddsParams = {
+            team_id: mainTeam, week: selectedWeek || currentWeek, period,
+            remaining_only: parseInt(selectedWeek || currentWeek, 10) === currentWeek,
+            simulation_mode: simulationMode,
+        };
+        if (simulationMode === 'top_n') {
+            oddsParams.top_n_players = 13;
+            try {
+                const selected = JSON.parse(localStorage.getItem(`customTeamPlayers_${mainTeam}`) || '[]');
+                if (Array.isArray(selected) && selected.length) oddsParams.custom_team_players = selected.join(',');
+            } catch (error) {
+                console.error('Invalid saved player selection', error);
+            }
+        }
+        api.get('/matchup/odds', { params: oddsParams })
             .then(response => { if (!cancelled) setMatchupOdds(response.data); })
             .catch(() => { if (!cancelled) setMatchupOdds(null); });
         return () => { cancelled = true; };
-    }, [calculationEngine, calendarView, mainTeam, selectedWeek, currentWeek, period]);
+    }, [calculationEngine, calendarView, mainTeam, selectedWeek, currentWeek, period, simulationMode, customPlayersKey]);
 
     // Генерируем опции для количества недель
     const weeksOptions = selectedWeek ? Array.from({ length: parseInt(selectedWeek) }, (_, i) => i + 1) : [];

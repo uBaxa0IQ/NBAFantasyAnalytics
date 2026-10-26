@@ -293,28 +293,47 @@ def get_matchup_odds(
     matchup_period: int | None = None,
     remaining_only: bool = True,
     trials: int = MATCHUP_MC_TRIALS,
+    simulation_mode: str = "all",
+    top_n_players: int = 13,
+    custom_team_players=(),
 ) -> dict[str, Any]:
     matchup_period = matchup_period or int(league_metadata.league.currentMatchupPeriod)
     opponent_id = find_opponent(league_metadata, team_id, matchup_period)
     if opponent_id is None:
         raise ValueError("Matchup not found")
     cache = getattr(league_metadata, "_matchup_mc_cache", {})
-    key = (team_id, opponent_id, matchup_period, period, remaining_only, max(100, min(trials, 5000)), str(league_metadata.last_refresh_time))
+    key = (team_id, opponent_id, matchup_period, period, remaining_only, max(100, min(trials, 5000)),
+           str(league_metadata.last_refresh_time), simulation_mode, top_n_players,
+           tuple(custom_team_players))
     cached = cache.get(key)
     if cached and monotonic() - cached[0] < 30:
         return cached[1]
     inputs = build_engine_inputs(league_metadata, period)
-    result = simulate_pair(league_metadata, inputs, team_id, opponent_id, matchup_period, remaining_only=remaining_only, trials=trials)
-    try:
-        from .forecast_history import record
-        expected = result.get("expected_stats") or [{}, {}]
-        record(
-            league_metadata.league_id, league_metadata.year, matchup_period, team_id, opponent_id,
-            period, expected[0], expected[1], inputs["categories"], inputs["reverse_categories"], result,
-        )
-    except Exception:
-        # Forecast persistence must never make a user-facing calculation fail.
-        pass
+    roster_overrides = None
+    if simulation_mode != "all":
+        from .projections import select_projection_roster
+        roster_overrides = {
+            current_id: select_projection_roster(
+                inputs["players_by_team"][current_id], simulation_mode, top_n_players,
+                custom_team_players if current_id == team_id else (),
+            )
+            for current_id in (team_id, opponent_id)
+        }
+    result = simulate_pair(
+        league_metadata, inputs, team_id, opponent_id, matchup_period,
+        remaining_only=remaining_only, trials=trials, roster_overrides=roster_overrides,
+    )
+    if simulation_mode == "all":
+        try:
+            from .forecast_history import record
+            expected = result.get("expected_stats") or [{}, {}]
+            record(
+                league_metadata.league_id, league_metadata.year, matchup_period, team_id, opponent_id,
+                period, expected[0], expected[1], inputs["categories"], inputs["reverse_categories"], result,
+            )
+        except Exception:
+            # Forecast persistence must never make a user-facing calculation fail.
+            pass
     if len(cache) > 40:
         cache.clear()
     cache[key] = (monotonic(), result)
