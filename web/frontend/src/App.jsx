@@ -72,14 +72,19 @@ function App() {
   }, [draftState?.status, draftState?.season_started, seasonConfig.periods]);
 
   useEffect(() => {
-    const handlePuntShortcut = event => {
-      if (event.code !== 'KeyP' || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
+    const handleSettingsShortcut = event => {
+      if (!['KeyP', 'KeyS'].includes(event.code) || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
       event.preventDefault();
-      setPuntsEnabled(current => !current);
+      if (event.code === 'KeyP') {
+        setPuntsEnabled(current => !current);
+      } else {
+        setPeriod(current => current === seasonConfig.periods.projected
+          ? seasonConfig.periods.total : seasonConfig.periods.projected);
+      }
     };
-    window.addEventListener('keydown', handlePuntShortcut);
-    return () => window.removeEventListener('keydown', handlePuntShortcut);
-  }, []);
+    window.addEventListener('keydown', handleSettingsShortcut);
+    return () => window.removeEventListener('keydown', handleSettingsShortcut);
+  }, [seasonConfig.periods]);
 
   const enterSeasonMode = () => {
     localStorage.setItem(seasonModeKey, 'true');
