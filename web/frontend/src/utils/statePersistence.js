@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
     SIMULATION: 'simulation_state',
     DASHBOARD: 'dashboard_state',
     TRADE: 'trade_state',
+    SAVED_TRADES: 'saved_trades',
     MULTITEAM_TRADE: 'multiteam_trade_state',
     PLAYERS: 'players_state',
     ALL_PLAYERS: 'allplayers_state',

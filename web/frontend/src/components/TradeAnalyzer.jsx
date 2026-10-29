@@ -4,6 +4,27 @@ import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 import MultiTeamTradeAnalyzer from './MultiTeamTradeAnalyzer';
+import SavedTrades from './SavedTrades';
+
+// Keep selections while loading a saved trade, and ignore responses for a previous team.
+function useTradeRoster(teamId, period) {
+    const key = `${teamId}:${period}`;
+    const [state, setState] = useState({ key: '', players: [], ready: false, error: '' });
+    useEffect(() => {
+        if (!teamId) return;
+        let cancelled = false;
+        api.get(`/analytics/${teamId}?period=${period}&exclude_ir=false`)
+            .then(res => {
+                if (!cancelled) setState({ key: `${teamId}:${period}`, players: res.data.players, ready: true, error: '' });
+            })
+            .catch(() => {
+                if (!cancelled) setState({ key: `${teamId}:${period}`, players: [], ready: false, error: 'Не удалось загрузить состав' });
+            });
+        return () => { cancelled = true; };
+    }, [teamId, period]);
+    return state.key === key ? state : { players: [], ready: false, error: '' };
+}
+
 
 const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calculationEngine = 'calendar' }) => {
     const savedState = loadState(StorageKeys.TRADE, {});
@@ -11,8 +32,10 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
     const [teams, setTeams] = useState([]);
     const [myTeam, setMyTeam] = useState(savedState.myTeam || '');
     const [theirTeam, setTheirTeam] = useState(savedState.theirTeam || '');
-    const [myPlayers, setMyPlayers] = useState([]);
-    const [theirPlayers, setTheirPlayers] = useState([]);
+    const myRoster = useTradeRoster(myTeam, period);
+    const theirRoster = useTradeRoster(theirTeam, period);
+    const myPlayers = myRoster.players;
+    const theirPlayers = theirRoster.players;
     const [selectedGive, setSelectedGive] = useState(savedState.selectedGive || []);
     const [selectedReceive, setSelectedReceive] = useState(savedState.selectedReceive || []);
     const [result, setResult] = useState(null);
@@ -39,63 +62,24 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
         });
     }, [tradeMode, myTeam, theirTeam, selectedGive, selectedReceive, viewMode, scopeMode]);
 
-    // Отслеживаем предыдущие значения команд для очистки выбора при смене
-    const prevMyTeamRef = React.useRef(null);
-    const prevTheirTeamRef = React.useRef(null);
-
+    const analysisRequest = React.useRef(0);
     useEffect(() => {
-        if (myTeam) {
-            // В аналитике команды IR игроки всегда включены
-            api.get(`/analytics/${myTeam}?period=${period}&exclude_ir=false`)
-                .then(res => {
-                    setMyPlayers(res.data.players);
-                    const playerNames = res.data.players.map(p => p.name);
-                    
-                    // Если команда изменилась, очищаем выбор
-                    if (prevMyTeamRef.current !== null && prevMyTeamRef.current !== myTeam) {
-                        setSelectedGive([]);
-                    } else {
-                        // Фильтруем выбранных игроков, оставляя только тех, кто есть в команде
-                        setSelectedGive(prev => prev.filter(name => playerNames.includes(name)));
-                    }
-                    prevMyTeamRef.current = myTeam;
-                })
-                .catch(err => console.error(err));
-        } else {
-            setMyPlayers([]);
-            if (prevMyTeamRef.current !== null) {
-                setSelectedGive([]);
-            }
-            prevMyTeamRef.current = myTeam;
-        }
-    }, [myTeam, period]);
+        analysisRequest.current += 1;
+        setResult(null);
+        setLoading(false);
+    }, [myTeam, theirTeam, selectedGive, selectedReceive, period, puntCategories, simulationMode, calculationEngine]);
 
-    useEffect(() => {
-        if (theirTeam) {
-            // В аналитике команды IR игроки всегда включены
-            api.get(`/analytics/${theirTeam}?period=${period}&exclude_ir=false`)
-                .then(res => {
-                    setTheirPlayers(res.data.players);
-                    const playerNames = res.data.players.map(p => p.name);
-                    
-                    // Если команда изменилась, очищаем выбор
-                    if (prevTheirTeamRef.current !== null && prevTheirTeamRef.current !== theirTeam) {
-                        setSelectedReceive([]);
-                    } else {
-                        // Фильтруем выбранных игроков, оставляя только тех, кто есть в команде
-                        setSelectedReceive(prev => prev.filter(name => playerNames.includes(name)));
-                    }
-                    prevTheirTeamRef.current = theirTeam;
-                })
-                .catch(err => console.error(err));
-        } else {
-            setTheirPlayers([]);
-            if (prevTheirTeamRef.current !== null) {
-                setSelectedReceive([]);
-            }
-            prevTheirTeamRef.current = theirTeam;
-        }
-    }, [theirTeam, period]);
+    const missingGive = myRoster.ready ? selectedGive.filter(name => !myPlayers.some(player => player.name === name)) : [];
+    const missingReceive = theirRoster.ready ? selectedReceive.filter(name => !theirPlayers.some(player => player.name === name)) : [];
+    const rosterReady = myRoster.ready && theirRoster.ready;
+    const hasMissingPlayers = missingGive.length > 0 || missingReceive.length > 0;
+    const openSavedTrade = trade => {
+        setMyTeam(String(trade.myTeam));
+        setTheirTeam(String(trade.theirTeam));
+        setSelectedGive([...trade.selectedGive]);
+        setSelectedReceive([...trade.selectedReceive]);
+        setResult(null);
+    };
 
     const handleToggleGive = (playerName) => {
         setSelectedGive(prev =>
@@ -119,6 +103,8 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
             return;
         }
 
+        if (!rosterReady || hasMissingPlayers || myTeam === theirTeam) return;
+        const requestId = ++analysisRequest.current;
         setLoading(true);
         
         // Фильтруем выбранных игроков, оставляя только тех, кто есть в соответствующих командах
@@ -181,10 +167,12 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
         
         api.post('/trade-analysis', requestBody)
             .then(res => {
+                if (requestId !== analysisRequest.current) return;
                 setResult(res.data);
                 setLoading(false);
             })
             .catch(err => {
+                if (requestId !== analysisRequest.current) return;
                 console.error(err);
                 setLoading(false);
                 alert('Ошибка анализа трейда');
@@ -229,7 +217,7 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
 
     return (
         <div className="p-4">
-            <div className="mb-4 flex justify-center gap-4">
+            <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
                 <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
                     <button
                         onClick={() => setTradeMode('two-team')}
@@ -248,12 +236,17 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
                         Мультикомандный
                     </button>
                 </div>
+                <SavedTrades
+                    draft={{ myTeam, theirTeam, selectedGive, selectedReceive }}
+                    onOpen={openSavedTrade}
+                    disabled={!rosterReady || hasMissingPlayers}
+                />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="border rounded p-4">
                     <div className="mb-3">
                         <label className="block font-bold mb-2">Моя команда:</label>
-                        <select className="border p-2 rounded w-full" value={myTeam} onChange={e => setMyTeam(e.target.value)}>
+                        <select className="border p-2 rounded w-full" value={myTeam} onChange={e => { setMyTeam(e.target.value); setSelectedGive([]); }}>
                             <option value="">Выберите команду</option>
                             {teams.map(t => (<option key={t.team_id} value={t.team_id}>{t.team_name}</option>))}
                         </select>
@@ -267,13 +260,19 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
                                     <span className="flex-1">{player.name}</span>
                                 </label>
                             ))}
+                            {missingGive.map(name => (
+                                <label key={name} className="flex items-center gap-2 p-2 rounded text-red-600 bg-red-50 cursor-pointer">
+                                    <input type="checkbox" checked onChange={() => handleToggleGive(name)} />
+                                    <span>{name} · вне состава</span>
+                                </label>
+                            ))}
                         </div>
                     </>)}
                 </div>
                 <div className="border rounded p-4">
                     <div className="mb-3">
                         <label className="block font-bold mb-2">Их команда:</label>
-                        <select className="border p-2 rounded w-full" value={theirTeam} onChange={e => setTheirTeam(e.target.value)}>
+                        <select className="border p-2 rounded w-full" value={theirTeam} onChange={e => { setTheirTeam(e.target.value); setSelectedReceive([]); }}>
                             <option value="">Выберите команду</option>
                             {teams.map(t => (<option key={t.team_id} value={t.team_id}>{t.team_name}</option>))}
                         </select>
@@ -287,12 +286,19 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
                                     <span className="flex-1">{player.name}</span>
                                 </label>
                             ))}
+                            {missingReceive.map(name => (
+                                <label key={name} className="flex items-center gap-2 p-2 rounded text-red-600 bg-red-50 cursor-pointer">
+                                    <input type="checkbox" checked onChange={() => handleToggleReceive(name)} />
+                                    <span>{name} · вне состава</span>
+                                </label>
+                            ))}
                         </div>
                     </>)}
                 </div>
             </div>
+            {(myRoster.error || theirRoster.error) && <div role="alert" className="mb-4 text-sm text-red-600">{myRoster.error || theirRoster.error}</div>}
             <div className="mb-6 text-center">
-                <button onClick={handleAnalyze} disabled={loading} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold text-lg">
+                <button onClick={handleAnalyze} disabled={loading || !rosterReady || hasMissingPlayers || !myTeam || !theirTeam || myTeam === theirTeam} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold text-lg">
                     {loading ? 'Анализ...' : 'Анализировать трейд'}
                 </button>
             </div>
