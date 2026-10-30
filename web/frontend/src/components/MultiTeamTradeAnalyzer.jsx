@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { saveState, loadState, StorageKeys } from '../utils/statePersistence';
 import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
+import SavedTrades from './SavedTrades';
+import TradeToolbar from './TradeToolbar';
 
-const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calculationEngine = 'calendar' }) => {
+const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calculationEngine = 'calendar', onModeChange }) => {
     const savedState = loadState(StorageKeys.MULTITEAM_TRADE, {});
     const [teams, setTeams] = useState([]);
     const [teamTrades, setTeamTrades] = useState(savedState.teamTrades || [{ teamId: '', give: [], receive: [] }]);
-    const [teamPlayers, setTeamPlayers] = useState({}); // teamId -> players[]
+    const [rosters, setRosters] = useState({ key: '', players: {}, error: '' });
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState(savedState.viewMode || 'z-scores');
@@ -30,28 +32,38 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
         });
     }, [teamTrades, selectedTeamForTable, viewMode, scopeMode]);
 
-    // Загружаем игроков для выбранных команд
+    const rosterKey = `${selectedTeamIds}:${period}`;
+    const teamPlayers = rosters.key === rosterKey ? rosters.players : {};
+    const rostersReady = rosters.key === rosterKey && !rosters.error;
+    const missingPlayers = rostersReady ? teamTrades.flatMap(trade => trade.give.filter(name =>
+        !(teamPlayers[trade.teamId] || []).some(player => player.name === name))) : [];
     useEffect(() => {
-        const loadPlayers = async () => {
-            const newTeamPlayers = {};
-            const teamIds = selectedTeamIds.split(',').filter(Boolean);
-            for (const teamId of teamIds) {
-                if (teamId) {
-                    try {
-                        // В аналитике команды IR игроки всегда включены
-                        const res = await api.get(`/analytics/${teamId}?period=${period}&exclude_ir=false`);
-                        const players = res.data.players;
-                        newTeamPlayers[teamId] = players;
-                    } catch (err) {
-                        console.error(`Error loading players for team ${teamId}:`, err);
-                        newTeamPlayers[teamId] = [];
-                    }
-                }
-            }
-            setTeamPlayers(newTeamPlayers);
-        };
-        loadPlayers();
+        let cancelled = false;
+        const teamIds = [...new Set(selectedTeamIds.split(',').filter(Boolean))];
+        Promise.all(teamIds.map(async teamId => {
+            const res = await api.get(`/analytics/${teamId}?period=${period}&exclude_ir=false`);
+            return [teamId, res.data.players];
+        })).then(entries => {
+            if (!cancelled) setRosters({ key: `${selectedTeamIds}:${period}`, players: Object.fromEntries(entries), error: '' });
+        }).catch(() => {
+            if (!cancelled) setRosters({ key: `${selectedTeamIds}:${period}`, players: {}, error: 'Не удалось загрузить составы' });
+        });
+        return () => { cancelled = true; };
     }, [selectedTeamIds, period]);
+
+    const analysisRequest = React.useRef(0);
+    useEffect(() => {
+        analysisRequest.current += 1;
+        setResult(null);
+        setLoading(false);
+    }, [teamTrades, period, puntCategories, simulationMode, calculationEngine]);
+
+    const openSavedTrade = trade => {
+        setTeamTrades(trade.teamTrades.map(item => ({ ...item, teamId: String(item.teamId), give: [...item.give], receive: [...item.receive] })));
+        setValidationErrors([]);
+        setSelectedTeamForTable(null);
+        setResult(null);
+    };
 
     // Инициализация выбранной команды для таблицы при получении результата
     useEffect(() => {
@@ -81,7 +93,8 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
 
     const togglePlayerGive = (teamIndex, playerName) => {
         const newTrades = [...teamTrades];
-        const trade = newTrades[teamIndex];
+        const trade = { ...newTrades[teamIndex] };
+        newTrades[teamIndex] = trade;
         if (trade.give.includes(playerName)) {
             trade.give = trade.give.filter(n => n !== playerName);
         } else {
@@ -93,7 +106,8 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
 
     const togglePlayerReceive = (teamIndex, playerName) => {
         const newTrades = [...teamTrades];
-        const trade = newTrades[teamIndex];
+        const trade = { ...newTrades[teamIndex] };
+        newTrades[teamIndex] = trade;
         if (trade.receive.includes(playerName)) {
             trade.receive = trade.receive.filter(n => n !== playerName);
         } else {
@@ -104,6 +118,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
     };
 
     const handleAnalyze = () => {
+        if (!rostersReady || missingPlayers.length) return;
         // Валидация
         const errors = [];
         
@@ -131,6 +146,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
         }
 
         setValidationErrors([]);
+        const requestId = ++analysisRequest.current;
         setLoading(true);
 
         // Формируем запрос
@@ -180,6 +196,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
         
         api.post('/multi-team-trade-analysis', requestBody)
             .then(res => {
+                if (requestId !== analysisRequest.current) return;
                 if (res.data.error) {
                     setValidationErrors(res.data.validation_errors || [res.data.error]);
                     setResult(null);
@@ -189,6 +206,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                 setLoading(false);
             })
             .catch(err => {
+                if (requestId !== analysisRequest.current) return;
                 console.error(err);
                 setLoading(false);
                 if (err.response?.data?.validation_errors) {
@@ -212,6 +230,11 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
 
     return (
         <div className="p-4">
+            <TradeToolbar mode="multi-team" onModeChange={onModeChange}>
+                <SavedTrades mode="multi-team" draft={{ teamTrades }} onOpen={openSavedTrade}
+                    disabled={!rostersReady || missingPlayers.length > 0} />
+            </TradeToolbar>
+            {rosters.key === rosterKey && rosters.error && <div role="alert" className="mb-4 text-sm text-red-600">{rosters.error}</div>}
 
             {/* Ошибки валидации */}
             {validationErrors.length > 0 && (
@@ -284,6 +307,12 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
                                                     <span>{player.name}</span>
                                                 </label>
                                             ))}
+                                            {trade.give.filter(name => missingPlayers.includes(name)).map(name => (
+                                                <label key={name} className="flex items-center gap-2 p-1 text-sm text-red-600 bg-red-50 rounded cursor-pointer">
+                                                    <input type="checkbox" checked onChange={() => togglePlayerGive(index, name)} />
+                                                    <span>{name} · вне состава</span>
+                                                </label>
+                                            ))}
                                         </div>
                                     </div>
                                     <div>
@@ -316,7 +345,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
             <div className="mb-6 text-center">
                 <button
                     onClick={handleAnalyze}
-                    disabled={loading}
+                    disabled={loading || !rostersReady || missingPlayers.length > 0}
                     className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold text-lg"
                 >
                     {loading ? 'Анализ...' : 'Анализировать трейд'}

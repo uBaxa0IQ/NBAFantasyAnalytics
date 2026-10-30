@@ -5,6 +5,7 @@ import { LEAGUE_CATEGORIES as CATEGORIES } from '../utils/categories';
 
 import MultiTeamTradeAnalyzer from './MultiTeamTradeAnalyzer';
 import SavedTrades from './SavedTrades';
+import TradeToolbar from './TradeToolbar';
 
 // Keep selections while loading a saved trade, and ignore responses for a previous team.
 function useTradeRoster(teamId, period) {
@@ -180,68 +181,21 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
     };
 
 
-    // Если выбран мультикомандный режим, показываем соответствующий компонент
     if (tradeMode === 'multi-team') {
-        return (
-            <div>
-                <div className="mb-4 flex justify-center gap-4">
-                    <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
-                        <button
-                            onClick={() => setTradeMode('two-team')}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                                tradeMode === 'two-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                        >
-                            2 команды
-                        </button>
-                        <button
-                            onClick={() => setTradeMode('multi-team')}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                                tradeMode === 'multi-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                        >
-                            Мультикомандный
-                        </button>
-                    </div>
-                </div>
-                <MultiTeamTradeAnalyzer
-                    period={period}
-                    puntCategories={puntCategories}
-                    simulationMode={simulationMode}
-                    mainTeam={mainTeam}
-                    calculationEngine={calculationEngine}
-                />
-            </div>
-        );
+        return <MultiTeamTradeAnalyzer period={period} puntCategories={puntCategories}
+            simulationMode={simulationMode} mainTeam={mainTeam} calculationEngine={calculationEngine}
+            onModeChange={setTradeMode} />;
     }
 
     return (
         <div className="p-4">
-            <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
-                <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
-                    <button
-                        onClick={() => setTradeMode('two-team')}
-                        className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                            tradeMode === 'two-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                    >
-                        2 команды
-                    </button>
-                    <button
-                        onClick={() => setTradeMode('multi-team')}
-                        className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                            tradeMode === 'multi-team' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                    >
-                        Мультикомандный
-                    </button>
-                </div>
+            <TradeToolbar mode={tradeMode} onModeChange={setTradeMode}>
                 <SavedTrades
                     draft={{ myTeam, theirTeam, selectedGive, selectedReceive }}
                     onOpen={openSavedTrade}
                     disabled={!rosterReady || hasMissingPlayers}
                 />
-            </div>
+            </TradeToolbar>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="border rounded p-4">
                     <div className="mb-3">

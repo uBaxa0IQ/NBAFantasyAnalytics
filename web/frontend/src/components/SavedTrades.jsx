@@ -9,20 +9,31 @@ const sameTrade = (left, right) => String(left.myTeam) === String(right.myTeam)
 
 const isPlayerList = value => Array.isArray(value) && value.every(name => typeof name === 'string');
 
-export default function SavedTrades({ draft, onOpen, disabled = false }) {
+export default function SavedTrades({ draft, onOpen, disabled = false, mode = 'two-team' }) {
+    const multi = mode === 'multi-team';
+    const storageKey = multi ? StorageKeys.SAVED_MULTITEAM_TRADES : StorageKeys.SAVED_TRADES;
     const [trades, setTrades] = useState(() => {
-        const stored = loadState(StorageKeys.SAVED_TRADES, []);
+        const stored = loadState(storageKey, []);
         return Array.isArray(stored) ? stored.filter(trade => trade && typeof trade.id === 'string'
-            && typeof trade.title === 'string' && trade.myTeam && trade.theirTeam
-            && isPlayerList(trade.selectedGive) && isPlayerList(trade.selectedReceive)) : [];
+            && typeof trade.title === 'string' && (multi
+                ? Array.isArray(trade.teamTrades) && trade.teamTrades.length >= 2
+                    && trade.teamTrades.every(item => item && item.teamId && isPlayerList(item.give) && isPlayerList(item.receive))
+                : trade.myTeam && trade.theirTeam && isPlayerList(trade.selectedGive) && isPlayerList(trade.selectedReceive))) : [];
     });
     const [open, setOpen] = useState(false);
     const [error, setError] = useState('');
     const root = useRef(null);
     const trigger = useRef(null);
-    const current = trades.find(trade => sameTrade(trade, draft));
-    const canSave = draft.myTeam && draft.theirTeam && String(draft.myTeam) !== String(draft.theirTeam)
-        && draft.selectedGive.length > 0 && draft.selectedReceive.length > 0;
+    const current = trades.find(trade => multi
+        ? trade.teamTrades.length === draft.teamTrades.length && trade.teamTrades.every(item => {
+            const other = draft.teamTrades.find(candidate => String(candidate.teamId) === String(item.teamId));
+            return other && samePlayers(item.give, other.give) && samePlayers(item.receive, other.receive);
+        }) : sameTrade(trade, draft));
+    const canSave = multi
+        ? draft.teamTrades.length >= 2 && draft.teamTrades.every(item => item.teamId && (item.give.length || item.receive.length))
+            && new Set(draft.teamTrades.map(item => String(item.teamId))).size === draft.teamTrades.length
+        : draft.myTeam && draft.theirTeam && String(draft.myTeam) !== String(draft.theirTeam)
+            && draft.selectedGive.length > 0 && draft.selectedReceive.length > 0;
 
     useEffect(() => {
         if (!open) return;
@@ -45,7 +56,7 @@ export default function SavedTrades({ draft, onOpen, disabled = false }) {
 
     const persist = next => {
         try {
-            localStorage.setItem(StorageKeys.SAVED_TRADES, JSON.stringify(next));
+            localStorage.setItem(storageKey, JSON.stringify(next));
             setTrades(next);
             setError('');
         } catch {
@@ -56,9 +67,11 @@ export default function SavedTrades({ draft, onOpen, disabled = false }) {
     const save = () => {
         if (!canSave || current || disabled) return;
         persist([...trades, {
-            ...draft,
+            ...JSON.parse(JSON.stringify(draft)),
             id: crypto.randomUUID(),
-            title: `${draft.selectedGive.join(' + ')} → ${draft.selectedReceive.join(' + ')}`,
+            title: multi
+                ? draft.teamTrades.map(item => `${item.give.join(' + ') || '—'} → ${item.receive.join(' + ') || '—'}`).join(' · ')
+                : `${draft.selectedGive.join(' + ')} → ${draft.selectedReceive.join(' + ')}`,
         }]);
     };
 
