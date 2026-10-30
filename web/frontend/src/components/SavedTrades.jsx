@@ -87,20 +87,20 @@ export default function SavedTrades({ draft, onOpen, disabled = false, mode = 't
                 Сохранённые · {trades.length} <span aria-hidden="true">▾</span>
             </button>
             {open && (
-                <div id="saved-trades-list" className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-30 w-[44rem] max-w-[calc(100vw-8rem)] sm:max-w-[calc(100vw-6rem)] max-h-[70vh] overflow-y-auto rounded-lg border border-gray-200 bg-white p-1">
+                <div id="saved-trades-list" className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-30 w-[40rem] max-w-[calc(100vw-8rem)] sm:max-w-[calc(100vw-6rem)] max-h-[70vh] overflow-y-auto rounded-lg border border-gray-200 bg-white p-1">
                     {trades.length === 0 && <div className="px-3 py-3 text-sm text-gray-400">Нет сохранённых трейдов</div>}
                     {trades.map(trade => (
                         <div key={trade.id} className={`rounded border-b border-gray-200 last:border-b-0 ${current?.id === trade.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                             <button type="button" aria-label={trade.title} onClick={() => { onOpen(trade); setOpen(false); trigger.current?.focus(); }}
-                                className="block w-full px-4 pt-4 pb-2 text-sm text-left text-gray-700 break-words rounded focus-visible:outline-blue-500">
-                                <span className="hidden sm:grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)] gap-5 pb-2 text-xs text-gray-400">
+                                className="block w-full px-3 pt-3 pb-1 text-sm text-left text-gray-700 break-words rounded focus-visible:outline-blue-500">
+                                <span className="hidden sm:grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 pb-1 text-xs text-gray-400">
                                     <span>Команда</span><span>Отдаёт</span><span>Получает</span>
                                 </span>
                                 {(multi ? trade.teamTrades : [
                                     { teamId: trade.myTeam, give: trade.selectedGive, receive: trade.selectedReceive },
                                     { teamId: trade.theirTeam, give: trade.selectedReceive, receive: trade.selectedGive },
                                 ]).map(item => (
-                                    <span key={item.teamId} className="grid grid-cols-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 gap-y-2 py-3 border-t border-gray-200 first:border-t-0">
+                                    <span key={item.teamId} className="grid grid-cols-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-1 py-2 border-t border-gray-200 first:border-t-0">
                                         <span className="col-span-2 sm:col-span-1 font-medium text-gray-800 min-w-0">{teamName(item.teamId)}</span>
                                         <span className="min-w-0">
                                             <span className="block sm:hidden mb-1 text-xs text-gray-400">Отдаёт</span>
@@ -113,9 +113,9 @@ export default function SavedTrades({ draft, onOpen, disabled = false, mode = 't
                                     </span>
                                 ))}
                             </button>
-                            <div className="flex justify-end px-2 pb-2">
+                            <div className="flex justify-end px-2 pb-1">
                             <button type="button" aria-label={`Удалить ${trade.title}`} onClick={() => persist(trades.filter(item => item.id !== trade.id))}
-                                className="px-2 py-2 text-xs text-gray-400 hover:text-red-600 shrink-0">Удалить</button>
+                                className="px-2 py-1 text-xs text-gray-400 hover:text-red-600 shrink-0">Удалить</button>
                             </div>
                         </div>
                     ))}
