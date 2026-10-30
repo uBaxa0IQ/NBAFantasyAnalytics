@@ -231,7 +231,7 @@ const MultiTeamTradeAnalyzer = ({ period, puntCategories, simulationMode, mainTe
     return (
         <div className="p-4">
             <TradeToolbar mode="multi-team" onModeChange={onModeChange}>
-                <SavedTrades mode="multi-team" draft={{ teamTrades }} onOpen={openSavedTrade}
+                <SavedTrades teams={teams} mode="multi-team" draft={{ teamTrades }} onOpen={openSavedTrade}
                     disabled={!rostersReady || missingPlayers.length > 0} />
             </TradeToolbar>
             {rosters.key === rosterKey && rosters.error && <div role="alert" className="mb-4 text-sm text-red-600">{rosters.error}</div>}

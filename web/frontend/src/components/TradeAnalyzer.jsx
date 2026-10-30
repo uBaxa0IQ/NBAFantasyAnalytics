@@ -191,6 +191,7 @@ const TradeAnalyzer = ({ period, puntCategories, simulationMode, mainTeam, calcu
         <div className="p-4">
             <TradeToolbar mode={tradeMode} onModeChange={setTradeMode}>
                 <SavedTrades
+                    teams={teams}
                     draft={{ myTeam, theirTeam, selectedGive, selectedReceive }}
                     onOpen={openSavedTrade}
                     disabled={!rosterReady || hasMissingPlayers}
