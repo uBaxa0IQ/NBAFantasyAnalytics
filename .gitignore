@@ -41,6 +41,8 @@ web/frontend/dist/
 web/frontend/build/
 web/frontend/.vite/
 web/frontend/.cache/
+web/frontend/test-results/
+web/frontend/playwright-report/
 
 # Environment variables
 .env

@@ -212,9 +212,16 @@ Main endpoint groups are located in `web/backend/routers`:
 pip install -r requirements-dev.txt
 python -m pytest
 cd web/frontend
+npm ci
+npm test
 npm run lint
 npm run build
+npx playwright install chromium
+npm run test:e2e
 ```
+
+Frontend browser tests mock the API and check that saved settings survive draft updates,
+reloads, delayed responses, and keyboard input. Playwright starts Vite automatically.
 
 ## Limitations and Future Improvements
 

@@ -65,15 +65,11 @@ function App() {
   const seasonModeEntered = Boolean(enteredSeasonKeys[seasonModeKey]) || localStorage.getItem(seasonModeKey) === 'true';
 
   useEffect(() => {
-    if (draftState?.status === 'completed' && draftState.season_started === false) {
-      setPeriod(current => Object.values(seasonConfig.periods).includes(current) && current !== seasonConfig.periods.projected
-        ? seasonConfig.periods.projected : current);
-    }
-  }, [draftState?.status, draftState?.season_started, seasonConfig.periods]);
-
-  useEffect(() => {
     const handleSettingsShortcut = event => {
       if (!['KeyP', 'KeyS'].includes(event.code) || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
+      // Typing and editing settings must not change persisted preferences.
+      if (showSettingsModal || event.defaultPrevented || event.isComposing) return;
+      if (event.target?.isContentEditable || event.target?.closest?.('input, textarea, select, [role="textbox"]')) return;
       event.preventDefault();
       if (event.code === 'KeyP') {
         setPuntsEnabled(current => !current);
@@ -84,12 +80,11 @@ function App() {
     };
     window.addEventListener('keydown', handleSettingsShortcut);
     return () => window.removeEventListener('keydown', handleSettingsShortcut);
-  }, [seasonConfig.periods]);
+  }, [seasonConfig.periods, showSettingsModal]);
 
   const enterSeasonMode = () => {
     localStorage.setItem(seasonModeKey, 'true');
     setEnteredSeasonKeys(current => ({ ...current, [seasonModeKey]: true }));
-    setPeriod(seasonConfig.periods.projected);
   };
 
   const applyPuntStrategy = categories => {
