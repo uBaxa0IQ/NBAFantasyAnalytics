@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../api';
 
 const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
@@ -7,40 +7,36 @@ const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const loadPlayers = useCallback(async () => {
-        if (!teamId) return;
+    useEffect(() => {
+        if (!isOpen || !teamId) return;
+        let cancelled = false;
         setLoading(true);
         setError(null);
-        try {
-            const res = await api.get(`/teams/${teamId}/players-for-selection`, {
-                params: { period }
-            });
-            setPlayers(res.data.players || []);
-        } catch (err) {
-            console.error('Error loading players:', err);
-            setError('Ошибка загрузки игроков');
-        } finally {
-            setLoading(false);
-        }
-    }, [teamId, period]);
-
-    useEffect(() => {
-        if (isOpen && teamId) {
-            loadPlayers();
-            // Загружаем сохраненный выбор из localStorage
-            const saved = localStorage.getItem(`customTeamPlayers_${teamId}`);
-            if (saved) {
+        setPlayers([]);
+        setSelectedPlayers([]);
+        api.get(`/teams/${teamId}/players-for-selection`, { params: { period } })
+            .then(res => {
+                if (cancelled) return;
+                const roster = res.data.players || [];
+                const names = new Set(roster.map(player => player.name));
+                let saved = [];
                 try {
-                    const savedList = JSON.parse(saved);
-                    setSelectedPlayers(savedList);
-                } catch (e) {
-                    console.error('Error parsing saved players:', e);
+                    const parsed = JSON.parse(localStorage.getItem(`customTeamPlayers_${teamId}`) || '[]');
+                    if (Array.isArray(parsed)) saved = parsed;
+                } catch (err) {
+                    console.error('Error parsing saved players:', err);
                 }
-            } else {
-                setSelectedPlayers([]);
-            }
-        }
-    }, [isOpen, teamId, loadPlayers]);
+                setPlayers(roster);
+                setSelectedPlayers([...new Set(saved)].filter(name => names.has(name)).slice(0, 13));
+            })
+            .catch(err => {
+                if (cancelled) return;
+                console.error('Error loading players:', err);
+                setError('Ошибка загрузки игроков');
+            })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [isOpen, teamId, period]);
 
     const handleTogglePlayer = (playerName) => {
         setSelectedPlayers(prev => {
@@ -68,6 +64,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
     };
 
     const handleSave = () => {
+        if (loading || error) return;
         // Сохраняем в localStorage
         if (teamId) {
             localStorage.setItem(`customTeamPlayers_${teamId}`, JSON.stringify(selectedPlayers));
@@ -103,12 +100,14 @@ const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
                     <div className="mb-4 flex gap-2">
                         <button
                             onClick={handleSelectTopN}
+                            disabled={loading || !!error}
                             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
                             Выбрать топ-13 автоматически
                         </button>
                         <button
                             onClick={handleClear}
+                            disabled={loading || !!error}
                             className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
                         >
                             Очистить
@@ -179,6 +178,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, teamId, period, onSave }) => {
                         </button>
                         <button
                             onClick={handleSave}
+                            disabled={loading || !!error}
                             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
                             Сохранить
